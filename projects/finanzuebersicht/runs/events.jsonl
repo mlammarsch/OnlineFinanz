@@ -84,3 +84,17 @@
 {"ts": "2026-11-25T16:31:19Z", "kind": "task.claim", "task": "T-015", "worker": "builder-haiku"}
 {"ts": "2026-11-25T16:36:33Z", "kind": "task.verify", "task": "T-015", "ok": true, "status": "done", "attempts": 1}
 {"ts": "2026-11-25T16:36:33Z", "kind": "learn", "gaps": [], "task": "T-015", "improve": true}
+{"ts": "2026-11-25T16:51:42Z", "kind": "task.claim", "task": "T-016", "worker": "claude"}
+{"ts": "2026-11-25T16:52:21Z", "kind": "task.verify", "task": "T-016", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-25T16:55:04Z", "kind": "task.claim", "task": "T-017", "worker": "builder-haiku"}
+{"ts": "2026-11-25T17:00:50Z", "kind": "task.verify", "task": "T-017", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-25T17:01:28Z", "kind": "task.claim", "task": "T-018", "worker": "builder-haiku"}
+{"ts": "2026-11-25T17:13:21Z", "kind": "task.verify", "task": "T-018", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-25T17:16:08Z", "kind": "task.claim", "task": "T-019", "worker": "builder-haiku"}
+{"ts": "2026-11-25T17:40:50Z", "kind": "task.verify", "task": "T-019", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-25T17:43:04Z", "kind": "task.claim", "task": "T-020", "worker": "builder-haiku"}
+{"ts": "2026-11-25T17:49:06Z", "kind": "task.verify", "task": "T-020", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-25T17:51:05Z", "kind": "task.claim", "task": "T-021", "worker": "builder-haiku"}
+{"ts": "2026-11-25T17:59:01Z", "kind": "task.set", "task": "T-021", "status": "pending"}
+{"ts": "2026-11-25T17:59:01Z", "kind": "task.set", "task": "T-026", "status": "running"}
+{"ts": "2026-11-25T17:59:19Z", "kind": "task.verify", "task": "T-026", "ok": true, "status": "done", "attempts": 1}

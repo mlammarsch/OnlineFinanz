@@ -1,0 +1,12 @@
+{
+  "task": "T-020",
+  "ts": "2026-11-25T17:49:06Z",
+  "ok": true,
+  "results": [
+    {
+      "cmd": "uv run pytest tests/unit/test_model_duplicate.py -q",
+      "exit": 0,
+      "out": "...........                                                              [100%]\n11 passed in 1.39s\n"
+    }
+  ]
+}

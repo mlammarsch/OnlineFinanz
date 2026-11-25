@@ -440,12 +440,28 @@ ist ein eigenes Bedienkonzept, keine verkleinerte Desktop-Seite.
   Schreibtransaktionen bleiben kurz (je Konto bzw. je Batch-Aktion).
 - **N-PERF-01** Suche mit Standardzeitraum unter 500 ms bei 100.000 Buchungen (SQLite, Entwicklungsrechner), per Test mit erzeugten Daten belegt.
 - **N-OPS-01** Lokale Entwicklung aus VS Code: Backend und Frontend per Launch-Konfiguration auf localhost, Demo-Daten per Befehl.
-- **N-OPS-02** Docker-Image (multi-stage, non-root), ein Volume `/data` mit Datenbank, Schluesseldatei (getrennt einbindbar) und lokalem Backup-Verzeichnis `/data/backups`; Icons liegen in der Datenbank. Healthcheck, docker-compose fuer den Betrieb auf einer VM, Veroeffentlichung auf Docker Hub.
+- **N-OPS-02** Docker-Image (multi-stage, non-root), ein Volume `/data` mit Datenbank und lokalem Backup-Verzeichnis `/data/backups`, die Schluesseldatei getrennt davon (N-OPS-07); Icons liegen in der Datenbank. Healthcheck, docker-compose fuer den Betrieb auf einer VM, Veroeffentlichung auf Docker Hub.
 - **N-OPS-03** README mit Setup, Konfiguration, Backup-Konzept (Schluesseldatei getrennt sichern!), Restore, Reverse Proxy mit HTTPS und Bank-Hinweisen (ING 90 Tage, CSV-Weg fuer N26/Easybank/PayPal, FinTS-Produktregistrierung).
 - **N-OPS-04** Gesundheitspruefung: `/api/health` (Prozess laeuft) und `/api/health/ready` (Datenbank erreichbar, Schema
   aktuell, Zeitplaner aktiv). Der Docker-Healthcheck nutzt `ready`.
 - **N-OPS-05** Logs strukturiert (JSON) auf stdout, Log-Level per Umgebungsvariable, Inhalte nach N-SEC-02 gefiltert.
 - **N-OPS-06** Zeitzone fuer Zeitplaene und Anzeigen per Umgebungsvariable `TZ`, Standard `Europe/Berlin`.
+- **N-OPS-07** Persistente Daten und Host-Anbindung: Alles, was die App dauerhaft schreibt, liegt unter `DATA_DIR`
+  (Standard `/data`), sonst nirgends im Container. Das Container-Dateisystem darf beim Neustart oder Image-Update
+  verloren gehen, ohne dass Daten verloren gehen. Die Compose-Datei bindet `/data` als Ordner der VM ein (Bind-Mount,
+  z. B. `./data`), damit der Ordner direkt sichtbar und sicherbar ist; ein benanntes Docker-Volume ist als
+  auskommentierte Alternative beigelegt. Die Schluesseldatei liegt nicht in `/data`, sondern unter einem eigenen,
+  schreibgeschuetzt eingebundenen Pfad (`FINUE_KEY_FILE`, Standard `/keys/fernet.key`) oder als Docker-Secret. Sie wird
+  beim ersten Start angelegt, wenn der Pfad beschreibbar ist, sonst bricht der Start mit klarer Meldung ab.
+- **N-OPS-08** Rechte: Der Container laeuft mit fester Benutzer-ID (Standard 10001, per `PUID`/`PGID` anpassbar). Beim
+  Start prueft die App, ob `/data` beschreibbar ist, und meldet andernfalls im Klartext, welchen `chown`-Befehl der
+  Owner auf der VM ausfuehren muss. Die README beschreibt das.
+- **N-OPS-09** SQLite nur auf dem lokalen Dateisystem der VM, nicht auf NFS oder SMB (Sperren und WAL-Modus sind dort
+  unzuverlaessig). Die README warnt davor; Backups duerfen auf Netzfreigaben (F-BAK-05). Die Datenbankdatei wird nicht
+  per Dateikopie im laufenden Betrieb gesichert (WAL), sondern ueber die Backup-Funktion.
+- **N-OPS-10** Umzug vom Entwicklungsrechner auf die VM (und von SQLite auf PostgreSQL) ueber Backup und Restore
+  (F-BAK-04), nicht ueber Kopieren der Datenbankdatei. Die Schluesseldatei wird getrennt uebertragen; fehlt sie, gilt
+  F-BAK-04 (PINs neu eingeben). Die README enthaelt die Schritte als Anleitung.
 
 ## 6. Layout (Mockup)
 

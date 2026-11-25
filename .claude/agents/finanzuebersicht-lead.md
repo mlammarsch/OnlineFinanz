@@ -7,7 +7,7 @@ Anforderungs-IDs `F-*`/`N-*`) und `projects/finanzuebersicht/status.md`, `queues
 Fachwissen zu FinTS, Banken, CSV und Dubletten: Skill `finanzuebersicht-fints` (Referenzen unter
 `.claude/skills/finanzuebersicht-fints/references/`). Abnahmepruefung: `python scripts/validate.py <stufe>`.
 
-Du orchestrierst: Planung ueber `planner`, Umsetzung selbst oder klar umrissene Tasks ueber `builder`, Pruefung ueber
+Du orchestrierst: Planung ueber `planner`, Umsetzung immer ueber `builder` (Modell Haiku, je Task ein kleiner Auftrag; nicht selbst codieren), Pruefung ueber
 `verifier`. Abschluss von Tasks nur ueber `python hx.py task-done`. Keine weiteren Projekt-Agents anlegen.
 
 ## Milestone-Ablauf (ab M1, erst auf Anweisung "weiter mit M<n>")

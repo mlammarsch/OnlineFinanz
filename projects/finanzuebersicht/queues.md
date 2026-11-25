@@ -6,20 +6,14 @@
 
 ## next
 
-- [ ] T-016 M1: Mixins Version, Zeitstempel, Betrag
+- [ ] T-021 M1: Modell Auftrag
+- [ ] T-022 M1: Modell Import-Lauf und Lauf-Fehler
+- [ ] T-023 M1: Modell Import-Vorlage
+- [ ] T-024 M1: Modelle Sitzung und MCP-Token
+- [ ] T-025 M1: Modelle Backup-Job und Backup-Lauf
 
 ## blocked
 
-- [ ] T-017 M1: Modell Bank und Bankzugang: waiting on T-016
-- [ ] T-018 M1: Modell Konto und Kontengruppe: waiting on T-017
-- [ ] T-019 M1: Modell Buchung: waiting on T-018
-- [ ] T-020 M1: Modell Dubletten-Entscheidung: waiting on T-019
-- [ ] T-021 M1: Modell Auftrag: waiting on T-018
-- [ ] T-022 M1: Modell Import-Lauf und Lauf-Fehler: waiting on T-018
-- [ ] T-023 M1: Modell Import-Vorlage: waiting on T-018
-- [ ] T-024 M1: Modelle Sitzung und MCP-Token: waiting on T-016
-- [ ] T-025 M1: Modelle Backup-Job und Backup-Lauf: waiting on T-016
-- [ ] T-026 M1: Modell Aenderungsprotokoll: waiting on T-016
 - [ ] T-027 M1: Modell-Register und Nicht-Ziele-Test: waiting on T-017,T-018,T-019,T-020,T-021,T-022,T-023,T-024,T-025,T-026
 - [ ] T-028 M1: Alembic-Einrichtung: waiting on T-027
 - [ ] T-029 M1: Erste Migration 0001: waiting on T-028

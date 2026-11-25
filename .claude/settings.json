@@ -17,9 +17,7 @@
       "Read(./.env.*)",
       "Read(**/*.pem)",
       "Read(**/*.key)",
-      "Bash(git push*)",
       "Bash(docker push*)",
-      "PowerShell(git push*)",
       "PowerShell(docker push*)"
     ]
   }
