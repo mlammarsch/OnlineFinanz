@@ -1,1 +1,3 @@
 - [ ] hx.py: --verify mit erwartetem Exit-Code (z. B. expect-fail) unterstuetzen
+- [ ] Log-Filter: passphrase, otp, jwt, csrf, Plurale und mehrzeilige Container ergaenzen
+- [ ] engine.py: make_url statt str.replace, StaticPool fuer :memory:, Tests fuer FK-Erzwingung und mehrere Connections; Naming-Convention uq/ix auf column_0_N_* pruefen

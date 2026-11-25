@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Deterministisches Pruefskript fuer Finanzuebersicht.
 
-Aufruf: python scripts/validate.py <stufe>
+Aufruf: python scripts/validate.py [--list] <stufe>
 Exit 0 nur, wenn alle Pruefungen der Stufe bestehen. Nicht umgesetzte Stufen enden mit Exit 1
 ("Stufe nicht implementiert"), nie stillschweigend mit Erfolg. Nur Standardbibliothek.
 Stufen m<n> sind kumulativ: m3 prueft auch m1 und m2.
+--list <stufe> gibt Pruefungen ohne Ausfuehrung aus (Exit 0).
 """
 from __future__ import annotations
 
@@ -121,7 +122,8 @@ def check_settings() -> Result:
     }
     need_deny = {
         "Read(./.env)", "Read(./.env.*)", "Read(**/*.pem)", "Read(**/*.key)",
-        "Bash(git push*)", "Bash(docker push*)", "PowerShell(git push*)", "PowerShell(docker push*)",
+        # git push ist bewusst nicht mehr gesperrt (Owner-Entscheidung); docker push bleibt gesperrt.
+        "Bash(docker push*)", "PowerShell(docker push*)",
     }
     errors = [f"allow fehlt: {r}" for r in sorted(need_allow - allow)] + [f"deny fehlt: {r}" for r in sorted(need_deny - deny)]
     return (not errors, "; ".join(errors) if errors else "Allow- und Deny-Regeln vollstaendig")
@@ -149,6 +151,45 @@ def check_hx_status() -> Result:
     return proc.returncode == 0, f"hx.py status Exit {proc.returncode}"
 
 
+def run_external(cmd: list[str]) -> Result:
+    """Externe Pruefung ausfuehren (ruff, mypy, pytest)."""
+    try:
+        proc = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, encoding="utf-8")
+        if proc.returncode == 0:
+            # Erfolg: kurze Summary aus stdout extrahieren
+            lines = proc.stdout.strip().split("\n") if proc.stdout.strip() else []
+            msg = lines[-1] if lines else "bestanden"
+            return True, msg
+        else:
+            # Fehler: stderr oder stdout mit Fehlerinfo
+            error = proc.stderr.strip() or proc.stdout.strip()
+            lines = error.split("\n")
+            # Letzten Fehler oder Summary nehmen
+            return False, lines[-1] if lines else "fehlgeschlagen"
+    except Exception as exc:
+        return False, f"Fehler beim Ausfuehren: {exc!r}"
+
+
+def check_lint() -> Result:
+    """ruff: Code-Stil und Fehler prueben."""
+    return run_external([sys.executable, "-m", "uv", "run", "ruff", "check", "backend", "tests"])
+
+
+def check_types() -> Result:
+    """mypy: Typ-Pruefung fuer backend/."""
+    return run_external([sys.executable, "-m", "uv", "run", "mypy", "backend"])
+
+
+def check_unit() -> Result:
+    """pytest: Unit-Tests."""
+    return run_external([sys.executable, "-m", "uv", "run", "pytest", "tests/unit", "-q"])
+
+
+def check_smoke() -> Result:
+    """pytest: Smoke-Tests (Integration)."""
+    return run_external([sys.executable, "-m", "uv", "run", "pytest", "-m", "smoke", "tests/integration", "-q"])
+
+
 STAGE_M0: list[tuple[str, Callable[[], Result]]] = [
     ("Pflichtdateien", check_required_files),
     ("Skill-Frontmatter", check_skill_frontmatter),
@@ -159,8 +200,18 @@ STAGE_M0: list[tuple[str, Callable[[], Result]]] = [
     ("hx.py status", check_hx_status),
 ]
 
+STAGE_M1: list[tuple[str, Callable[[], Result]]] = [
+    ("lint (ruff)", check_lint),
+    ("types (mypy)", check_types),
+    ("unit (pytest)", check_unit),
+    ("smoke (pytest)", check_smoke),
+]
+
 # Umgesetzte Stufen. Neue Stufen mit dem jeweiligen Milestone hier eintragen.
-IMPLEMENTED: dict[str, list[tuple[str, Callable[[], Result]]]] = {"m0": STAGE_M0}
+IMPLEMENTED: dict[str, list[tuple[str, Callable[[], Result]]]] = {
+    "m0": STAGE_M0,
+    "m1": STAGE_M0 + STAGE_M1,
+}
 
 
 def run_stage(stage: str) -> int:
@@ -191,10 +242,39 @@ def run_stage(stage: str) -> int:
     return 0 if failed == 0 else 1
 
 
-def main(argv: list[str]) -> int:
-    if len(argv) != 2:
-        print("Aufruf: python scripts/validate.py <stufe>")
+def list_stage(stage: str) -> int:
+    """Liste Pruefungen ohne Ausfuehrung auf."""
+    if stage in MILESTONES:
+        index = MILESTONES.index(stage)
+        chain = MILESTONES[: index + 1]
+    elif stage in BLOCKS:
+        chain = [stage]
+    else:
+        print(f"Unbekannte Stufe: {stage}. Gueltig: {', '.join(MILESTONES + BLOCKS)}")
         return 1
+
+    print(f"# validate.py --list {stage}\n")
+    for name in chain:
+        checks = IMPLEMENTED.get(name)
+        if checks is None:
+            print(f"[INFO] Stufe {name}: noch nicht implementiert")
+            continue
+        for title, _ in checks:
+            print(f"  {name}: {title}")
+    return 0
+
+
+def main(argv: list[str]) -> int:
+    if len(argv) < 2:
+        print("Aufruf: python scripts/validate.py [--list] <stufe>")
+        return 1
+
+    if argv[1] == "--list":
+        if len(argv) < 3:
+            print("Aufruf: python scripts/validate.py --list <stufe>")
+            return 1
+        return list_stage(argv[2].lower())
+
     return run_stage(argv[1].lower())
 
 

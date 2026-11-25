@@ -1,0 +1,56 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "finue"
+version = "0.1.0"
+description = "Self-hosted Web-App für Finanzübersicht"
+requires-python = ">=3.12"
+authors = [
+    { name = "Owner" },
+]
+license = { text = "MIT" }
+
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "sqlalchemy>=2",
+    "alembic",
+    "pydantic>=2",
+    "pydantic-settings",
+    "tzdata",
+]
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "httpx",
+    "ruff",
+    "mypy",
+]
+
+[tool.pytest.ini_options]
+markers = [
+    "smoke: Smoke test",
+]
+testpaths = ["tests"]
+pythonpath = ["backend"]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "W"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+namespace_packages = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+strict = false
+
+[tool.hatch.build.targets.wheel]
+packages = ["backend/finue"]

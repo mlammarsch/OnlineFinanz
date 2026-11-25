@@ -1,0 +1,12 @@
+{
+  "task": "T-009",
+  "ts": "2026-11-25T15:37:15Z",
+  "ok": true,
+  "results": [
+    {
+      "cmd": "python scripts/validate.py --list m1",
+      "exit": 0,
+      "out": "# validate.py --list m1\n\n  m0: Pflichtdateien\n  m0: Skill-Frontmatter\n  m0: AGENTS.md Pflichtabschnitte\n  m0: settings.json Rechte\n  m0: plan.md Milestones\n  m0: Git-Repo\n  m0: hx.py status\n  m1: Pflichtdateien\n  m1: Skill-Frontmatter\n  m1: AGENTS.md Pflichtabschnitte\n  m1: settings.json Rechte\n  m1: plan.md Milestones\n  m1: Git-Repo\n  m1: hx.py status\n  m1: lint (ruff)\n  m1: types (mypy)\n  m1: unit (pytest)\n  m1: smoke (pytest)\n"
+    }
+  ]
+}

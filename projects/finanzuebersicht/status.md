@@ -1,10 +1,10 @@
 # Status finanzuebersicht
 
-_generated 2026-11-25T09:01:13Z_
+_generated 2026-11-25T16:36:33Z_
 
-Tasks: pending=0, running=0, done=6, failed=0, blocked=0, cancelled=2
+Tasks: pending=28, running=0, done=13, failed=0, blocked=0, cancelled=2
 
-Verified complete: 6/8; retry rate 0.0; learnings 1; events 35
+Verified complete: 13/43; retry rate 0.0; learnings 3; events 86
 
 ## now
 
@@ -12,13 +12,41 @@ Verified complete: 6/8; retry rate 0.0; learnings 1; events 35
 
 ## next
 
-- (empty)
+- [ ] T-016 M1: Mixins Version, Zeitstempel, Betrag
 
 ## blocked
 
-- (empty)
+- [ ] T-017 M1: Modell Bank und Bankzugang: waiting on T-016
+- [ ] T-018 M1: Modell Konto und Kontengruppe: waiting on T-017
+- [ ] T-019 M1: Modell Buchung: waiting on T-018
+- [ ] T-020 M1: Modell Dubletten-Entscheidung: waiting on T-019
+- [ ] T-021 M1: Modell Auftrag: waiting on T-018
+- [ ] T-022 M1: Modell Import-Lauf und Lauf-Fehler: waiting on T-018
+- [ ] T-023 M1: Modell Import-Vorlage: waiting on T-018
+- [ ] T-024 M1: Modelle Sitzung und MCP-Token: waiting on T-016
+- [ ] T-025 M1: Modelle Backup-Job und Backup-Lauf: waiting on T-016
+- [ ] T-026 M1: Modell Aenderungsprotokoll: waiting on T-016
+- [ ] T-027 M1: Modell-Register und Nicht-Ziele-Test: waiting on T-017,T-018,T-019,T-020,T-021,T-022,T-023,T-024,T-025,T-026
+- [ ] T-028 M1: Alembic-Einrichtung: waiting on T-027
+- [ ] T-029 M1: Erste Migration 0001: waiting on T-028
+- [ ] T-030 M1: Migrations-Runner: waiting on T-029,T-011
+- [ ] T-031 M1: Migrationstests Leerstand, Drift, nur vorwaerts: waiting on T-030
+- [ ] T-032 M1: Migrationstest mit Daten (Vorgaenger-Stand): waiting on T-030
+- [ ] T-033 M1: FastAPI-App-Fabrik: waiting on T-011,T-013,T-015,T-030
+- [ ] T-034 M1: Endpunkt /api/health: waiting on T-033
+- [ ] T-035 M1: Endpunkt /api/health/ready: waiting on T-034,T-030
+- [ ] T-036 M1: Demo-Daten-Generator: waiting on T-027
+- [ ] T-037 M1: CLI python -m finue: waiting on T-036,T-030
+- [ ] T-038 M1: VS-Code-Launch fuer Backend: waiting on T-037
+- [ ] T-039 M1: Smoke-Test: waiting on T-035,T-037
+- [ ] T-040 M1: Lint sauber (ruff): waiting on T-038,T-039,T-014
+- [ ] T-041 M1: Typen sauber (mypy strict): waiting on T-040
+- [ ] T-042 M1: Anforderungs-IDs in Tests belegt: waiting on T-041
+- [ ] T-043 M1 Abnahme: waiting on T-009,T-010,T-011,T-012,T-013,T-014,T-015,T-016,T-017,T-018,T-019,T-020,T-021,T-022,T-023,T-024,T-025,T-026,T-027,T-028,T-029,T-030,T-031,T-032,T-033,T-034,T-035,T-036,T-037,T-038,T-039,T-040,T-041,T-042
 
 ## improve
 
 - [ ] hx.py: --verify mit erwartetem Exit-Code (z. B. expect-fail) unterstuetzen
+- [ ] Log-Filter: passphrase, otp, jwt, csrf, Plurale und mehrzeilige Container ergaenzen
+- [ ] engine.py: make_url statt str.replace, StaticPool fuer :memory:, Tests fuer FK-Erzwingung und mehrere Connections; Naming-Convention uq/ix auf column_0_N_* pruefen
 

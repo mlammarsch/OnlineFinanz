@@ -33,3 +33,54 @@
 {"ts": "2026-11-25T09:00:52Z", "kind": "task.claim", "task": "T-008", "worker": "lead"}
 {"ts": "2026-11-25T09:00:52Z", "kind": "task.verify", "task": "T-008", "ok": true, "status": "done", "attempts": 1}
 {"ts": "2026-11-25T09:00:53Z", "kind": "learn", "gaps": [], "task": null, "improve": true}
+{"ts": "2026-11-25T15:29:00Z", "kind": "task.add", "task": "T-009", "goal": "G-002"}
+{"ts": "2026-11-25T15:33:22Z", "kind": "task.add", "task": "T-010", "goal": "G-002"}
+{"ts": "2026-11-25T15:33:22Z", "kind": "task.add", "task": "T-011", "goal": "G-002"}
+{"ts": "2026-11-25T15:33:23Z", "kind": "task.add", "task": "T-012", "goal": "G-002"}
+{"ts": "2026-11-25T15:33:23Z", "kind": "task.add", "task": "T-013", "goal": "G-002"}
+{"ts": "2026-11-25T15:33:23Z", "kind": "task.add", "task": "T-014", "goal": "G-002"}
+{"ts": "2026-11-25T15:33:23Z", "kind": "task.add", "task": "T-015", "goal": "G-002"}
+{"ts": "2026-11-25T15:33:23Z", "kind": "task.add", "task": "T-016", "goal": "G-002"}
+{"ts": "2026-11-25T15:33:23Z", "kind": "task.add", "task": "T-017", "goal": "G-002"}
+{"ts": "2026-11-25T15:33:23Z", "kind": "task.add", "task": "T-018", "goal": "G-002"}
+{"ts": "2026-11-25T15:33:23Z", "kind": "task.add", "task": "T-019", "goal": "G-002"}
+{"ts": "2026-11-25T15:33:24Z", "kind": "task.add", "task": "T-020", "goal": "G-002"}
+{"ts": "2026-11-25T15:33:24Z", "kind": "task.add", "task": "T-021", "goal": "G-002"}
+{"ts": "2026-11-25T15:33:24Z", "kind": "task.add", "task": "T-022", "goal": "G-002"}
+{"ts": "2026-11-25T15:33:24Z", "kind": "task.add", "task": "T-023", "goal": "G-002"}
+{"ts": "2026-11-25T15:33:24Z", "kind": "task.add", "task": "T-024", "goal": "G-002"}
+{"ts": "2026-11-25T15:33:24Z", "kind": "task.add", "task": "T-025", "goal": "G-002"}
+{"ts": "2026-11-25T15:33:24Z", "kind": "task.add", "task": "T-026", "goal": "G-002"}
+{"ts": "2026-11-25T15:33:24Z", "kind": "task.add", "task": "T-027", "goal": "G-002"}
+{"ts": "2026-11-25T15:33:25Z", "kind": "task.add", "task": "T-028", "goal": "G-002"}
+{"ts": "2026-11-25T15:33:25Z", "kind": "task.add", "task": "T-029", "goal": "G-002"}
+{"ts": "2026-11-25T15:33:25Z", "kind": "task.add", "task": "T-030", "goal": "G-002"}
+{"ts": "2026-11-25T15:33:25Z", "kind": "task.add", "task": "T-031", "goal": "G-002"}
+{"ts": "2026-11-25T15:33:25Z", "kind": "task.add", "task": "T-032", "goal": "G-002"}
+{"ts": "2026-11-25T15:33:25Z", "kind": "task.add", "task": "T-033", "goal": "G-002"}
+{"ts": "2026-11-25T15:33:25Z", "kind": "task.add", "task": "T-034", "goal": "G-002"}
+{"ts": "2026-11-25T15:33:26Z", "kind": "task.add", "task": "T-035", "goal": "G-002"}
+{"ts": "2026-11-25T15:33:26Z", "kind": "task.add", "task": "T-036", "goal": "G-002"}
+{"ts": "2026-11-25T15:33:26Z", "kind": "task.add", "task": "T-037", "goal": "G-002"}
+{"ts": "2026-11-25T15:33:26Z", "kind": "task.add", "task": "T-038", "goal": "G-002"}
+{"ts": "2026-11-25T15:33:26Z", "kind": "task.add", "task": "T-039", "goal": "G-002"}
+{"ts": "2026-11-25T15:33:26Z", "kind": "task.add", "task": "T-040", "goal": "G-002"}
+{"ts": "2026-11-25T15:33:26Z", "kind": "task.add", "task": "T-041", "goal": "G-002"}
+{"ts": "2026-11-25T15:33:26Z", "kind": "task.add", "task": "T-042", "goal": "G-002"}
+{"ts": "2026-11-25T15:33:27Z", "kind": "task.add", "task": "T-043", "goal": "G-002"}
+{"ts": "2026-11-25T15:34:05Z", "kind": "task.claim", "task": "T-009", "worker": "builder-haiku"}
+{"ts": "2026-11-25T15:37:15Z", "kind": "task.verify", "task": "T-009", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-25T15:38:32Z", "kind": "task.claim", "task": "T-010", "worker": "builder-haiku"}
+{"ts": "2026-11-25T15:42:28Z", "kind": "task.verify", "task": "T-010", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-25T15:43:33Z", "kind": "task.claim", "task": "T-011", "worker": "builder-haiku"}
+{"ts": "2026-11-25T15:46:52Z", "kind": "task.verify", "task": "T-011", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-25T15:46:52Z", "kind": "task.claim", "task": "T-012", "worker": "builder-haiku"}
+{"ts": "2026-11-25T15:48:44Z", "kind": "task.verify", "task": "T-012", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-25T15:48:44Z", "kind": "task.claim", "task": "T-013", "worker": "builder-haiku"}
+{"ts": "2026-11-25T15:51:37Z", "kind": "task.verify", "task": "T-013", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-25T15:51:37Z", "kind": "task.claim", "task": "T-014", "worker": "builder-haiku"}
+{"ts": "2026-11-25T16:31:10Z", "kind": "task.verify", "task": "T-014", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-25T16:31:19Z", "kind": "learn", "gaps": [], "task": "T-014", "improve": true}
+{"ts": "2026-11-25T16:31:19Z", "kind": "task.claim", "task": "T-015", "worker": "builder-haiku"}
+{"ts": "2026-11-25T16:36:33Z", "kind": "task.verify", "task": "T-015", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-25T16:36:33Z", "kind": "learn", "gaps": [], "task": "T-015", "improve": true}
