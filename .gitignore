@@ -1,0 +1,26 @@
+# Umgebungen und Abhaengigkeiten
+.venv/
+node_modules/
+frontend/dist/
+
+# Laufzeitdaten und Geheimnisse
+data/
+*.key
+*.pem
+.env*
+
+# Testausgaben und Caches
+test-results/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.vite/
+*.egg-info/
+coverage/
+.coverage
+htmlcov/
+
+# Lokale Claude-Einstellungen
+.claude/settings.local.json

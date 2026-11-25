@@ -1,0 +1,26 @@
+{
+  "env": {
+    "HARNESS_HOME": "C:\\Users\\mlammarsch\\OneDrive - Kardex Holding AG\\_HarnessProjects\\template_GitHub"
+  },
+  "permissions": {
+    "allow": [
+      "Bash(python hx.py *)",
+      "PowerShell(python hx.py *)",
+      "PowerShell(uv run *)",
+      "PowerShell(uv sync*)",
+      "PowerShell(npm run *)",
+      "PowerShell(git add *)",
+      "PowerShell(git commit *)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)",
+      "Bash(git push*)",
+      "Bash(docker push*)",
+      "PowerShell(git push*)",
+      "PowerShell(docker push*)"
+    ]
+  }
+}

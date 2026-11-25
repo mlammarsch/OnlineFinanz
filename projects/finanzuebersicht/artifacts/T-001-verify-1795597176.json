@@ -1,0 +1,12 @@
+{
+  "task": "T-001",
+  "ts": "2026-11-25T08:59:36Z",
+  "ok": true,
+  "results": [
+    {
+      "cmd": "python scripts/validate.py m0",
+      "exit": 0,
+      "out": "# validate.py m0\n\n[OK] m0: Pflichtdateien - 18 Dateien vorhanden\n[OK] m0: Skill-Frontmatter - gueltig (description 458 Zeichen)\n[OK] m0: AGENTS.md Pflichtabschnitte - alle Pflichtabschnitte vorhanden\n[OK] m0: settings.json Rechte - Allow- und Deny-Regeln vollstaendig\n[OK] m0: plan.md Milestones - plan.md enthaelt M0 bis M10\n[OK] m0: Git-Repo - Git-Repo vorhanden, .gitignore vollstaendig\n[OK] m0: hx.py status - hx.py status Exit 0\n\nErgebnis: bestanden\n"
+    }
+  ]
+}

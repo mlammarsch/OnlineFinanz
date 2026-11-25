@@ -1,0 +1,1 @@
+- [ ] hx.py: --verify mit erwartetem Exit-Code (z. B. expect-fail) unterstuetzen

@@ -1,0 +1,35 @@
+{"ts": "2026-11-25T08:55:28Z", "kind": "project.init", "title": "Finanzuebersicht"}
+{"ts": "2026-11-25T08:58:22Z", "kind": "goal.add", "goal": "G-001"}
+{"ts": "2026-11-25T08:58:22Z", "kind": "goal.add", "goal": "G-002"}
+{"ts": "2026-11-25T08:58:22Z", "kind": "goal.add", "goal": "G-003"}
+{"ts": "2026-11-25T08:58:22Z", "kind": "goal.add", "goal": "G-004"}
+{"ts": "2026-11-25T08:58:22Z", "kind": "goal.add", "goal": "G-005"}
+{"ts": "2026-11-25T08:58:22Z", "kind": "goal.add", "goal": "G-006"}
+{"ts": "2026-11-25T08:58:22Z", "kind": "goal.add", "goal": "G-007"}
+{"ts": "2026-11-25T08:58:22Z", "kind": "goal.add", "goal": "G-008"}
+{"ts": "2026-11-25T08:58:23Z", "kind": "goal.add", "goal": "G-009"}
+{"ts": "2026-11-25T08:58:23Z", "kind": "goal.add", "goal": "G-010"}
+{"ts": "2026-11-25T08:58:23Z", "kind": "goal.add", "goal": "G-011"}
+{"ts": "2026-11-25T08:58:58Z", "kind": "task.add", "task": "T-001", "goal": "G-001"}
+{"ts": "2026-11-25T08:58:58Z", "kind": "task.add", "task": "T-002", "goal": "G-001"}
+{"ts": "2026-11-25T08:58:58Z", "kind": "task.add", "task": "T-003", "goal": "G-001"}
+{"ts": "2026-11-25T08:58:58Z", "kind": "task.add", "task": "T-004", "goal": "G-001"}
+{"ts": "2026-11-25T08:58:58Z", "kind": "task.add", "task": "T-005", "goal": "G-001"}
+{"ts": "2026-11-25T08:58:58Z", "kind": "task.add", "task": "T-006", "goal": "G-001"}
+{"ts": "2026-11-25T08:59:10Z", "kind": "task.set", "task": "T-004", "status": "cancelled"}
+{"ts": "2026-11-25T08:59:10Z", "kind": "task.set", "task": "T-006", "status": "cancelled"}
+{"ts": "2026-11-25T08:59:10Z", "kind": "task.add", "task": "T-007", "goal": "G-001"}
+{"ts": "2026-11-25T08:59:10Z", "kind": "task.add", "task": "T-008", "goal": "G-001"}
+{"ts": "2026-11-25T08:59:28Z", "kind": "task.claim", "task": "T-001", "worker": "lead"}
+{"ts": "2026-11-25T08:59:28Z", "kind": "task.claim", "task": "T-002", "worker": "lead"}
+{"ts": "2026-11-25T08:59:29Z", "kind": "task.claim", "task": "T-003", "worker": "lead"}
+{"ts": "2026-11-25T08:59:29Z", "kind": "task.claim", "task": "T-005", "worker": "lead"}
+{"ts": "2026-11-25T08:59:29Z", "kind": "task.claim", "task": "T-007", "worker": "lead"}
+{"ts": "2026-11-25T08:59:36Z", "kind": "task.verify", "task": "T-001", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-25T08:59:36Z", "kind": "task.verify", "task": "T-002", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-25T08:59:37Z", "kind": "task.verify", "task": "T-003", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-25T08:59:37Z", "kind": "task.verify", "task": "T-005", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-25T08:59:37Z", "kind": "task.verify", "task": "T-007", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-25T09:00:52Z", "kind": "task.claim", "task": "T-008", "worker": "lead"}
+{"ts": "2026-11-25T09:00:52Z", "kind": "task.verify", "task": "T-008", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-25T09:00:53Z", "kind": "learn", "gaps": [], "task": null, "improve": true}
