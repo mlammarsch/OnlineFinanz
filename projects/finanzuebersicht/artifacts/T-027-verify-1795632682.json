@@ -1,0 +1,12 @@
+{
+  "task": "T-027",
+  "ts": "2026-11-25T18:51:22Z",
+  "ok": true,
+  "results": [
+    {
+      "cmd": "uv run pytest tests/unit/test_models_registry.py -q",
+      "exit": 0,
+      "out": "......                                                                   [100%]\n6 passed in 1.35s\n"
+    }
+  ]
+}

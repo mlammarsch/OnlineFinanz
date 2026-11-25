@@ -6,28 +6,10 @@
 
 ## next
 
-- [ ] T-021 M1: Modell Auftrag
-- [ ] T-022 M1: Modell Import-Lauf und Lauf-Fehler
-- [ ] T-023 M1: Modell Import-Vorlage
-- [ ] T-024 M1: Modelle Sitzung und MCP-Token
-- [ ] T-025 M1: Modelle Backup-Job und Backup-Lauf
+- [ ] T-040 M1: Lint sauber (ruff)
 
 ## blocked
 
-- [ ] T-027 M1: Modell-Register und Nicht-Ziele-Test: waiting on T-017,T-018,T-019,T-020,T-021,T-022,T-023,T-024,T-025,T-026
-- [ ] T-028 M1: Alembic-Einrichtung: waiting on T-027
-- [ ] T-029 M1: Erste Migration 0001: waiting on T-028
-- [ ] T-030 M1: Migrations-Runner: waiting on T-029,T-011
-- [ ] T-031 M1: Migrationstests Leerstand, Drift, nur vorwaerts: waiting on T-030
-- [ ] T-032 M1: Migrationstest mit Daten (Vorgaenger-Stand): waiting on T-030
-- [ ] T-033 M1: FastAPI-App-Fabrik: waiting on T-011,T-013,T-015,T-030
-- [ ] T-034 M1: Endpunkt /api/health: waiting on T-033
-- [ ] T-035 M1: Endpunkt /api/health/ready: waiting on T-034,T-030
-- [ ] T-036 M1: Demo-Daten-Generator: waiting on T-027
-- [ ] T-037 M1: CLI python -m finue: waiting on T-036,T-030
-- [ ] T-038 M1: VS-Code-Launch fuer Backend: waiting on T-037
-- [ ] T-039 M1: Smoke-Test: waiting on T-035,T-037
-- [ ] T-040 M1: Lint sauber (ruff): waiting on T-038,T-039,T-014
 - [ ] T-041 M1: Typen sauber (mypy strict): waiting on T-040
 - [ ] T-042 M1: Anforderungs-IDs in Tests belegt: waiting on T-041
 - [ ] T-043 M1 Abnahme: waiting on T-009,T-010,T-011,T-012,T-013,T-014,T-015,T-016,T-017,T-018,T-019,T-020,T-021,T-022,T-023,T-024,T-025,T-026,T-027,T-028,T-029,T-030,T-031,T-032,T-033,T-034,T-035,T-036,T-037,T-038,T-039,T-040,T-041,T-042
@@ -37,6 +19,15 @@
 - [ ] hx.py: --verify mit erwartetem Exit-Code (z. B. expect-fail) unterstuetzen
 - [ ] Log-Filter: passphrase, otp, jwt, csrf, Plurale und mehrzeilige Container ergaenzen
 - [ ] engine.py: make_url statt str.replace, StaticPool fuer :memory:, Tests fuer FK-Erzwingung und mehrere Connections; Naming-Convention uq/ix auf column_0_N_* pruefen
+- [ ] backend/finue/models/__init__.py: Sammelimport aller Modellmodule ergaenzen (duplicate, standing_order, audit, bank, ...), sonst fehlen Tabellen bei Alembic-Autogenerate (Base.metadata unvollstaendig ohne expliziten Import) - vor T-027/T-028 beachten
+- [ ] Constraint-Namensduplikation pruefen: ck_<table>_ck_<table>_<name> entsteht bei CheckConstraint mit bereits vollem Namen (betrifft import_run.py und security.py) - Naming-Convention in db/base.py bzw. Aufrufstellen vereinheitlichen vor Alembic-Autogenerate (T-028)
+- [ ] T-025: CheckConstraint retention_count >= 1 ergaenzen, verhindert versehentliches Loeschen aller Backups bei Wert 0
+- [ ] T-028/env.py: kein Test fuehrt einen echten Alembic-Migrationslauf (upgrade/downgrade) gegen eine Temp-DB aus, nur ScriptDirectory/Config-Ladbarkeit. Bei T-029 (erste Migration) oder T-031 (Migrationstests) nachholen.
+- [ ] backend/finue/migrations/env.py: render_item-Hook fuer UtcDateTime ergaenzen (autogen_context.imports.add('from finue.db.mixins import UtcDateTime')), damit Autogenerate den Import automatisch schreibt und Migrationsdateien ohne Handnachbearbeitung laufen.
+- [ ] test_alembic_config.py test_initial_migration_is_single_head haertet den Head-Wert hart - vor T-031/T-032 auf generische Pruefung (genau ein Head, down_revision pruefen) umstellen, sonst bricht der Test bei der naechsten Migration
+- [ ] test_migration_0001.py um alembic.autogenerate.compare_metadata Vergleich erweitern fuer strengere Typ- und FK-Pruefung, nicht nur Tabellen- und Spaltennamen
+- [ ] tests/unit/helpers_migration.py, test_migration_0001.py, test_alembic_config.py bauen Alembic-Config noch ohne configure_logger=False - aktuell folgenlos, da neue Logging-Tests ihren Root-Handler-Zustand selbst sichern, aber bei kuenftigen Logger-abhaengigen Tests potenzielle Testreihenfolge-Kopplung. Bei Gelegenheit vereinheitlichen.
+- [ ] test_smoke.py: expliziten Assert ergaenzen dass die Alembic-Logzeile (logger startswith alembic, Running upgrade) im JSON-Eintrag erscheint - staerkerer direkter Beweis fuer den T-033-Logging-Fix statt nur indirekter Ableitung
 
 ## recurring
 

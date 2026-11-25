@@ -1,0 +1,30 @@
+{
+  "$schema": "https://app.kilo.ai/config.json",
+  // AGENTS.md wird automatisch geladen. Skills kommen aus .claude/skills (Claude Code Compatibility aktivieren).
+  // Agents liegen unter .kilo/agents (builder, planner, verifier aus dem Harness kopiert, Lead projekteigen).
+  "permission": {
+    "read": {
+      "*": "allow",
+      "**/.env": "deny",
+      "**/.env.*": "deny",
+      "**/*.pem": "deny",
+      "**/*.key": "deny"
+    },
+    "bash": {
+      "*": "ask",
+      "python hx.py *": "allow",
+      "python scripts/*": "allow",
+      "uv run *": "allow",
+      "uv sync*": "allow",
+      "npm run *": "allow",
+      "git status*": "allow",
+      "git diff*": "allow",
+      "git log*": "allow",
+      "git add *": "allow",
+      "git commit *": "allow",
+      "git push*": "deny",
+      "docker push*": "deny",
+      "rm -rf *": "deny"
+    }
+  }
+}

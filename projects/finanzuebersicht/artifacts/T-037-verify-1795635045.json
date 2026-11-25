@@ -1,0 +1,12 @@
+{
+  "task": "T-037",
+  "ts": "2026-11-25T19:30:45Z",
+  "ok": true,
+  "results": [
+    {
+      "cmd": "uv run pytest tests/unit/test_cli.py -q",
+      "exit": 0,
+      "out": ".....                                                                    [100%]\n5 passed in 1.42s\n"
+    }
+  ]
+}

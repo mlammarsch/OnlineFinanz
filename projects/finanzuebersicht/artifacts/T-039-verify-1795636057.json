@@ -1,0 +1,12 @@
+{
+  "task": "T-039",
+  "ts": "2026-11-25T19:47:37Z",
+  "ok": true,
+  "results": [
+    {
+      "cmd": "uv run pytest -m smoke tests/integration -q",
+      "exit": 0,
+      "out": ".                                                                        [100%]\n============================== warnings summary ===============================\n.venv\\Lib\\site-packages\\fastapi\\testclient.py:1\n  C:\\00_mldata\\programming\\OnlineFinanz\\.venv\\Lib\\site-packages\\fastapi\\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n1 passed, 1 warning in 1.31s\n"
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Demo-Daten",
+      "type": "shell",
+      "command": "uv run python -m finue demo --reset",
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "DATABASE_URL": "sqlite:///data/dev.db"
+        }
+      },
+      "problemMatcher": []
+    }
+  ]
+}

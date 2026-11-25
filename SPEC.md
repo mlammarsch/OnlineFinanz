@@ -17,6 +17,7 @@ Backup und Restore der Datenbank (manuell und zeitgesteuert, auch auf eine SMB-F
 gleichzeitigen Sitzungen desselben Nutzers auf mehreren Geraeten und ueber MCP.
 
 Nicht-Ziele (verbindlich, auch keine Reste im Code oder in der UI):
+
 - keine Kategorisierung, keine Steuer-Kategorien, keine Schlagworte, keine Budgets
 - keine Ueberweisungen; Termin- und Dauerauftraege werden nur angezeigt, nie angelegt, geaendert,
   ausgesetzt oder geloescht
@@ -27,34 +28,34 @@ Nicht-Ziele (verbindlich, auch keine Reste im Code oder in der UI):
 
 ## 2. Begriffe
 
-| Begriff | Bedeutung |
-|---|---|
-| Bankzugang | FinTS-Zugang: BLZ, Endpunkt, Anmeldename, optional verschluesselte PIN, gewaehltes TAN-Verfahren. Ein Zugang kann mehrere Konten liefern. |
-| Konto | Girokonto, Tagesgeld, Kreditkarte, Darlehen o. ae. Quelle: `fints` (ueber Bankzugang) oder `datei` (offline, Import per CSV/JSON). |
-| Kontengruppe | Benannte Zusammenfassung von Konten mit Summensaldo. Ein Konto gehoert zu hoechstens einer Gruppe. |
-| Buchung | Gebuchter Umsatz mit Buchungstag, Wertstellung, Betrag, Gegenpartei, IBAN, Verwendungszweck. |
-| Vorgemerkte Buchung | Von der Bank gemeldeter, noch nicht gebuchter Umsatz. |
-| Import-Lauf | Ein Sync oder ein Datei-Import (CSV, JSON) fuer ein Konto. Wird mit Ergebnis protokolliert. |
-| Dauerauftrag | Bei der Bank hinterlegte, wiederkehrende Ueberweisung (Intervall, naechste Ausfuehrung). |
-| Terminauftrag | Bei der Bank hinterlegte, einmalige Ueberweisung mit kuenftigem Ausfuehrungsdatum. |
-| Geprueft | Kennzeichen: Buchung wurde angesehen. Steuert den Badge (F-KTO-09). |
-| Abgestimmt | Kennzeichen: Buchung stimmt mit der externen Haushaltssoftware ueberein. Unabhaengig von "geprueft". |
-| MCP-Token | Zugangsschluessel eines KI-Clients fuer den MCP-Server, mit Berechtigung "lesen" oder "lesen und schreiben". |
-| Sitzung | Eine Anmeldung des Nutzers in einem Browser bzw. auf einem Geraet. Mehrere Sitzungen gleichzeitig sind zulaessig. |
-| Backup | ZIP-Datei mit vollstaendigem Datenstand und Manifest (F-BAK-01). |
-| Backup-Job | Zeitgesteuerte Sicherung auf ein Ziel (lokales Verzeichnis oder SMB-Freigabe). |
+| Begriff             | Bedeutung                                                                                                                                 |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| Bankzugang          | FinTS-Zugang: BLZ, Endpunkt, Anmeldename, optional verschluesselte PIN, gewaehltes TAN-Verfahren. Ein Zugang kann mehrere Konten liefern. |
+| Konto               | Girokonto, Tagesgeld, Kreditkarte, Darlehen o. ae. Quelle: `fints` (ueber Bankzugang) oder `datei` (offline, Import per CSV/JSON).        |
+| Kontengruppe        | Benannte Zusammenfassung von Konten mit Summensaldo. Ein Konto gehoert zu hoechstens einer Gruppe.                                        |
+| Buchung             | Gebuchter Umsatz mit Buchungstag, Wertstellung, Betrag, Gegenpartei, IBAN, Verwendungszweck.                                              |
+| Vorgemerkte Buchung | Von der Bank gemeldeter, noch nicht gebuchter Umsatz.                                                                                     |
+| Import-Lauf         | Ein Sync oder ein Datei-Import (CSV, JSON) fuer ein Konto. Wird mit Ergebnis protokolliert.                                               |
+| Dauerauftrag        | Bei der Bank hinterlegte, wiederkehrende Ueberweisung (Intervall, naechste Ausfuehrung).                                                  |
+| Terminauftrag       | Bei der Bank hinterlegte, einmalige Ueberweisung mit kuenftigem Ausfuehrungsdatum.                                                        |
+| Geprueft            | Kennzeichen: Buchung wurde angesehen. Steuert den Badge (F-KTO-09).                                                                       |
+| Abgestimmt          | Kennzeichen: Buchung stimmt mit der externen Haushaltssoftware ueberein. Unabhaengig von "geprueft".                                      |
+| MCP-Token           | Zugangsschluessel eines KI-Clients fuer den MCP-Server, mit Berechtigung "lesen" oder "lesen und schreiben".                              |
+| Sitzung             | Eine Anmeldung des Nutzers in einem Browser bzw. auf einem Geraet. Mehrere Sitzungen gleichzeitig sind zulaessig.                         |
+| Backup              | ZIP-Datei mit vollstaendigem Datenstand und Manifest (F-BAK-01).                                                                          |
+| Backup-Job          | Zeitgesteuerte Sicherung auf ein Ziel (lokales Verzeichnis oder SMB-Freigabe).                                                            |
 
 ## 3. Banken und Datenquellen
 
-| Bank | Quelle | Besonderheiten (Owner-Vorgabe, im Skill mit Quelle zu belegen) |
-|---|---|---|
-| ING | FinTS | Endpunkt `https://fints.ing.de/fints/`. FinTS-Zugriff setzt einen Online-Banking-Login innerhalb der letzten 90 Tage voraus. Hinweis in Klartext: "Bitte einmal im ING Online-Banking einloggen." |
-| Consorsbank | FinTS | Instabil. Fehler 9800 ("Dialog abgebrochen") und 9010 ("Verarbeitung nicht moeglich") kommen regelmaessig vor, wiederholte TAN-Anforderungen ebenso. |
-| DKB | FinTS | Stabil, Push-TAN (App-Freigabe). |
-| Sparkasse (Darlehen) | FinTS | Endpunkt nicht vorbelegt, der Nutzer traegt ihn ein. Umsaetze ggf. eingeschraenkt; ein Konto nur mit Saldo ist zulaessig. |
-| N26 | CSV | Kein FinTS. |
-| Easybank (AT, Kreditkarte) | CSV | Kein FinTS. |
-| PayPal | CSV | Kein FinTS, Privat-APIs abgekuendigt. |
+| Bank                       | Quelle | Besonderheiten (Owner-Vorgabe, im Skill mit Quelle zu belegen)                                                                                                                                    |
+| -------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ING                        | FinTS  | Endpunkt `https://fints.ing.de/fints/`. FinTS-Zugriff setzt einen Online-Banking-Login innerhalb der letzten 90 Tage voraus. Hinweis in Klartext: "Bitte einmal im ING Online-Banking einloggen." |
+| Consorsbank                | FinTS  | Instabil. Fehler 9800 ("Dialog abgebrochen") und 9010 ("Verarbeitung nicht moeglich") kommen regelmaessig vor, wiederholte TAN-Anforderungen ebenso.                                              |
+| DKB                        | FinTS  | Stabil, Push-TAN (App-Freigabe).                                                                                                                                                                  |
+| Sparkasse (Darlehen)       | FinTS  | Endpunkt nicht vorbelegt, der Nutzer traegt ihn ein. Umsaetze ggf. eingeschraenkt; ein Konto nur mit Saldo ist zulaessig.                                                                         |
+| N26                        | CSV    | Kein FinTS.                                                                                                                                                                                       |
+| Easybank (AT, Kreditkarte) | CSV    | Kein FinTS.                                                                                                                                                                                       |
+| PayPal                     | CSV    | Kein FinTS, Privat-APIs abgekuendigt.                                                                                                                                                             |
 
 CSV ist eine vollwertige Datenquelle, nicht nur ein Notbehelf.
 
@@ -271,7 +272,7 @@ Anforderungen werden in dieser Datei als "zurueckgestellt" markiert. Aufwandssch
     PostgreSQL/MySQL);
   - bei SQLite zusaetzlich eine konsistente Kopie der Datenbankdatei (SQLite-Backup-Funktion im laufenden Betrieb,
     fuer die Notfall-Wiederherstellung von Hand).
-  Der Fernet-Schluessel (N-SEC-01) ist nie im Backup enthalten.
+    Der Fernet-Schluessel (N-SEC-01) ist nie im Backup enthalten.
 - **F-BAK-02** Verschluesselung: Backups lassen sich mit einem Backup-Passwort verschluesseln (abgeleiteter Schluessel,
   authentifizierte Verschluesselung). Fuer Backup-Jobs auf Netzwerkziele ist sie standardmaessig aktiv. Das Passwort
   eines Jobs wird wie eine PIN verschluesselt gespeichert.
@@ -285,9 +286,9 @@ Anforderungen werden in dieser Datei als "zurueckgestellt" markiert. Aufwandssch
   5. Wartungsmodus: laufende Syncs und Jobs werden beendet, Schreibzugriffe (UI, API, MCP) erhalten 503 mit Hinweis.
   6. Wiederherstellen aus dem logischen Abzug, anschliessend Migration auf das aktuelle Schema.
   7. Alle Sitzungen werden abgemeldet, MCP-Tokens bleiben gueltig, wenn sie im Backup enthalten sind.
-  Schlaegt ein Schritt fehl, bleibt der vorherige Stand unveraendert bzw. wird aus dem Sicherheits-Backup
-  wiederhergestellt. Passt der Fernet-Schluessel nicht zum Backup, werden gespeicherte PINs und Job-Passwoerter als
-  ungueltig markiert und muessen neu eingegeben werden; alle anderen Daten werden wiederhergestellt.
+     Schlaegt ein Schritt fehl, bleibt der vorherige Stand unveraendert bzw. wird aus dem Sicherheits-Backup
+     wiederhergestellt. Passt der Fernet-Schluessel nicht zum Backup, werden gespeicherte PINs und Job-Passwoerter als
+     ungueltig markiert und muessen neu eingegeben werden; alle anderen Daten werden wiederhergestellt.
 - **F-BAK-05** Backup-Jobs (Einstellungen -> Backup -> Jobs): Name, Ziel, Zeitplan, Aufbewahrung, Verschluesselung, aktiv ja/nein.
   - Ziele: lokales Verzeichnis im Daten-Volume oder SMB-Freigabe (Server, Freigabe, Pfad, Benutzer, Passwort,
     optional Domaene). Nur SMB 2/3, SMB 1 wird abgelehnt. Zugriff ueber eine Python-Bibliothek, ohne Einbinden ins
@@ -468,18 +469,18 @@ ist ein eigenes Bedienkonzept, keine verkleinerte Desktop-Seite.
 Dateien: `docs/mockup/01-kontenliste-buchungen.png`, `02-einzelbuchung-details.png`, `03-mehrfachauswahl-summe.png`.
 Die Mockups zeigen Finanzblick in der Desktop-Ansicht. Uebernommen werden Aufbau, Anordnung, Dichte und Farbgebung (dunkles Theme, orange Akzentfarbe fuer Auswahl und aktiven Tab). Die Formensprache (Schrift, Radien, Abstaende, Tiefe) folgt dem Abschnitt "Design" und ist moderner und runder als im Mockup. Weggelassen werden alle Nicht-Ziele. Die Dichte gilt nur fuer Maus-Bedienung; im Touch-Modus gilt Abschnitt "Mobile und Touch-Bedienung".
 
-| Bereich | Uebernehmen | Weglassen bzw. ersetzen |
-|---|---|---|
-| Kontenliste (links) | Titel "Konten" mit Gesamtsaldo und Info-Symbol, Sync-Symbol, Menue; Kontokarten; Gruppen mit gestapelten Icons, Kontenzahl, Auf-/Zuklappen, Badge | - |
-| Buchungen (Mitte) | Kopf mit Icon, Name, Saldo; Tab "Buchungen"; Suchfeld mit Kalender- und Menue-Symbol; aufklappbare Zeile "Termin- und Dauerauftraege" mit Summe und erwartetem Saldo (F-AUF); Vorgemerkte Buchungen; Tagesgruppen; Auswahlleiste "Alle / Auswahl (n) / Summe / x" | Tabs "Ueberweisung" und "Auftraege" entfallen. Die Kategorie-Spalte ("Unterhaltung & Spiele", "Urlaub") wird zur Statusmarke (Vorgemerkt, Quelle) |
-| Details (rechts) | Einzelbuchung wie Mockup 2; Mehrfachauswahl mit Summe wie Mockup 3 | Optionen "Kategorie", "Steuer-Kategorie", "Schlagwort", "Umbuchen" werden zu "Notiz setzen", "Als geprueft markieren", "Als abgestimmt markieren", "Exportieren", "Als Markdown kopieren" |
+| Bereich             | Uebernehmen                                                                                                                                                                                                                                                       | Weglassen bzw. ersetzen                                                                                                                                                                   |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Kontenliste (links) | Titel "Konten" mit Gesamtsaldo und Info-Symbol, Sync-Symbol, Menue; Kontokarten; Gruppen mit gestapelten Icons, Kontenzahl, Auf-/Zuklappen, Badge                                                                                                                 | -                                                                                                                                                                                         |
+| Buchungen (Mitte)   | Kopf mit Icon, Name, Saldo; Tab "Buchungen"; Suchfeld mit Kalender- und Menue-Symbol; aufklappbare Zeile "Termin- und Dauerauftraege" mit Summe und erwartetem Saldo (F-AUF); Vorgemerkte Buchungen; Tagesgruppen; Auswahlleiste "Alle / Auswahl (n) / Summe / x" | Tabs "Ueberweisung" und "Auftraege" entfallen. Die Kategorie-Spalte ("Unterhaltung & Spiele", "Urlaub") wird zur Statusmarke (Vorgemerkt, Quelle)                                         |
+| Details (rechts)    | Einzelbuchung wie Mockup 2; Mehrfachauswahl mit Summe wie Mockup 3                                                                                                                                                                                                | Optionen "Kategorie", "Steuer-Kategorie", "Schlagwort", "Umbuchen" werden zu "Notiz setzen", "Als geprueft markieren", "Als abgestimmt markieren", "Exportieren", "Als Markdown kopieren" |
 
 ## 7. Offene Eingaben des Owners
 
-| Eingabe | Benoetigt ab |
-|---|---|
-| FinTS-Produktregistrierung (Produkt-ID, kostenlos bei der Deutschen Kreditwirtschaft) | Live-Test FinTS |
-| Anonymisierte CSV-Beispiele: N26, Easybank, PayPal, Finanzblick-Export (Ablage: `data/samples/`, nicht im Repo) | Import-Vorlagen, CSV-Export-Standardprofil |
-| Bank-Icons als Dateien (PNG/WebP, quadratisch) bzw. Website je Bank fuer den Web-Abruf | Feinschliff Kontenverwaltung |
-| SMB-Ziel fuer Backups (Server, Freigabe, Benutzer); wird erst zur Laufzeit in der UI eingetragen, nicht im Repo | Live-Test Backup-Job |
-| Docker-Hub-Repository und `docker login` | Veroeffentlichung |
+| Eingabe                                                                                                                  | Benoetigt ab                               |
+| ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------ |
+| FinTS-Produktregistrierung (Produkt-ID (lautet 28457C5BD2C97E5AD668318C5), kostenlos bei der Deutschen Kreditwirtschaft) | Live-Test FinTS                            |
+| Anonymisierte CSV-Beispiele: N26, Easybank, PayPal, Finanzblick-Export (Ablage: `data/samples/`, nicht im Repo)          | Import-Vorlagen, CSV-Export-Standardprofil |
+| Bank-Icons als Dateien (PNG/WebP, quadratisch) bzw. Website je Bank fuer den Web-Abruf                                   | Feinschliff Kontenverwaltung               |
+| SMB-Ziel fuer Backups (Server, Freigabe, Benutzer); wird erst zur Laufzeit in der UI eingetragen, nicht im Repo          | Live-Test Backup-Job                       |
+| Docker-Hub-Repository und `docker login`                                                                                 | Veroeffentlichung                          |

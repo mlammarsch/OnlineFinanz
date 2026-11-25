@@ -108,3 +108,26 @@ Quoting, lieber Skriptaufruf (`python scripts/validate.py <stufe>`).
 - Skills (`harness-run`, `harness-verify`, `harness-learn`) und Agents (`builder`, `planner`, `verifier`) sind global installiert
   (`python C:/Users/mlammarsch/OneDrive - Kardex Holding AG/_HarnessProjects/template_GitHub/scripts/install_global.py`).
 - Projekt-Agent: `finanzuebersicht-lead` kennt dieses Projekt und steuert den Ablauf.
+
+### Kilo Code (Claude Code: diesen Abschnitt ignorieren, die Regeln kommen ueber `CLAUDE.md`)
+
+Kilo loest den `@`-Import in `CLAUDE.md` nicht auf. Verbindliche Kurzfassung der zentralen Harness-Regeln
+(Volltext: `~/.claude/harness/AGENTS.md`, CLI-Referenz `~/.claude/harness/docs/hx.md`):
+
+- Zuerst lesen: `projects/finanzuebersicht/status.md`, `queues.md`, `handoff.md`. Tasks nur ueber `python hx.py`
+  (Projekt-ID `finanzuebersicht`), Task-Dateien nie von Hand aendern. Abschluss nur ueber `hx.py task-done`, die
+  Selbstauskunft des Agenten zaehlt nicht.
+- Jeder nicht-triviale Task hat Definition of Done und Verifikationsplan. Gleicher Fehler zweimal: Guardrail oder Test
+  ergaenzen. Fehlschlaege per `hx.py learn --gap <klasse>`, Entscheidungen nach `decisions.md`.
+- Jeder Lauf endet mit aktualisierten Dateien, Evidenz, naechsten Schritten in `handoff.md` und einem Eintrag in der
+  Improve-Queue.
+- Einzelagent als Standard. Subagents (`builder`, `planner`, `verifier`, Lead in `.kilo/agents/`) nur fuer Parallelitaet,
+  getrennte Pruefung oder isolierten Kontext. Mittlere und hohe Risiken prueft immer `verifier`.
+- Risiko `high` nur nach `task-approve`. Keine Secrets lesen, ausgeben oder committen. Keine Commits ausser dem
+  Milestone-Commit nach Abnahme (Abweichung b), keine Pushes. Vorhandene Dateien nicht ohne Diff ueberschreiben.
+- Kommunikation: Deutsch, praezise, erster Satz Kernaussage, keine Floskeln, keine Schlussfrage, keine ungefragten Angebote.
+- Skills `harness-run`, `harness-verify`, `harness-learn` (Kilo laedt sie aus `~/.claude/skills`, Einstellung
+  "Claude Code Compatibility" aktiv) und Domaenen-Skill `.claude/skills/finanzuebersicht-fints/`.
+- Agents-Pflege: `builder`, `planner`, `verifier` in `.kilo/agents/` sind Kopien aus `~/.claude/harness/.kilo/agents/`
+  (bei Harness-Updates neu kopieren). Der Lead existiert doppelt (`.claude/agents/` und `.kilo/agents/`), beide angleichen.
+- Windows: PowerShell 5.1 liest UTF-8 ohne BOM als ANSI, immer `-Encoding UTF8`.

@@ -33,6 +33,10 @@ class Settings(BaseSettings):
     key_file: Path = Field(
         default=Path("./key"), description="Pfad zur Schlüsseldatei (nur Pfad, keine Secrets)"
     )
+    scheduler_required: bool = Field(
+        default=False,
+        description="Zeitplaner muss laufen, damit /api/health/ready bereit meldet (ab M8)",
+    )
 
     def __init__(self, **data: Any) -> None:
         """Initialisierung mit Standard-DATABASE_URL-Berechnung."""

@@ -1,0 +1,12 @@
+{
+  "task": "T-031",
+  "ts": "2026-11-25T19:18:01Z",
+  "ok": true,
+  "results": [
+    {
+      "cmd": "uv run pytest tests/unit/test_migration_policy.py -q",
+      "exit": 0,
+      "out": "...                                                                      [100%]\n3 passed in 1.13s\n"
+    }
+  ]
+}
