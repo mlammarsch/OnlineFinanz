@@ -371,11 +371,7 @@ def test_duplicate_decision_cascade_delete(factory) -> None:  # type: ignore[no-
 
     with factory() as session:
         # Entscheidung sollte auch gelöscht sein
-        retrieved = (
-            session.query(DuplicateDecision)
-            .filter_by(id=decision_id)
-            .one_or_none()
-        )
+        retrieved = session.query(DuplicateDecision).filter_by(id=decision_id).one_or_none()
         assert retrieved is None
 
 

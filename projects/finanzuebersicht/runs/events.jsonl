@@ -158,3 +158,16 @@
 {"ts": "2026-11-25T19:45:53Z", "kind": "task.claim", "task": "T-039", "worker": "builder-deepseek"}
 {"ts": "2026-11-25T19:47:37Z", "kind": "task.verify", "task": "T-039", "ok": true, "status": "done", "attempts": 1}
 {"ts": "2026-11-25T19:49:23Z", "kind": "learn", "gaps": [], "task": "T-039", "improve": true}
+{"ts": "2026-11-25T19:57:31Z", "kind": "task.claim", "task": "T-040", "worker": "main"}
+{"ts": "2026-11-25T20:02:00Z", "kind": "task.verify", "task": "T-040", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-25T20:02:29Z", "kind": "learn", "gaps": [], "task": "T-040", "improve": true}
+{"ts": "2026-11-25T20:03:30Z", "kind": "task.claim", "task": "T-041", "worker": "main"}
+{"ts": "2026-11-25T20:07:23Z", "kind": "task.verify", "task": "T-041", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-25T20:07:43Z", "kind": "learn", "gaps": [], "task": "T-041", "improve": true}
+{"ts": "2026-11-25T20:08:35Z", "kind": "task.claim", "task": "T-042", "worker": "main"}
+{"ts": "2026-11-25T20:11:39Z", "kind": "task.verify", "task": "T-042", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-25T20:13:19Z", "kind": "task.claim", "task": "T-043", "worker": "main"}
+{"ts": "2026-11-25T20:13:36Z", "kind": "learn", "gaps": ["bad-verification"], "task": "T-043", "improve": false}
+{"ts": "2026-11-25T20:17:31Z", "kind": "task.verify", "task": "T-043", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-25T20:17:47Z", "kind": "learn", "gaps": [], "task": "T-043", "improve": false}
+{"ts": "2026-11-25T20:18:13Z", "kind": "learn", "gaps": ["bad-verification"], "task": "T-043", "improve": true}

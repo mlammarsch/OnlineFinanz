@@ -20,19 +20,13 @@ class Settings(BaseSettings):
     explizit gesetzt.
     """
 
-    model_config = SettingsConfigDict(
-        env_file=".env", env_file_encoding="utf-8", case_sensitive=False
-    )
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=False)
 
     data_dir: Path = Field(default=Path("./data"), description="Datenverzeichnis")
-    database_url: str = Field(
-        default="", description="Datenbank-URL oder leer für SQLite-Default"
-    )
+    database_url: str = Field(default="", description="Datenbank-URL oder leer für SQLite-Default")
     log_level: str = Field(default="INFO", description="Logging-Level")
     tz: str = Field(default="Europe/Berlin", description="Zeitzone")
-    key_file: Path = Field(
-        default=Path("./key"), description="Pfad zur Schlüsseldatei (nur Pfad, keine Secrets)"
-    )
+    key_file: Path = Field(default=Path("./key"), description="Pfad zur Schlüsseldatei (nur Pfad, keine Secrets)")
     scheduler_required: bool = Field(
         default=False,
         description="Zeitplaner muss laufen, damit /api/health/ready bereit meldet (ab M8)",

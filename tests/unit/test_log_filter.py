@@ -46,7 +46,7 @@ MASK_CASES = [
     ("password='fant asie7' x", "password=*** x"),
     ('password="fant asie37" x', "password=*** x"),
     (r'{"password": "FANT\"ASIE38"}', '{"password": ***}'),
-    (r'{\"pin\": \"SE K\"} x', r'{\"pin\": ***} x'),
+    (r"{\"pin\": \"SE K\"} x", r"{\"pin\": ***} x"),
     ("authorization=Bearer FANTASIE4 rest", "authorization=***"),
     ("Authorization: Bearer FANTASIE3 rest", "Authorization: ***"),
     ('Authorization Digest username="a", response="SEK"', "Authorization ***"),
@@ -131,10 +131,30 @@ class TestSensitiveKey:
     @pytest.mark.parametrize(
         "key",
         [
-            "pin", "tan", "password", "Passwort", "token", "secret", "key", "cookie",
-            "authorization", "access_token", "refresh_token", "client_secret",
-            "secret_key", "access_key", "private_key", "X-Api-Key", "secretKey",
-            "UserPassword", "apikey", "sessionid", "sid", "pwd", "passwd", "pass",
+            "pin",
+            "tan",
+            "password",
+            "Passwort",
+            "token",
+            "secret",
+            "key",
+            "cookie",
+            "authorization",
+            "access_token",
+            "refresh_token",
+            "client_secret",
+            "secret_key",
+            "access_key",
+            "private_key",
+            "X-Api-Key",
+            "secretKey",
+            "UserPassword",
+            "apikey",
+            "sessionid",
+            "sid",
+            "pwd",
+            "passwd",
+            "pass",
         ],
     )
     def test_sensitive(self, key: str) -> None:
@@ -413,7 +433,7 @@ class TestContainerValues:
 
     @pytest.mark.parametrize(
         "text",
-        ["[" * 100000, "password=[" * 100000, "password=['" * 100000, "password=[\"a\\" * 100000],
+        ["[" * 100000, "password=[" * 100000, "password=['" * 100000, 'password=["a\\' * 100000],
     )
     def test_linear_runtime(self, text: str) -> None:
         start = time.perf_counter()

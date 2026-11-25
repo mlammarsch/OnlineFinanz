@@ -80,9 +80,7 @@ def test_models_have_no_drift_to_migrated_schema(tmp_path: Path) -> None:
     engine = create_db_engine(url)
     try:
         with engine.connect() as connection:
-            context = MigrationContext.configure(
-                connection, opts={"compare_type": True}
-            )
+            context = MigrationContext.configure(connection, opts={"compare_type": True})
             diff = compare_metadata(context, Base.metadata)
     finally:
         engine.dispose()
@@ -137,14 +135,12 @@ def _check_downgrade_body(source_path: Path, func: ast.FunctionDef) -> list[str]
             has_guard = True
             continue
         violations.append(
-            f"{source_path.name}:{statement.lineno}: "
-            f"unerlaubte Anweisung in downgrade(): {type(statement).__name__}"
+            f"{source_path.name}:{statement.lineno}: unerlaubte Anweisung in downgrade(): {type(statement).__name__}"
         )
 
     if not has_guard:
         violations.append(
-            f"{source_path.name}:{func.lineno}: "
-            "downgrade() enthaelt weder raise NotImplementedError noch pass"
+            f"{source_path.name}:{func.lineno}: downgrade() enthaelt weder raise NotImplementedError noch pass"
         )
     return violations
 

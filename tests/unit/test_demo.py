@@ -128,10 +128,7 @@ def _signature(factory: "sessionmaker[Session]") -> list[tuple[int, object, obje
     """Bildet den Buchungsbestand auf eine vergleichbare Signatur ab."""
     with factory() as session:
         rows = session.query(Transaction).order_by(Transaction.id).all()
-        return [
-            (t.amount_cents, t.booking_date, t.purpose, t.counterparty, t.origin, t.occurrence_index)
-            for t in rows
-        ]
+        return [(t.amount_cents, t.booking_date, t.purpose, t.counterparty, t.origin, t.occurrence_index) for t in rows]
 
 
 def test_seed_demo_is_deterministic_for_same_seed() -> None:

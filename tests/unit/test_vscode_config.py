@@ -165,9 +165,6 @@ def test_entwicklung_doku_existiert() -> None:
 
 def test_vscode_nicht_ignoriert() -> None:
     """.vscode ist versioniert und steht nicht in .gitignore (N-OPS-01)."""
-    lines = {
-        line.strip()
-        for line in (REPO_ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
-    }
+    lines = {line.strip() for line in (REPO_ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()}
     assert ".vscode" not in lines
     assert ".vscode/" not in lines

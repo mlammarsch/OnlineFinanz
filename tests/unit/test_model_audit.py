@@ -283,26 +283,30 @@ def test_other_accounts_logs_unaffected(factory) -> None:  # type: ignore[no-unt
             )
             for i in range(1, 4)
         ]
-        logs.extend([
-            AuditLog(
-                account_id=account2_id,
-                entity="transaction",
-                entity_id=i,
-                action="created",
-                source="sync",
-            )
-            for i in range(4, 7)
-        ])
-        logs.extend([
-            AuditLog(
-                account_id=account3_id,
-                entity="transaction",
-                entity_id=i,
-                action="created",
-                source="sync",
-            )
-            for i in range(7, 10)
-        ])
+        logs.extend(
+            [
+                AuditLog(
+                    account_id=account2_id,
+                    entity="transaction",
+                    entity_id=i,
+                    action="created",
+                    source="sync",
+                )
+                for i in range(4, 7)
+            ]
+        )
+        logs.extend(
+            [
+                AuditLog(
+                    account_id=account3_id,
+                    entity="transaction",
+                    entity_id=i,
+                    action="created",
+                    source="sync",
+                )
+                for i in range(7, 10)
+            ]
+        )
         session.add_all(logs)
         session.commit()
 
@@ -392,11 +396,7 @@ def test_core_update_audit_log_bypasses_orm_protection(factory) -> None:  # type
 
     with factory() as session:
         # Core-Update umgeht den before_update-Handler
-        session.execute(
-            update(AuditLog)
-            .where(AuditLog.id == log_id)
-            .values(action="updated")
-        )
+        session.execute(update(AuditLog).where(AuditLog.id == log_id).values(action="updated"))
         session.commit()
 
     # Verifiziere, dass das Core-Update erfolgreich war (Handler wurde nicht ausgelöst)

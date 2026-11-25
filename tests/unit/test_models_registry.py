@@ -113,9 +113,7 @@ def test_amount_columns_are_integer() -> None:
     non_integer: list[str] = []
     for table in Base.metadata.tables.values():
         for column in table.columns:
-            if column.name.endswith(AMOUNT_COLUMN_SUFFIXES) and not isinstance(
-                column.type, Integer
-            ):
+            if column.name.endswith(AMOUNT_COLUMN_SUFFIXES) and not isinstance(column.type, Integer):
                 non_integer.append(f"{table.name}.{column.name}: {column.type!r}")
     assert non_integer == [], f"Betragsspalten ohne Integer-Typ: {non_integer}"
 
@@ -141,11 +139,7 @@ def test_unversioned_tables_are_exactly_documented() -> None:
     Versionsspalte nicht stillschweigend durchrutscht: sie verändert die Menge
     und lässt den Test scheitern, bis sie bewusst bewertet wurde.
     """
-    without_version = {
-        name
-        for name, table in Base.metadata.tables.items()
-        if "version" not in table.columns
-    }
+    without_version = {name for name, table in Base.metadata.tables.items() if "version" not in table.columns}
     assert without_version == set(UNVERSIONED_TABLES)
 
 

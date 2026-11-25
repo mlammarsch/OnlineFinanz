@@ -60,12 +60,8 @@ class VersionedMixin:
 class TimestampMixin:
     """Zeitstempel ``created_at`` und ``updated_at`` in aware UTC (N-DB-02)."""
 
-    created_at: Mapped[datetime] = mapped_column(
-        UtcDateTime, nullable=False, default=utc_now
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        UtcDateTime, nullable=False, default=utc_now, onupdate=utc_now
-    )
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime, nullable=False, default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(UtcDateTime, nullable=False, default=utc_now, onupdate=utc_now)
 
 
 class AmountMixin:

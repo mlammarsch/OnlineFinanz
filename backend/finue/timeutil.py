@@ -27,9 +27,7 @@ def get_tz() -> ZoneInfo:
     try:
         return ZoneInfo(settings.tz)
     except ZoneInfoNotFoundError as e:
-        raise ValueError(
-            f"Ungültige Zeitzone '{settings.tz}': {e}"
-        ) from e
+        raise ValueError(f"Ungültige Zeitzone '{settings.tz}': {e}") from e
 
 
 def utc_now() -> datetime:

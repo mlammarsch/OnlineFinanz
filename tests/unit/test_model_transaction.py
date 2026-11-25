@@ -492,9 +492,7 @@ def test_transaction_origin_check_valid_values(factory) -> None:  # type: ignore
         session.commit()
 
     with factory() as session:
-        transactions = session.query(Transaction).filter_by(
-            account_id=account_id
-        ).all()
+        transactions = session.query(Transaction).filter_by(account_id=account_id).all()
         assert len(transactions) == 3
         origins = {t.origin for t in transactions}
         assert origins == {"fints", "csv", "json"}
@@ -614,12 +612,12 @@ def test_transaction_indexes() -> None:  # type: ignore[no-untyped-def]
     index_columns = {tuple(idx["column_names"]) for idx in indexes}
 
     # Prüfe auf Index auf (account_id, booking_date)
-    assert ("account_id", "booking_date") in index_columns, \
+    assert ("account_id", "booking_date") in index_columns, (
         f"Index auf (account_id, booking_date) nicht gefunden. Vorhanden: {index_columns}"
+    )
 
     # Prüfe auf Index auf fingerprint
-    assert ("fingerprint",) in index_columns, \
-        f"Index auf fingerprint nicht gefunden. Vorhanden: {index_columns}"
+    assert ("fingerprint",) in index_columns, f"Index auf fingerprint nicht gefunden. Vorhanden: {index_columns}"
 
 
 def test_transaction_checked_reconciled_timestamps(factory) -> None:  # type: ignore[no-untyped-def]
@@ -704,7 +702,3 @@ def test_transaction_checked_reconciled_timestamps_aware_utc(factory) -> None:  
         expected_utc = datetime(2024, 7, 15, 8, 30, 0, tzinfo=timezone.utc)
         assert transaction.checked_at == expected_utc
         assert transaction.reconciled_at == expected_utc
-
-
-
-

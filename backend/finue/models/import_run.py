@@ -150,9 +150,7 @@ class ImportRunError(Base):
     message: Mapped[str] = mapped_column(Text, nullable=False)
 
     # Constraints: Index für die sortierte Auflistung der Fehler je Lauf
-    __table_args__ = (
-        Index("ix_import_run_error_run_row", "run_id", "row_no"),
-    )
+    __table_args__ = (Index("ix_import_run_error_run_row", "run_id", "row_no"),)
 
     # Bidirektionale Relation zum Lauf
     run: Mapped["ImportRun"] = relationship(

@@ -81,9 +81,7 @@ class Account(Base, VersionedMixin, TimestampMixin):
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
     # Constraint zur Validierung des source-Feldes
-    __table_args__ = (
-        CheckConstraint("source IN ('fints', 'datei')", name="ck_account_source"),
-    )
+    __table_args__ = (CheckConstraint("source IN ('fints', 'datei')", name="ck_account_source"),)
 
     # Bidirektionale Relation zu AccountGroup
     group: Mapped[AccountGroup | None] = relationship(

@@ -1,10 +1,10 @@
 # Status finanzuebersicht
 
-_generated 2026-11-25T19:49:23Z_
+_generated 2026-11-25T20:18:17Z_
 
-Tasks: pending=4, running=0, done=37, failed=0, blocked=0, cancelled=2
+Tasks: pending=0, running=0, done=41, failed=0, blocked=0, cancelled=2
 
-Verified complete: 37/43; retry rate 0.05; learnings 23; events 160
+Verified complete: 41/43; retry rate 0.05; learnings 28; events 173
 
 ## now
 
@@ -12,13 +12,11 @@ Verified complete: 37/43; retry rate 0.05; learnings 23; events 160
 
 ## next
 
-- [ ] T-040 M1: Lint sauber (ruff)
+- (empty)
 
 ## blocked
 
-- [ ] T-041 M1: Typen sauber (mypy strict): waiting on T-040
-- [ ] T-042 M1: Anforderungs-IDs in Tests belegt: waiting on T-041
-- [ ] T-043 M1 Abnahme: waiting on T-009,T-010,T-011,T-012,T-013,T-014,T-015,T-016,T-017,T-018,T-019,T-020,T-021,T-022,T-023,T-024,T-025,T-026,T-027,T-028,T-029,T-030,T-031,T-032,T-033,T-034,T-035,T-036,T-037,T-038,T-039,T-040,T-041,T-042
+- (empty)
 
 ## improve
 
@@ -34,4 +32,7 @@ Verified complete: 37/43; retry rate 0.05; learnings 23; events 160
 - [ ] test_migration_0001.py um alembic.autogenerate.compare_metadata Vergleich erweitern fuer strengere Typ- und FK-Pruefung, nicht nur Tabellen- und Spaltennamen
 - [ ] tests/unit/helpers_migration.py, test_migration_0001.py, test_alembic_config.py bauen Alembic-Config noch ohne configure_logger=False - aktuell folgenlos, da neue Logging-Tests ihren Root-Handler-Zustand selbst sichern, aber bei kuenftigen Logger-abhaengigen Tests potenzielle Testreihenfolge-Kopplung. Bei Gelegenheit vereinheitlichen.
 - [ ] test_smoke.py: expliziten Assert ergaenzen dass die Alembic-Logzeile (logger startswith alembic, Running upgrade) im JSON-Eintrag erscheint - staerkerer direkter Beweis fuer den T-033-Logging-Fix statt nur indirekter Ableitung
+- [ ] Nach Alembic-Autogenerate die neue Migrationsdatei immer mit 'uv run ruff format' formatieren (Post-Generate-Schritt vor dem Commit), damit generierte Dateien den lint-Block von scripts/validate.py nicht rot machen.
+- [ ] scripts/validate.py: Regel ergaenzen, dass jeder '# type: ignore[...]' eine nachgestellte Begruendung tragen muss, sonst Stufe lint rot (verhindert undokumentierte/pauschale ignores, siehe T-041).
+- [ ] scripts/validate.py: IMPLEMENTED['m1'] auf STAGE_M1 kuerzen (run_stage haengt die m0-Kette bereits selbst an), verhindert doppelte Check-Ausgabe bei jeder kuenftigen mN-Stufe
 

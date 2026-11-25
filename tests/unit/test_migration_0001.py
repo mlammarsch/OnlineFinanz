@@ -67,8 +67,7 @@ def test_migration_0001_creates_all_tables(tmp_path: Path) -> None:
         db_tables = set(inspector.get_table_names()) - {"alembic_version"}
 
         assert db_tables == metadata_tables, (
-            f"Tabellen weichen ab: fehlt={metadata_tables - db_tables}, "
-            f"zusaetzlich={db_tables - metadata_tables}"
+            f"Tabellen weichen ab: fehlt={metadata_tables - db_tables}, zusaetzlich={db_tables - metadata_tables}"
         )
 
         for name, table in Base.metadata.tables.items():
@@ -84,14 +83,9 @@ def test_migration_0001_creates_all_tables(tmp_path: Path) -> None:
             for index in inspector.get_indexes(name)
             if index["name"] and not index["name"].startswith("sqlite_autoindex")
         }
-        metadata_indexes = {
-            index.name
-            for table in Base.metadata.tables.values()
-            for index in table.indexes
-        }
+        metadata_indexes = {index.name for table in Base.metadata.tables.values() for index in table.indexes}
         assert db_indexes == metadata_indexes, (
-            f"Indizes weichen ab: fehlt={metadata_indexes - db_indexes}, "
-            f"zusaetzlich={db_indexes - metadata_indexes}"
+            f"Indizes weichen ab: fehlt={metadata_indexes - db_indexes}, zusaetzlich={db_indexes - metadata_indexes}"
         )
     finally:
         engine.dispose()
@@ -112,6 +106,4 @@ def test_migration_0001_downgrade_is_not_supported(tmp_path: Path) -> None:
         remaining = set(inspect(engine).get_table_names()) - {"alembic_version"}
     finally:
         engine.dispose()
-    assert remaining == set(Base.metadata.tables), (
-        "Ein abgebrochener downgrade darf das Schema nicht veraendern"
-    )
+    assert remaining == set(Base.metadata.tables), "Ein abgebrochener downgrade darf das Schema nicht veraendern"

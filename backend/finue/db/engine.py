@@ -46,6 +46,7 @@ def create_db_engine(url: str) -> Engine:
 
     # PRAGMA nur für SQLite setzen
     if is_sqlite:
+
         @event.listens_for(engine, "connect")
         def set_sqlite_pragmas(dbapi_connection: Any, connection_record: Any) -> None:
             """Setzt SQLite-spezifische PRAGMAs für Concurrency und Integrität."""

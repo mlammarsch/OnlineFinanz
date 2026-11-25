@@ -131,9 +131,7 @@ def clear_demo(session: Session) -> None:
     anhand fester Demo-Merkmale erkennbaren Datensätze entfernt, keine
     Fremddaten. Kein rohes SQL (N-DB-01).
     """
-    account_ids = list(
-        session.scalars(select(Account.id).where(Account.name.in_(DEMO_ACCOUNT_NAMES)))
-    )
+    account_ids = list(session.scalars(select(Account.id).where(Account.name.in_(DEMO_ACCOUNT_NAMES))))
     if account_ids:
         session.execute(delete(Transaction).where(Transaction.account_id.in_(account_ids)))
         session.execute(delete(StandingOrder).where(StandingOrder.account_id.in_(account_ids)))

@@ -15,7 +15,8 @@ abgefangen — das ist ein Schutz gegen Programmierfehler, keine Datenbank-Garan
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import JSON, CheckConstraint, ForeignKey, Index, Integer, String, event
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.engine import Connection
+from sqlalchemy.orm import Mapped, Mapper, mapped_column, relationship
 
 from finue.db.base import Base
 from finue.db.mixins import UtcDateTime
@@ -107,7 +108,11 @@ class AuditLog(Base):
 # SQLAlchemy-Event: before_update auf AuditLog verhindern
 # Append-only: Updates sind nicht erlaubt, nur Insert und Delete (bei CASCADE)
 @event.listens_for(AuditLog, "before_update", propagate=True)
-def prevent_audit_log_update(mapper, connection, target):  # type: ignore[no-untyped-def]
+def prevent_audit_log_update(
+    mapper: Mapper[AuditLog],
+    connection: Connection,
+    target: AuditLog,
+) -> None:
     """Verhindert Updates auf AuditLog-Einträge (append-only).
 
     Löschen bleibt möglich wegen CASCADE beim Konto-Löschen. Das ist kein

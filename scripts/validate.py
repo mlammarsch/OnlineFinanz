@@ -7,6 +7,7 @@ Exit 0 nur, wenn alle Pruefungen der Stufe bestehen. Nicht umgesetzte Stufen end
 Stufen m<n> sind kumulativ: m3 prueft auch m1 und m2.
 --list <stufe> gibt Pruefungen ohne Ausfuehrung aus (Exit 0).
 """
+
 from __future__ import annotations
 
 import json
@@ -21,8 +22,18 @@ PROJECT_ID = "finanzuebersicht"
 
 MILESTONES = [f"m{i}" for i in range(0, 11)]
 BLOCKS = [
-    "lint", "types", "unit", "integration", "roundtrip", "smoke", "perf",
-    "e2e", "mcp", "concurrency", "backup", "docker",
+    "lint",
+    "types",
+    "unit",
+    "integration",
+    "roundtrip",
+    "smoke",
+    "perf",
+    "e2e",
+    "mcp",
+    "concurrency",
+    "backup",
+    "docker",
 ]
 
 REQUIRED_FILES = [
@@ -106,7 +117,10 @@ def check_skill_frontmatter() -> Result:
 def check_agents_sections() -> Result:
     text = read("AGENTS.md")
     missing = [s for s in AGENTS_SECTIONS if s not in text]
-    return (not missing, "fehlende Abschnitte: " + ", ".join(missing) if missing else "alle Pflichtabschnitte vorhanden")
+    return (
+        not missing,
+        "fehlende Abschnitte: " + ", ".join(missing) if missing else "alle Pflichtabschnitte vorhanden",
+    )
 
 
 def check_settings() -> Result:
@@ -117,15 +131,26 @@ def check_settings() -> Result:
     perms = cfg.get("permissions", {})
     allow, deny = set(perms.get("allow", [])), set(perms.get("deny", []))
     need_allow = {
-        "Bash(python hx.py *)", "PowerShell(python hx.py *)", "PowerShell(uv run *)", "PowerShell(uv sync*)",
-        "PowerShell(npm run *)", "PowerShell(git add *)", "PowerShell(git commit *)",
+        "Bash(python hx.py *)",
+        "PowerShell(python hx.py *)",
+        "PowerShell(uv run *)",
+        "PowerShell(uv sync*)",
+        "PowerShell(npm run *)",
+        "PowerShell(git add *)",
+        "PowerShell(git commit *)",
     }
     need_deny = {
-        "Read(./.env)", "Read(./.env.*)", "Read(**/*.pem)", "Read(**/*.key)",
+        "Read(./.env)",
+        "Read(./.env.*)",
+        "Read(**/*.pem)",
+        "Read(**/*.key)",
         # git push ist bewusst nicht mehr gesperrt (Owner-Entscheidung); docker push bleibt gesperrt.
-        "Bash(docker push*)", "PowerShell(docker push*)",
+        "Bash(docker push*)",
+        "PowerShell(docker push*)",
     }
-    errors = [f"allow fehlt: {r}" for r in sorted(need_allow - allow)] + [f"deny fehlt: {r}" for r in sorted(need_deny - deny)]
+    errors = [f"allow fehlt: {r}" for r in sorted(need_allow - allow)] + [
+        f"deny fehlt: {r}" for r in sorted(need_deny - deny)
+    ]
     return (not errors, "; ".join(errors) if errors else "Allow- und Deny-Regeln vollstaendig")
 
 
@@ -141,12 +166,19 @@ def check_git() -> Result:
     gitignore = read(".gitignore") if (ROOT / ".gitignore").is_file() else ""
     needed = [".venv/", "node_modules/", "frontend/dist/", "data/", "*.key", ".env*", "test-results/"]
     missing = [n for n in needed if n not in gitignore]
-    return (not missing, ".gitignore ohne: " + ", ".join(missing) if missing else "Git-Repo vorhanden, .gitignore vollstaendig")
+    return (
+        not missing,
+        ".gitignore ohne: " + ", ".join(missing) if missing else "Git-Repo vorhanden, .gitignore vollstaendig",
+    )
 
 
 def check_hx_status() -> Result:
     proc = subprocess.run(
-        [sys.executable, "hx.py", "status", PROJECT_ID], cwd=ROOT, capture_output=True, text=True, encoding="utf-8",
+        [sys.executable, "hx.py", "status", PROJECT_ID],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
     )
     return proc.returncode == 0, f"hx.py status Exit {proc.returncode}"
 
@@ -171,23 +203,23 @@ def run_external(cmd: list[str]) -> Result:
 
 
 def check_lint() -> Result:
-    """ruff: Code-Stil und Fehler prueben."""
-    return run_external([sys.executable, "-m", "uv", "run", "ruff", "check", "backend", "tests"])
+    """ruff: Code-Stil und Fehler pruefen."""
+    return run_external(["uv", "run", "ruff", "check", "backend", "tests", "scripts"])
 
 
 def check_types() -> Result:
     """mypy: Typ-Pruefung fuer backend/."""
-    return run_external([sys.executable, "-m", "uv", "run", "mypy", "backend"])
+    return run_external(["uv", "run", "mypy", "backend"])
 
 
 def check_unit() -> Result:
     """pytest: Unit-Tests."""
-    return run_external([sys.executable, "-m", "uv", "run", "pytest", "tests/unit", "-q"])
+    return run_external(["uv", "run", "pytest", "tests/unit", "-q"])
 
 
 def check_smoke() -> Result:
     """pytest: Smoke-Tests (Integration)."""
-    return run_external([sys.executable, "-m", "uv", "run", "pytest", "-m", "smoke", "tests/integration", "-q"])
+    return run_external(["uv", "run", "pytest", "-m", "smoke", "tests/integration", "-q"])
 
 
 STAGE_M0: list[tuple[str, Callable[[], Result]]] = [

@@ -85,9 +85,7 @@ class BackupJob(Base, VersionedMixin, TimestampMixin):
     smb_host: Mapped[str | None] = mapped_column(String(255), nullable=True)
     smb_share: Mapped[str | None] = mapped_column(String(255), nullable=True)
     smb_user: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    smb_password_encrypted: Mapped[bytes | None] = mapped_column(
-        LargeBinary, nullable=True
-    )
+    smb_password_encrypted: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
 
     # Zeitplan: Uhrzeit des täglichen Laufs und optionale Wochentage (F-BAK-05)
     schedule_time: Mapped[time] = mapped_column(Time, nullable=False)
