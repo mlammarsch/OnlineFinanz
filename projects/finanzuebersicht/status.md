@@ -1,46 +1,40 @@
 # Status finanzuebersicht
 
-_generated 2026-11-26T19:44:27Z_
+_generated 2026-11-26T20:30:22Z_
 
-Tasks: pending=25, running=1, done=82, failed=0, blocked=3, cancelled=4
+Tasks: pending=22, running=0, done=86, failed=0, blocked=3, cancelled=4
 
-Verified complete: 82/115; retry rate 0.04; learnings 73; events 408
+Verified complete: 86/115; retry rate 0.04; learnings 75; events 420
 
 ## now
 
-- [ ] T-085 M4: Migration 0003 Schema-Ergaenzungen (Herkunft Kennzeichen, Bank-Icon/Version, Exportprofile, Indizes) (owner builder)
+- (empty)
 
 ## next
 
-- [ ] T-102 M4: Sitzungsuebersicht und Abmelden einzelner Sitzungen im Backend (F-CON-06)
-- [ ] T-111 M4 T-099-A: DB-Session-Freigabe waehrend der TAN-Pause im SyncService (N-DB-04)
+- [ ] T-089 M4: Konto loeschen mit vollstaendiger Bereinigung (F-KTO-07)
+- [ ] T-090 M4: Banken-Stammdaten und Icon-Upload (F-KTO-10, F-KTO-11)
+- [ ] T-092 M4: Such- und Filterabfrage als gemeinsamer Baustein plus Such-API (F-SUC-01..07, F-ABS-04/05)
+- [ ] T-095 M4: Abstimmungsuebersicht je Konto und Gruppe (F-ABS-03)
+- [ ] T-100 M4: REST fuer Datei-Import, Importvorlagen, Lauf-Protokoll und lesende Auftraege
 
 ## blocked
 
 - [ ] T-094 M4: Kennzeichen, Notiz, externe Referenz und Batch mit Setz-Semantik und Versionspruefung (F-ABS-01/02/05/06, F-CON-01..03): Abschlusstask: Umsetzung in T-108,T-109,T-110. Freigabe (task-set pending) erst wenn alle drei done; dann nur Gesamtverifikation, kein Neubau
 - [ ] T-099 M4: Sync-REST mit TAN-Endpunkten und DB-Session-Freigabe waehrend der TAN-Pause: Abschlusstask: Umsetzung in T-111,T-112. Freigabe (task-set pending) erst wenn beide done; dann nur Gesamtverifikation, kein Neubau
 - [ ] T-106 M4: API-E2E-Szenario gegen echten Uvicorn-Prozess mit Fake-Bank und SSE: Abschlusstask: Szenarien in T-113,T-115. Freigabe (task-set pending) erst wenn beide done; Rest: validate.py Check api-e2e, 3x gruen
-- [ ] T-087 M4: Suchspalte pflegen (search_text bei Import, Sync, Vormerkung) und Backfill-Migration 0004: waiting on T-085
-- [ ] T-088 M4: Konten und Gruppen - Service und API (F-KTO-01..04, F-KTO-05b, F-KTO-06): waiting on T-085,T-086
-- [ ] T-089 M4: Konto loeschen mit vollstaendiger Bereinigung (F-KTO-07): waiting on T-088
-- [ ] T-090 M4: Banken-Stammdaten und Icon-Upload (F-KTO-10, F-KTO-11): waiting on T-088
 - [ ] T-091 M4: FinTS-Anlage-Assistent im Backend (F-KTO-05a): waiting on T-088,T-099
-- [ ] T-092 M4: Such- und Filterabfrage als gemeinsamer Baustein plus Such-API (F-SUC-01..07, F-ABS-04/05): waiting on T-086,T-087
 - [ ] T-093 M4: Buchungsliste mit Vormerkungen, Tagessalden, Gruppenansicht und Keyset-Paginierung (F-BUC-01..06): waiting on T-088,T-092
-- [ ] T-095 M4: Abstimmungsuebersicht je Konto und Gruppe (F-ABS-03): waiting on T-085,T-088
 - [ ] T-096 M4: Aufloesung von Verdachtsdubletten - Zusammenfuehren, Rueckgaengig, Ignorieren (F-DUP-05): waiting on T-094
 - [ ] T-097 M4: Export-Service JSON und Markdown mit Umfang, Filter und Dateiname (F-EXP-01, 02, 04, 05): waiting on T-092,T-085
 - [ ] T-098 M4: CSV-Export mit Optionen, Exportprofilen und passender Importvorlage (F-EXP-03, F-EXP-06): waiting on T-097
-- [ ] T-100 M4: REST fuer Datei-Import, Importvorlagen, Lauf-Protokoll und lesende Auftraege: waiting on T-086,T-087,T-085
 - [ ] T-101 M4: Aenderungsbenachrichtigung per Server-Sent Events /api/events (F-CON-04): waiting on T-086,T-099
 - [ ] T-103 M4: Performance-Block mit 100.000 Buchungen (N-PERF-01, F-BUC-06): waiting on T-093
 - [ ] T-104 M4: Concurrency-Block (F-CON-01..05, N-DB-04): waiting on T-088,T-094,T-099,T-101
 - [ ] T-105 M4: Roundtrip-Block erweitern (Mehrkonto-JSON, CSV mit Vorlage, alle Schema-Versionen) (F-EXP-06/07, F-ABS-06): waiting on T-094,T-096,T-098,T-100
 - [ ] T-107 M4: Abnahme und Aufraeumen (validate.py m4 inkl. roundtrip, perf, concurrency, api-e2e): waiting on T-084,T-085,T-086,T-087,T-088,T-089,T-090,T-091,T-092,T-093,T-094,T-095,T-096,T-097,T-098,T-099,T-100,T-101,T-102,T-103,T-104,T-105,T-106
-- [ ] T-108 M4 T-094-A: Edit-Service Kern, Abstimmen/Pruefen (Setz-Semantik) und Buchungsdetail (F-ABS-01/02, F-CON-01/02): waiting on T-086,T-087
 - [ ] T-109 M4 T-094-B: Notiz ersetzen/anhaengen und externe Referenz (F-CON-01/02, F-ABS-05): waiting on T-108
 - [ ] T-110 M4 T-094-C: Batch mit Ergebnis je Buchung und Regression Sync/Re-Import (F-CON-03, F-ABS-02/06, F-CON-05): waiting on T-109
-- [ ] T-112 M4 T-099-B: Sync-REST, Runner, TAN-Endpunkte, Waechter, Protokoll, Ereignisse: waiting on T-111
 - [ ] T-113 M4 T-106-A: API-E2E Rahmen und Szenario Teil 1 (Konten, Import, Liste, Suche, Kennzeichen, Abstimmung, Archiv, Icon): waiting on T-088,T-090,T-093,T-095,T-100,T-101,T-110
 - [ ] T-115 M4 T-106-B: API-E2E Szenario Teil 2 (FinTS-Assistent, Sync mit TAN und SSE, Dubletten, Export, Loeschen, Sitzungen, Leckage-Scan): waiting on T-113,T-089,T-091,T-096,T-098,T-102,T-112
 
@@ -70,9 +64,13 @@ Verified complete: 82/115; retry rate 0.04; learnings 73; events 408
 - [ ] sync_service/9800: SPEC F-SYN-06 fuehrt 9800 als wiederholbar, der Adapter meldet es laut T-060 als PinWrongError. Der dokumentierte Shim in `_fetch_with_retry` loest das zur Laufzeit; langfristig Adapter-Einstufung, Fake-Skript `consors_9800` und T-060-Beleglage in `decisions.md` mit SPEC F-SYN-05/06 in Uebereinstimmung bringen.
 - [ ] T-075: die HKCDB/HKCSB-Erweiterung unterstuetzt nur Segmentversion 1. Vor dem Owner-Live-Test HKCDB2/HICDB2 (DauerDetails4 mit optionaler Ausfuehrungszeit) aus `hbci-300.xml` ergaenzen, sonst fallen Banken, die nur Version 2 anbieten, auf `unsupported` zurueck. Dabei `_find_highest_supported_command(HKCDB1, HKCDB2)` und einen gemischten Versionstest ergaenzen.
 - [ ] T-075: loest HKCDB selbst eine TAN aus, wird HKCSB nach der Freigabe nicht mehr im selben Aufruf gelesen. Ein Resume-Hook oder ein automatischer Folgeabruf sollte beide Auftragsarten in einem Sync liefern; aktuell holt der naechste Sync HKCSB nach.
-- [ ] SyncService haelt die DB-Session waehrend einer TAN-Pause bis zu 5 Minuten offen; vor dem API-Betrieb Session an der Pause schliessen und nach Resume neu oeffnen, damit keine Verbindung blockiert.
 - [ ] hx.py: Befehl task-deps (depends_on bestehender Tasks aendern) und Bedingung cancelled/superseded als erfuellte Abhaengigkeit ergaenzen
 - [ ] backend/finue/api/health.py nutzt fuer `scheduler_required` weiterhin das globale `get_settings()` statt der in `create_app` injizierten Settings; in Tests mit eigenen Settings kann die Readiness dadurch von der App-Konfiguration abweichen. Bei Gelegenheit `app.state.services.settings` verwenden (T-086-Fund).
 - [ ] Vertragstest: FastAPI 0.165 bindet Router verschachtelt ein (`_IncludedRouter` mit `original_router`), daher muss `tests/unit/test_api_contract.py` die Routen rekursiv einsammeln. Bei einem FastAPI-Sprung die Hilfsfunktion `_iter_api_routes` pruefen (T-086).
 - [ ] helpers_migration.upgrade_preserves_data um eine Child-Table-Pruefung erweitern (Batch-Umbau darf Kindzeilen nicht loeschen), sobald eine zweite Tabelle mit FK-Kindern in einem Batch umgebaut wird.
+- [ ] search_text: F-SUC-06 nennt "LIKE auf einer normalisierten Suchspalte plus Indizes". Ein Btree-Index hilft bei `LIKE '%begriff%'` (fuehrendes Wildcard) nicht. Im Perf-Block T-103 (100.000 Buchungen) die Suche messen und erst dann entscheiden, ob eine eigene Index-/Strategiestufe noetig ist; bis dahin keine unnuetze Indexmigration.
+- [ ] Migration 0004 enthaelt eine eingefrorene Kopie der Suchtext-Normalisierung; `tests/unit/test_search_text.py::TestMigrationParity` erzwingt die Gleichheit mit `services/search_text.py`. Bei jeder inhaltlichen Aenderung der Laufzeitregel (Felder, Reihenfolge, casefold/Umlaute) bewerten: bestehende Migration unveraendert lassen, ein erneuter Backfill braucht eine neue Migration.
+- [ ] T-112 (Sync-REST/Runner): denselben Vertrag einhalten - im Runner-/Event-Zustand ueber eine Pause nur IDs/Werte halten, keine DB-Session/ORM-Objekte; im Runner-Test die Pool-Pruefung (Engine.pool.checkedout()==0) waehrend AWAITING_TAN wiederholen.
+- [ ] T-088 Fund (API-Struktur): FastAPI 0.165 setzt bei verschachtelten include_router das Elternpraefix NICHT in APIRoute.path; deshalb bringt jeder Fachrouter prefix="/api" und require_user selbst mit (siehe decisions.md T-088). Neue Fachrouter im selben Muster anlegen, sonst findet der Vertragstest die Pfade nicht.
+- [ ] T-088 Fund (Modell-Typisierung): Account.balance_at ist als Mapped[UtcDateTime | None] deklariert (statt Mapped[datetime | None] wie in TimestampMixin); Schreibzugriffe brauchen daher setattr/cast-Umwege (services/accounts.py, api-DTO). Ebenso ImportRun.finished_at. Annotationen an das Mixin-Muster angleichen, dann entfallen die Umwege.
 

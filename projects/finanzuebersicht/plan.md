@@ -125,3 +125,37 @@ Hinweise:
 - Owner-Eingabe offen: Finanzblick-CSV-Beispiel fuer das Standard-Exportprofil (T-098 baut bis dahin unbelegt).
 - Routing wie M3: Builder DeepSeek V4.1 Flash (Effort max), Verifier Claude Sonnet 5.5 (Effort medium) fuer alle
   medium-Tasks; T-084 und T-102 sind low und schliessen nach gruenem Verifikationsbefehl ab.
+
+## M4-Entlastung (Planer, 2026-11-26)
+
+Ziel: Builder (DeepSeek Flash) entlasten, ohne laufende Tasks T-085/T-086 oder Implementierungsdateien anzufassen.
+Die CLI kann `depends_on` bestehender Tasks nicht aendern. Darum bleiben T-094, T-099 und T-106 als **Abschlusstasks**
+(Status `blocked`, damit sie nicht geclaimt werden; alle Abhaengigen T-091/096/101/104/105/107 bleiben korrekt verdrahtet).
+Neue Etappentasks tragen die Umsetzung.
+
+| Abschlusstask | Etappen (Reihenfolge, Abhaengigkeiten) | Risiko | Verifier |
+|---|---|---|---|
+| T-094 | T-108 (Kern, checked/reconciled, Detail; dep T-086,T-087) -> T-109 (Notiz, externe Referenz) -> T-110 (Batch, Regression F-ABS-06) | je medium | je Etappe fokussiert auf Etappen-DoD |
+| T-099 | T-111 (Session-Freigabe an der TAN-Pause; dep T-086) -> T-112 (REST, Runner, Waechter, Protokoll, Events) | je medium | je Etappe fokussiert; Leckage-Scan in T-112 |
+| T-106 | T-113 (Rahmen + Szenario A; dep T-088,T-090,T-093,T-095,T-100,T-101,T-110) -> T-115 (Szenario B; dep T-113,T-089,T-091,T-096,T-098,T-102,T-112) | je low (nur Testcode) | nur auf Anforderung; Abschluss-Review bei T-106 |
+
+T-114 ist eine versehentlich angelegte Platzhalter-Task (cancelled), ersetzt durch T-115.
+
+Freigabeverfahren Abschlusstask (Lead): sind alle Etappen `done`, `python hx.py task-set finanzuebersicht <T> pending`, dann
+claimen. Der Abschlusstask baut nichts neu: er fuehrt seinen unveraenderten Verifikationsplan aus (Gesamttests, ruff, mypy),
+bei T-106 ergaenzt er `scripts/validate.py` (Check api-e2e in STAGE_M4, drei gruene Laeufe hintereinander, unter 3 Minuten).
+Verifier des Abschlusstasks prueft nur Integration und Querschnitt (Checkliste AGENTS.md), nicht erneut die Etappendiffs.
+Der urspruengliche DoD-Text der Abschlusstasks ist die Summe der Etappen-DoDs und gilt fuer die Abnahme weiter.
+Solange ein Abschlusstask `blocked` bleibt, wartet T-107 korrekt; T-091, T-101, T-104 warten auf T-099 (Abschluss),
+T-096, T-104, T-105 auf T-094 (Abschluss).
+
+Beobachtung ohne Teilung (nicht angelegt):
+- T-097 (Export JSON/Markdown): Beobachtung. Teilung nur, wenn Versuch 1 fehlschlaegt oder der Builder den Kontext
+  sprengt. Vorbereiteter Schnitt: (a) JSON-Export + Schema-Validierung + Dateiname, (b) Markdown + POST /api/export.
+- T-098 (CSV-Export, Profile, Vorlage): Beobachtung. Vorbereiteter Schnitt: (a) CSV-Optionen, Kodierungen,
+  Formel-Injection-Entscheidung, (b) Profile-CRUD, Standardprofil, Importvorlage, Roundtrip-Test.
+  Bei Teilung gilt dasselbe Muster (Original wird Abschlusstask, Freigabe durch den Lead), weil T-098/T-105 verdrahtet bleiben.
+- Gemeinsames Risiko beider: Datei `services/export.py` wird von T-097 und T-098 nacheinander geaendert (kein Parallelbetrieb).
+
+Parallelitaet nach der Zerlegung: T-111 startet schon nach T-086 und laeuft parallel zu T-108; T-108 braucht T-087.
+`scripts/validate.py` aendern weiterhin nur T-084, T-103, T-104, T-105 und T-106 (nicht die Etappen T-113/T-115).

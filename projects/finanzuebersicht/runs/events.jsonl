@@ -406,3 +406,15 @@
 {"ts": "2026-11-26T19:42:05Z", "kind": "learn", "gaps": ["bad-decomposition"], "task": null, "improve": true}
 {"ts": "2026-11-26T19:44:13Z", "kind": "task.verify", "task": "T-086", "ok": true, "status": "done", "attempts": 1}
 {"ts": "2026-11-26T19:44:27Z", "kind": "learn", "gaps": [], "task": "T-085", "improve": true}
+{"ts": "2026-11-26T19:52:49Z", "kind": "task.verify", "task": "T-085", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-26T19:53:43Z", "kind": "task.claim", "task": "T-111", "worker": "builder"}
+{"ts": "2026-11-26T19:54:17Z", "kind": "task.claim", "task": "T-087", "worker": "builder-t087"}
+{"ts": "2026-11-26T19:55:00Z", "kind": "task.set", "task": "T-111", "status": "pending"}
+{"ts": "2026-11-26T19:55:00Z", "kind": "task.claim", "task": "T-111", "worker": "builder"}
+{"ts": "2026-11-26T19:55:13Z", "kind": "task.set", "task": "T-111", "status": "pending"}
+{"ts": "2026-11-26T19:55:13Z", "kind": "task.claim", "task": "T-088", "worker": "builder"}
+{"ts": "2026-11-26T20:00:47Z", "kind": "task.claim", "task": "T-111", "worker": "builder-deepseek"}
+{"ts": "2026-11-26T20:16:04Z", "kind": "learn", "gaps": [], "task": "T-111", "improve": true}
+{"ts": "2026-11-26T20:16:43Z", "kind": "task.verify", "task": "T-111", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-26T20:30:03Z", "kind": "task.verify", "task": "T-087", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-26T20:30:17Z", "kind": "task.verify", "task": "T-088", "ok": true, "status": "done", "attempts": 1}
