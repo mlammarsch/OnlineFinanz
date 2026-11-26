@@ -1,0 +1,12 @@
+{
+  "task": "T-044",
+  "ts": "2026-11-26T10:34:40Z",
+  "ok": true,
+  "results": [
+    {
+      "cmd": "python scripts/validate.py m2",
+      "exit": 0,
+      "out": "# validate.py m2\n\n[OK] m0: Pflichtdateien - 18 Dateien vorhanden\n[OK] m0: Skill-Frontmatter - gueltig (description 458 Zeichen)\n[OK] m0: AGENTS.md Pflichtabschnitte - alle Pflichtabschnitte vorhanden\n[OK] m0: settings.json Rechte - Allow- und Deny-Regeln vollstaendig\n[OK] m0: plan.md Milestones - plan.md enthaelt M0 bis M10\n[OK] m0: Git-Repo - Git-Repo vorhanden, .gitignore vollstaendig\n[OK] m0: hx.py status - hx.py status Exit 0\n[OK] m1: Pflichtdateien - 18 Dateien vorhanden\n[OK] m1: Skill-Frontmatter - gueltig (description 458 Zeichen)\n[OK] m1: AGENTS.md Pflichtabschnitte - alle Pflichtabschnitte vorhanden\n[OK] m1: settings.json Rechte - Allow- und Deny-Regeln vollstaendig\n[OK] m1: plan.md Milestones - plan.md enthaelt M0 bis M10\n[OK] m1: Git-Repo - Git-Repo vorhanden, .gitignore vollstaendig\n[OK] m1: hx.py status - hx.py status Exit 0\n[OK] m1: lint (ruff) - All checks passed!\n[OK] m1: types (mypy) - Success: no issues found in 30 source files\n[OK] m1: unit (pytest) - 401 passed, 1 warning in 17.42s\n[OK] m1: smoke (pytest) - 1 passed, 1 warning in 1.81s\n\nErgebnis: bestanden\n"
+    }
+  ]
+}

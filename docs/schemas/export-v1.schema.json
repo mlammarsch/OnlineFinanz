@@ -1,0 +1,338 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:finanzuebersicht:export:v1",
+  "title": "Finanzuebersicht JSON-Export v1",
+  "description": "Eigenes, verlustfreies JSON-Exportformat der Finanzuebersicht (F-EXP-04). Enthaelt nur Kontostammdaten, keine Zugangsdaten, PINs, TANs oder Bankzugaenge. Betraege sind Dezimal-Strings mit Punkt, Datumswerte ISO JJJJ-MM-TT, Zeitstempel ISO 8601 mit Zeitzone.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "version",
+    "created_at",
+    "filter",
+    "period",
+    "accounts",
+    "transactions"
+  ],
+  "properties": {
+    "format": {
+      "description": "Konstanter Formatname.",
+      "const": "finanzuebersicht"
+    },
+    "version": {
+      "description": "Formatversion, beginnt bei 1. Neuere Versionen als die der App werden beim Import abgelehnt (F-EXP-07).",
+      "const": 1
+    },
+    "created_at": {
+      "description": "Erstellungszeitpunkt des Exports als ISO-8601-Zeitstempel mit Zeitzone.",
+      "type": "string",
+      "format": "date-time"
+    },
+    "filter": {
+      "$ref": "#/$defs/filter"
+    },
+    "period": {
+      "$ref": "#/$defs/period"
+    },
+    "accounts": {
+      "description": "Kontostammdaten der im Export enthaltenen Konten, ohne Zugangsdaten.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/account"
+      }
+    },
+    "transactions": {
+      "description": "Alle Buchungen des Exports mit vollstaendigem Status, Notiz, Pruef- und Abstimmungskennzeichen.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/transaction"
+      }
+    }
+  },
+  "$defs": {
+    "filter": {
+      "description": "Beschreibt, worauf der Export eingeschraenkt wurde. 'all' bedeutet ohne Einschraenkung.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scope"],
+      "properties": {
+        "scope": {
+          "type": "string",
+          "enum": ["all", "account", "group", "search", "selection"]
+        },
+        "account_ids": {
+          "type": ["array", "null"],
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "uniqueItems": true
+        },
+        "group_ids": {
+          "type": ["array", "null"],
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "uniqueItems": true
+        },
+        "transaction_ids": {
+          "type": ["array", "null"],
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "uniqueItems": true
+        },
+        "search": {
+          "type": ["string", "null"]
+        },
+        "checked": {
+          "description": "Filter auf das Pruef-Kennzeichen; null bedeutet keine Einschraenkung.",
+          "type": ["boolean", "null"]
+        },
+        "reconciled": {
+          "description": "Filter auf das Abstimmungs-Kennzeichen; null bedeutet keine Einschraenkung.",
+          "type": ["boolean", "null"]
+        },
+        "with_note": {
+          "description": "Filter auf Buchungen mit Notiz; null bedeutet keine Einschraenkung.",
+          "type": ["boolean", "null"]
+        }
+      }
+    },
+    "period": {
+      "description": "Zeitraum des Exports. Beide Grenzen sind inklusive; null bedeutet offen.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start", "end"],
+      "properties": {
+        "start": {
+          "type": ["string", "null"],
+          "format": "date"
+        },
+        "end": {
+          "type": ["string", "null"],
+          "format": "date"
+        }
+      }
+    },
+    "account": {
+      "description": "Kontostammdaten ohne Zugangsdaten. Bewusst nicht enthalten: PIN, Login, TAN-Verfahren, Bankzugang.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "iban", "currency", "account_type"],
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        },
+        "iban": {
+          "type": ["string", "null"],
+          "pattern": "^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$",
+          "maxLength": 34
+        },
+        "currency": {
+          "description": "ISO-4217-Waehrungscode, drei Grossbuchstaben.",
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "account_type": {
+          "type": ["string", "null"],
+          "maxLength": 50
+        }
+      }
+    },
+    "transaction": {
+      "description": "Eine Buchung. Der Betrag ist ein Dezimal-String mit Punkt und genau zwei Nachkommastellen, z. B. '-48.83'.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "account_id",
+        "status",
+        "booking_date",
+        "value_date",
+        "counterparty",
+        "counterparty_iban",
+        "purpose",
+        "note",
+        "checked",
+        "checked_at",
+        "checked_origin",
+        "reconciled",
+        "reconciled_at",
+        "reconciled_origin",
+        "origin",
+        "external_ref",
+        "fingerprint",
+        "occurrence_index",
+        "merged",
+        "amount",
+        "currency"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "account_id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "status": {
+          "type": "string",
+          "enum": ["gebucht", "vorgemerkt"]
+        },
+        "booking_date": {
+          "type": "string",
+          "format": "date"
+        },
+        "value_date": {
+          "type": ["string", "null"],
+          "format": "date"
+        },
+        "counterparty": {
+          "type": ["string", "null"]
+        },
+        "counterparty_iban": {
+          "type": ["string", "null"],
+          "maxLength": 34
+        },
+        "purpose": {
+          "type": ["string", "null"]
+        },
+        "note": {
+          "type": ["string", "null"]
+        },
+        "checked": {
+          "type": "boolean"
+        },
+        "checked_at": {
+          "description": "Zeitpunkt der letzten Aenderung des Pruef-Kennzeichens; null wenn nie gesetzt.",
+          "type": ["string", "null"],
+          "format": "date-time"
+        },
+        "checked_origin": {
+          "description": "Herkunft der letzten Aenderung des Pruef-Kennzeichens.",
+          "type": ["string", "null"],
+          "enum": ["ui", "mcp", "import", null]
+        },
+        "reconciled": {
+          "type": "boolean"
+        },
+        "reconciled_at": {
+          "description": "Zeitpunkt der letzten Aenderung des Abstimmungs-Kennzeichens; null wenn nie gesetzt.",
+          "type": ["string", "null"],
+          "format": "date-time"
+        },
+        "reconciled_origin": {
+          "description": "Herkunft der letzten Aenderung des Abstimmungs-Kennzeichens.",
+          "type": ["string", "null"],
+          "enum": ["ui", "mcp", "import", null]
+        },
+        "origin": {
+          "description": "Herkunft der Buchung.",
+          "type": "string",
+          "enum": ["fints", "csv", "json"]
+        },
+        "external_ref": {
+          "type": ["string", "null"],
+          "maxLength": 255
+        },
+        "fingerprint": {
+          "description": "SHA-256-Fingerprint als Hex, dient dem verlustfreien Re-Import und der Dublettenkennung.",
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{64}$"
+        },
+        "occurrence_index": {
+          "description": "Vorkommen-Index gleicher Fingerprints innerhalb eines Kontos.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "merged": {
+          "description": "Markierung fuer eine zusammengefuehrte Buchung (F-DUP-04).",
+          "type": "boolean"
+        },
+        "amount": {
+          "description": "Betrag als Dezimal-String mit Punkt und genau zwei Nachkommastellen, z. B. '-48.83'.",
+          "type": "string",
+          "pattern": "^-?\\d+\\.\\d{2}$"
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": ["checked"],
+            "properties": {
+              "checked": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "required": ["checked_at", "checked_origin"],
+            "properties": {
+              "checked_at": {
+                "type": "string"
+              },
+              "checked_origin": {
+                "type": "string"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "checked_at": {
+                "type": "null"
+              },
+              "checked_origin": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["reconciled"],
+            "properties": {
+              "reconciled": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "required": ["reconciled_at", "reconciled_origin"],
+            "properties": {
+              "reconciled_at": {
+                "type": "string"
+              },
+              "reconciled_origin": {
+                "type": "string"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "reconciled_at": {
+                "type": "null"
+              },
+              "reconciled_origin": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

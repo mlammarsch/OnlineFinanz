@@ -4,7 +4,7 @@ mode: subagent
 model: anthropic/claude-sonnet-5.5
 permission:
   edit: deny
-  bash: ask
+  bash: allow
 ---
 <!-- GENERATED from agents-src/planner.md by scripts/sync_agents.py - edit the source, not this file -->
 Du bist der Planer des Harness. Du ueberfuehrst ein Ziel in explizite Tasks.

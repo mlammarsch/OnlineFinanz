@@ -171,3 +171,42 @@
 {"ts": "2026-11-25T20:17:31Z", "kind": "task.verify", "task": "T-043", "ok": true, "status": "done", "attempts": 1}
 {"ts": "2026-11-25T20:17:47Z", "kind": "learn", "gaps": [], "task": "T-043", "improve": false}
 {"ts": "2026-11-25T20:18:13Z", "kind": "learn", "gaps": ["bad-verification"], "task": "T-043", "improve": true}
+{"ts": "2026-11-25T20:33:23Z", "kind": "task.add", "task": "T-044", "goal": "G-003"}
+{"ts": "2026-11-25T20:33:55Z", "kind": "task.add", "task": "T-045", "goal": "G-003"}
+{"ts": "2026-11-25T20:33:56Z", "kind": "task.add", "task": "T-046", "goal": "G-003"}
+{"ts": "2026-11-25T20:33:56Z", "kind": "task.add", "task": "T-047", "goal": "G-003"}
+{"ts": "2026-11-25T20:34:11Z", "kind": "task.add", "task": "T-048", "goal": "G-003"}
+{"ts": "2026-11-25T20:34:12Z", "kind": "task.add", "task": "T-049", "goal": "G-003"}
+{"ts": "2026-11-25T20:34:24Z", "kind": "task.add", "task": "T-050", "goal": "G-003"}
+{"ts": "2026-11-25T20:34:43Z", "kind": "task.add", "task": "T-051", "goal": "G-003"}
+{"ts": "2026-11-25T20:34:43Z", "kind": "task.add", "task": "T-052", "goal": "G-003"}
+{"ts": "2026-11-25T20:35:24Z", "kind": "task.add", "task": "T-053", "goal": "G-003"}
+{"ts": "2026-11-25T20:35:37Z", "kind": "task.add", "task": "T-054", "goal": "G-003"}
+{"ts": "2026-11-25T20:35:46Z", "kind": "task.add", "task": "T-055", "goal": "G-003"}
+{"ts": "2026-11-25T20:36:06Z", "kind": "task.add", "task": "T-056", "goal": "G-003"}
+{"ts": "2026-11-25T20:36:06Z", "kind": "task.add", "task": "T-057", "goal": "G-003"}
+{"ts": "2026-11-25T20:36:26Z", "kind": "task.add", "task": "T-058", "goal": "G-003"}
+{"ts": "2026-11-25T20:36:26Z", "kind": "task.add", "task": "T-059", "goal": "G-003"}
+{"ts": "2026-11-26T10:31:11Z", "kind": "task.claim", "task": "T-044", "worker": "builder"}
+{"ts": "2026-11-26T10:34:40Z", "kind": "task.verify", "task": "T-044", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-26T10:37:13Z", "kind": "learn", "gaps": [], "task": "T-044", "improve": false}
+{"ts": "2026-11-26T10:40:50Z", "kind": "task.claim", "task": "T-045", "worker": "builder-t045"}
+{"ts": "2026-11-26T10:40:54Z", "kind": "task.claim", "task": "T-048", "worker": "builder-t048"}
+{"ts": "2026-11-26T10:40:58Z", "kind": "task.claim", "task": "T-050", "worker": "builder-t050"}
+{"ts": "2026-11-26T10:44:32Z", "kind": "task.verify", "task": "T-045", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-26T10:45:38Z", "kind": "task.verify", "task": "T-050", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-26T10:45:56Z", "kind": "task.verify", "task": "T-048", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-26T10:48:50Z", "kind": "learn", "gaps": [], "task": "T-045", "improve": false}
+{"ts": "2026-11-26T10:48:55Z", "kind": "learn", "gaps": [], "task": "T-050", "improve": false}
+{"ts": "2026-11-26T10:51:24Z", "kind": "task.claim", "task": "T-052", "worker": "builder-t046"}
+{"ts": "2026-11-26T10:51:37Z", "kind": "task.claim", "task": "T-049", "worker": "builder-t051"}
+{"ts": "2026-11-26T10:51:41Z", "kind": "task.claim", "task": "T-051", "worker": "builder-t049"}
+{"ts": "2026-11-26T10:51:45Z", "kind": "task.claim", "task": "T-046", "worker": "builder-t052"}
+{"ts": "2026-11-26T10:54:19Z", "kind": "task.verify", "task": "T-052", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-26T10:54:45Z", "kind": "task.verify", "task": "T-051", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-26T10:55:25Z", "kind": "learn", "gaps": [], "task": "T-052", "improve": false}
+{"ts": "2026-11-26T10:55:31Z", "kind": "task.verify", "task": "T-046", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-26T10:55:55Z", "kind": "learn", "gaps": [], "task": "T-051", "improve": false}
+{"ts": "2026-11-26T10:56:05Z", "kind": "task.verify", "task": "T-049", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-26T10:56:41Z", "kind": "learn", "gaps": [], "task": "T-046", "improve": false}
+{"ts": "2026-11-26T10:57:14Z", "kind": "learn", "gaps": [], "task": "T-049", "improve": false}

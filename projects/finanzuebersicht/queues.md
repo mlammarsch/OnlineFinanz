@@ -6,11 +6,17 @@
 
 ## next
 
-- (empty)
+- [ ] T-047 M2: Verdachtsdubletten-Erkennung (F-DUP-03)
+- [ ] T-056 M2: Mapping-Vorlagen speichern und vorschlagen (F-IMP-05)
+- [ ] T-057 M2: PayPal-Hilfszeilen-Filter (F-IMP-08)
 
 ## blocked
 
-- (empty)
+- [ ] T-053 M2: Import-Vorschau-Service (F-IMP-06): waiting on T-047,T-049,T-051
+- [ ] T-054 M2: Import-Durchfuehrung mit ImportRun-Protokoll (F-IMP-06, F-SYN-07): waiting on T-053
+- [ ] T-055 M2: Uebernahme von Notiz/geprueft/abgestimmt/externe Referenz bei Re-Import (F-IMP-07): waiting on T-054
+- [ ] T-058 M2: roundtrip-Block (Import-Teil) in validate.py verdrahten: waiting on T-051,T-052,T-054
+- [ ] T-059 M2: Abnahme (validate.py m2 inkl. roundtrip Import-Teil): waiting on T-044,T-045,T-046,T-047,T-048,T-049,T-050,T-051,T-052,T-053,T-054,T-055,T-056,T-057,T-058
 
 ## improve
 

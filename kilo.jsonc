@@ -4,14 +4,50 @@
   // Agents liegen unter .kilo/agents (builder, planner, verifier aus dem Harness kopiert, Lead projekteigen).
   "permission": {
     "read": {
-      "*": "allow",
       "**/.env": "deny",
       "**/.env.*": "deny",
       "**/*.pem": "deny",
-      "**/*.key": "deny"
+      "**/*.key": "deny",
+      "*": "allow"
+    },
+    // Normale Implementierungsarbeit laeuft ohne Rueckfrage.
+    // Sensible Dateien werden vor jeder Aenderung bestaetigt.
+    "edit": {
+      "**/.env": "deny",
+      "**/.env.*": "deny",
+      "**/*.pem": "deny",
+      "**/*.key": "deny",
+      "SPEC.md": "ask",
+      "AGENTS.md": "ask",
+      "kilo.json": "ask",
+      "kilo.jsonc": "ask",
+      "**/security/**": "ask",
+      "**/*security*": "ask",
+      "**/auth/**": "ask",
+      "**/*auth*": "ask",
+      "**/*backup*": "ask",
+      "**/migrations/**": "ask",
+      "**/alembic/**": "ask",
+      ".github/**": "ask",
+      "Dockerfile": "ask",
+      "Dockerfile.*": "ask",
+      "deploy/**": "ask",
+      "**/docker-compose*.yml": "ask",
+      "**/docker-compose*.yaml": "ask",
+      "*.lock": "ask",
+      "*": "allow"
     },
     "bash": {
-      "*": "ask",
+      // DEV-Branch-Pushes sind laut AGENTS.md Teil des normalen Arbeitsablaufs.
+      "git merge*": "ask",
+      "git push origin main*": "ask",
+      "git push origin master*": "ask",
+      "git push*main*": "ask",
+      "git push*": "allow",
+      "docker push*": "deny",
+      "git reset --hard*": "deny",
+      "git clean -fd*": "deny",
+      "*": "allow",
       "python hx.py *": "allow",
       "python scripts/*": "allow",
       "uv run *": "allow",
@@ -22,8 +58,6 @@
       "git log*": "allow",
       "git add *": "allow",
       "git commit *": "allow",
-      "git push*": "deny",
-      "docker push*": "deny",
       "rm -rf *": "deny"
     }
   }

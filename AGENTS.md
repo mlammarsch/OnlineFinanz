@@ -58,8 +58,12 @@ Ziel: lokales Testen aus VS Code auf localhost, am Ende ein Docker-Image auf Doc
 ### Abweichungen vom globalen Harness
 
 a) "Python nur Standardbibliothek" gilt fuer `hx.py` und `scripts/validate.py`, nicht fuer Projektcode.
-b) Der Owner erteilt den Auftrag: Nach jedem abgenommenen Milestone wird lokal committet (`M<n>: <Titel>`). Kein Push ins
-   Git-Remote, kein `docker push` ohne `task-approve`.
+b) Fuer jeden Milestone wird ein eigener DEV-Branch im GitHub-Repository eroeffnet. Worker- und Verifier-Schritte
+   werden jeweils unmittelbar committed; diese Commits sind waehrend der Milestone-Entwicklung nicht
+   approvalspflichtig. Pushes in den zugehoerigen DEV-Pfad sind waehrend der Entwicklung ebenfalls ohne erneute
+   Freigabe zulaessig. Nach dem letzten Aufraeumtask und dessen Push wird der DEV-Branch in einem eigenen,
+   approvalspflichtigen Schritt nach `main` gemergt. Kein Merge nach `main` und kein `docker push` ohne
+   `task-approve`.
 
 ### Sicherheitsregeln
 
@@ -124,7 +128,13 @@ Kilo loest den `@`-Import in `CLAUDE.md` nicht auf. Verbindliche Kurzfassung der
 - Einzelagent als Standard. Subagents (`builder`, `planner`, `verifier`, Lead in `.kilo/agents/`) nur fuer Parallelitaet,
   getrennte Pruefung oder isolierten Kontext. Mittlere und hohe Risiken prueft immer `verifier`.
 - Risiko `high` nur nach `task-approve`. Keine Secrets lesen, ausgeben oder committen. Keine Commits ausser dem
-  Milestone-Commit nach Abnahme (Abweichung b), keine Pushes. Vorhandene Dateien nicht ohne Diff ueberschreiben.
+  in b beschriebenen Arbeits- und Milestone-Commits; der Merge nach `main` bleibt approvalspflichtig.
+  Vorhandene Dateien nicht ohne Diff ueberschreiben.
+- Der letzte Task jedes Milestones ist ein Abnahme- und Aufraeumtask. Er muss die gesamte bis dahin entwickelte
+  Funktionalitaet automatisiert pruefen: mindestens die Milestone-Stufe von `scripts/validate.py` und den im
+  Milestone passenden Integrations-, Roundtrip-, Smoke-, Performance-, Concurrency-, E2E-, MCP-, Backup- oder
+  Docker-Block. Ein vollstaendiger Browser-E2E-Test ist nur erforderlich, wenn der Milestone UI-Verhalten umfasst;
+  fuer reine Backend-Milestones ist ein fachlicher Roundtrip- oder Integrationstest der entsprechende Nachweis.
 - Kommunikation: Deutsch, praezise, erster Satz Kernaussage, keine Floskeln, keine Schlussfrage, keine ungefragten Angebote.
 - Skills `harness-run`, `harness-verify`, `harness-learn` (Kilo laedt sie aus `~/.claude/skills`, Einstellung
   "Claude Code Compatibility" aktiv) und Domaenen-Skill `.claude/skills/finanzuebersicht-fints/`.

@@ -1,10 +1,10 @@
 ---
 description: Fuehrt genau einen beanspruchten Task aus (Code, Dateien, Doku) und liefert Evidenz. Aktivieren, wenn ein Task mit klarer Definition of Done umgesetzt werden soll.
 mode: subagent
-model: deepseek/deepseek-v4.1-flash-fast
+model: deepseek/deepseek-v4.1-flash-1017 (max)
 permission:
   edit: allow
-  bash: ask
+  bash: allow
 ---
 <!-- GENERATED from agents-src/builder.md by scripts/sync_agents.py - edit the source, not this file -->
 Du bist der Ausfuehrer des Harness. Du bearbeitest einen Task.

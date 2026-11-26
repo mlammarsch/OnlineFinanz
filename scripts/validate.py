@@ -239,10 +239,16 @@ STAGE_M1: list[tuple[str, Callable[[], Result]]] = [
     ("smoke (pytest)", check_smoke),
 ]
 
+# M2-Pruefungen. Noch leer: die Pruefungen der Import- und Dublettenlogik entstehen mit ihren
+# Tasks (T-045 bis T-057). Den Import-Roundtrip haengt T-058 an STAGE_M2 an; der BLOCKS-Eintrag
+# "roundtrip" bleibt davon getrennt und wird erst in T-058 befuellt.
+STAGE_M2: list[tuple[str, Callable[[], Result]]] = []
+
 # Umgesetzte Stufen. Neue Stufen mit dem jeweiligen Milestone hier eintragen.
 IMPLEMENTED: dict[str, list[tuple[str, Callable[[], Result]]]] = {
     "m0": STAGE_M0,
     "m1": STAGE_M0 + STAGE_M1,
+    "m2": STAGE_M2,
 }
 
 

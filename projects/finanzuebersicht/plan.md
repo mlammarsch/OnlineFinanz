@@ -17,7 +17,7 @@ Spaetere Milestones greifen nicht auf Anforderungen vorheriger Planung vor. Star
 | M9 MCP-Server | G-010 | `validate.py m9` (+ mcp) | F-MCP-*, N-SEC-06 |
 | M10 Sicherheit und Betrieb | G-011 | `validate.py m10` (+ docker, mcp gegen Container, SMB gegen Samba-Container) | N-SEC-*, N-OPS-02..03 |
 
-Inhalt je Milestone: siehe `<milestones>` in `initialPrompt.md`. Stufen von `validate.py` ab m1 werden im ersten Task des
+Inhalt je Milestone: siehe diese Tabelle und `SPEC.md`. Stufen von `validate.py` ab m1 werden im ersten Task des
 jeweiligen Milestones implementiert; bis dahin endet die Stufe mit Exit 1 ("Stufe nicht implementiert").
 
 Besonderheiten:
@@ -25,3 +25,39 @@ Besonderheiten:
 - M3 Abnahme: Mock-Tests gruen und `docs/live-test-fints.md` vorhanden (Owner-Aufgabe in `handoff.md`).
 - M10 Abnahme erst bei laufendem Docker Desktop. Docker-Hub-Push als separater Task mit Risiko `high`.
 - Playwright-Browser in M5 per `uv run playwright install chromium` installieren.
+
+## M2 Taskplan (G-003, T-044 bis T-059)
+
+Modellrouting: jeder `builder`-Task laeuft mit **DeepSeek V4.1 Flash, Reasoning-Effort max** (owner im Task:
+`builder-deepseek`). Tasks mit `risk_level: medium` oder `high` werden zusaetzlich von `verifier` (Claude Sonnet,
+unabhaengige Pruefung) nachgeprueft, bevor `hx.py task-done` greift -- Pflicht laut `AGENTS.md`/Harness-Regel
+4. In diesem Milestone sind 14 von 16 Tasks `medium` (Dubletten-, Import- und Versionslogik; vgl.
+`AGENTS.md`-Risikostufen: Dublettenlogik ist explizit `medium`). Nur T-044 (validate.py-Geruest), T-056
+(Vorlagen-CRUD) und T-057 (PayPal-Filter) sind `low` und koennen ohne zweite Pruefung direkt ueber
+`hx.py task-done` abgeschlossen werden, sofern der Verifikationsbefehl gruen ist.
+
+Ausfuehrungswellen (Tasks je Welle sind voneinander unabhaengig und koennen auf parallelen `builder`-Sessions
+laufen; eine Welle startet erst, wenn alle Abhaengigkeiten der Vorwelle als `done` verifiziert sind):
+
+| Welle | Tasks | Parallelitaet | Abhaengig von | Risiko |
+|---|---|---|---|---|
+| 1 | T-044 (Stufe m2 in validate.py) | solo | - | low |
+| 2 | T-045 (Normalisierung/Fingerprint F-DUP-01), T-048 (CSV-Erkennung F-IMP-02), T-050 (JSON-Schema v1 F-EXP-04) | 3x parallel | T-044 | medium, low, medium |
+| 3 | T-046 (Multimengen-Abgleich F-DUP-02), T-049 (Mapping-Engine F-IMP-03) | 2x parallel | T-045 bzw. T-048 | medium, medium |
+| 4 | T-047 (Verdachtsdubletten F-DUP-03), T-051 (JSON-Import eigenes Format F-IMP-04), T-052 (Versionskonvertierung F-EXP-07), T-056 (Mapping-Vorlagen F-IMP-05), T-057 (PayPal-Filter F-IMP-08) | bis 5x parallel | T-046 bzw. T-050 bzw. T-049 | medium, medium, medium, low, low |
+| 5 | T-053 (Import-Vorschau-Service F-IMP-06) | solo | T-047, T-049, T-051 | medium |
+| 6 | T-054 (Import-Durchfuehrung + ImportRun-Protokoll F-IMP-06/F-SYN-07) | solo | T-053 | medium |
+| 7 | T-055 (Kennzeichen-Uebernahme F-IMP-07), T-058 (roundtrip-Block Import-Teil) | 2x parallel | T-054 (T-058 zusaetzlich T-051, T-052) | medium, low |
+| 8 | T-059 (M2 Abnahme) | solo | alle T-044..T-058 | medium |
+
+Hinweise:
+- T-049 ist bewusst nach T-048 statt nach T-045 gereiht (gleiche Datei-/Themenfamilie CSV, weniger Merge-Risiko bei
+  paralleler Bearbeitung durch verschiedene Builder-Sessions als Querverdrahtung zur Dubletten-Kette).
+- T-053 buendelt drei Vorketten (Dubletten F-DUP-03, Mapping F-IMP-03, JSON-Import F-IMP-04) und ist deshalb ein
+  harter Synchronisationspunkt vor der schreibenden Import-Logik (T-054) -- hier lohnt sich keine weitere
+  Parallelisierung, da alle drei Ergebnisse in einer Funktion zusammenlaufen.
+- Owner-Eingabe weiterhin offen (siehe `handoff.md`): echte CSV-Beispieldateien N26/Easybank/PayPal. T-056/T-057
+  bauen deshalb nach SPEC Abschnitt 3 "nach bestem Wissen, unbelegt" und sind bei Eintreffen der Dateien in M4 oder
+  per Nachtrag zu korrigieren (keine Blockade, siehe `AGENTS.md`-Edge-Case-Regel).
+- `scripts/validate.py` STAGE_M2 schliesst den `roundtrip`-Block (Import-Teil) nach T-058 aktiv mit ein, da
+  `plan.md`-Abnahmestufe fuer M2 explizit "`validate.py m2` (+ roundtrip Import-Teil)" verlangt.
