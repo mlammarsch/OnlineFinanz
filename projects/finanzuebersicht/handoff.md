@@ -2,6 +2,30 @@
 
 ## Next actions
 
+- **T-087 umgesetzt (M4 Welle 3, Suchspalte pflegen + Backfill-Migration 0004).** Konflikt-Check: Ja (F-SUC-01,
+  F-SUC-06, F-ABS-05; Dateien getrennt von T-088/T-099/T-111). Neu: `backend/finue/services/search_text.py`
+  (`build_search_text(counterparty, purpose, note, counterparty_iban, external_ref)`, `normalize_query_term`,
+  `normalize_search_text`, `refresh_search_text`; NFC + `casefold` (schliesst scharfes s ein), Zeilenumbrueche und
+  Mehrfachleerzeichen zu einem Leerzeichen; die IBAN wird zusaetzlich ohne Leerzeichen angehaengt). Die Spalte wird
+  jetzt gesetzt beim Datei-Import (`import_run._to_duplicate_data`, Neubau in `_apply_restore_values` bei Notiz-/
+  Referenzaenderung), beim FinTS-Sync (`sync_persist._to_transaction_data`), bei Vormerkungen
+  (`pending_sync._insert_pending_rows`, Neubau in `_apply_flags` nach Notizuebertragung), im Dublettenpfad
+  (`duplicate._build_transaction` als Fallback ohne explizite Vorgabe) und in den Demo-Daten (`demo.py`).
+  `backend/finue/migrations/versions/0004_search_text_backfill.py` befuellt alle Bestandszeilen mit einer im
+  Migrationsmodul **eingefrorenen** Normalisierungskopie (SQLAlchemy-Core, kein rohes SQL, batchweise 500). Tests:
+  `tests/unit/test_search_text.py` (Normalisierung, Paritaet zur Migrationskopie, Import/Sync/Vormerkung/
+  Dublettenpfad, Notizrefresh) und `tests/unit/test_migration_0004.py` (Backfill aus 0003 inkl. Paritaet,
+  Multi-Batch, Schema-Drift, downgrade); `test_alembic_config` um die Kante 0003 -> 0004 erweitert. Evidenz:
+  `uv run pytest tests/unit/test_search_text.py tests/unit/test_migration_0004.py -q` = 20 passed (jeweils gruen
+  waehrend der Bearbeitung). **Offen/Blocker:** Die parallelen Welle-3-Builder T-088 und T-111 schreiben im selben
+  Arbeitsbaum; ihre noch uncommitteten Dateien (`api/accounts.py`, `api/groups.py`, `services/accounts.py`,
+  `services/sync_service.py`, `api/routes.py`) machen die **globalen** Verifikationsbefehle rot
+  (`ruff check`: E501 in `api/accounts.py`/`api/groups.py`; `ruff format --check`: 3 Dateien; `mypy`: 4 Fehler in
+  `services/accounts.py`/`api/accounts.py`; zwischenzeitlich ImportError `sqlalchemy.exc.StaleDataError`, inzwischen
+  behoben). Die T-087-Dateien selbst sind `ruff`/`mypy`-sauber. `hx.py task-done` wurde deshalb nicht aufgerufen;
+  nach dem Commit von T-088/T-111 (oder wenn der Baum sauber ist) den Verifikationsplan laufen lassen und
+  abschliessen. Kein Push.
+
 - **T-086 abgeschlossen (M4 Welle 2, API-Grundgeruest).** Konflikt-Check: Ja (plan.md M4 T-086; keine
   SPEC-Aenderung, keine Migration, kein Fachtask). Neu: `backend/finue/api/routes.py` (zentrale Registrierung:
   Health ohne Auth, geschuetzter `/api`-Router mit `require_user`-Dependency), `errors.py` (einheitliches Format

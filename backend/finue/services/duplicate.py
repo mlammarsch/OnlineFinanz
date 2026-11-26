@@ -37,6 +37,7 @@ from sqlalchemy.orm import Session
 
 from finue.models.duplicate import DuplicateDecision
 from finue.models.transaction import Transaction
+from finue.services.search_text import build_search_text
 
 # Eindeutiger Trenner zwischen den Feldern. Das Unit Separator (U+001F) kommt
 # in Banktexten nicht vor und verhindert, dass Feldgrenzen durch den Inhalt
@@ -516,7 +517,21 @@ def _build_transaction(
     fingerprint: str,
     occurrence_index: int,
 ) -> Transaction:
-    """Erzeugt eine neue ORM-Buchung aus einer Lieferzeile."""
+    """Erzeugt eine neue ORM-Buchung aus einer Lieferzeile.
+
+    Die Suchspalte (F-SUC-01, F-SUC-06) wird hier als letzte Instanz befuellt:
+    Nutzt der Aufrufer die von ihm gesetzte ``search_text``, bleibt sie
+    erhalten; andernfalls wird sie aus den Quellfeldern gebaut. So legt jeder
+    Weg ueber den Multimengen-Abgleich (Datei-Import, Sync) eine Buchung mit
+    gefuellter Suchspalte an.
+    """
+    search_text = item.search_text or build_search_text(
+        counterparty=item.counterparty,
+        purpose=item.purpose,
+        note=item.note,
+        counterparty_iban=item.counterparty_iban,
+        external_ref=item.external_ref,
+    )
     return Transaction(
         account_id=account_id,
         status=item.status,
@@ -527,7 +542,7 @@ def _build_transaction(
         counterparty=item.counterparty,
         counterparty_iban=item.counterparty_iban,
         purpose=item.purpose,
-        search_text=item.search_text,
+        search_text=search_text,
         note=item.note,
         checked=item.checked,
         checked_at=item.checked_at,

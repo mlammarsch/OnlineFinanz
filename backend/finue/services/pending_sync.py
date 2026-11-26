@@ -53,6 +53,7 @@ from sqlalchemy.orm import Session
 from finue.models.import_run import ImportRun, ImportRunError
 from finue.models.transaction import Transaction
 from finue.services.duplicate import TransactionData, compute_fingerprint, normalize_field
+from finue.services.search_text import build_search_text, refresh_search_text
 
 __all__ = [
     "CODE_PENDING_HINT",
@@ -373,6 +374,14 @@ def _insert_pending_rows(
     for row, fingerprint in zip(pending_rows, fingerprints, strict=True):
         occurrence_index = next_index[fingerprint]
         next_index[fingerprint] = occurrence_index + 1
+        # Suchspalte (F-SUC-01, F-SUC-06): vom Aufrufer uebernommen oder aus
+        # den Quellfeldern gebaut, damit eine Vormerkung sofort durchsuchbar ist.
+        search_text = row.search_text or build_search_text(
+            counterparty=row.counterparty,
+            purpose=row.purpose,
+            counterparty_iban=row.counterparty_iban,
+            external_ref=row.external_ref,
+        )
         transaction = Transaction(
             account_id=account_id,
             status=PENDING_STATUS,
@@ -383,7 +392,7 @@ def _insert_pending_rows(
             counterparty=row.counterparty,
             counterparty_iban=row.counterparty_iban,
             purpose=row.purpose,
-            search_text=row.search_text,
+            search_text=search_text,
             # Neue Vormerkungen kommen von der Bank und tragen keine
             # Nutzerdaten; sie entstehen erst durch Bearbeitung (F-CON-05).
             note=None,
@@ -451,14 +460,22 @@ def _candidates(snapshot: PendingSnapshot, newly_booked: Sequence[Transaction]) 
 
 
 def _apply_flags(snapshot: PendingSnapshot, booked: Transaction) -> None:
-    """Uebernimmt Notiz und Pruef-Flag, ohne gesetzte Nutzerdaten zu ueberschreiben."""
+    """Uebernimmt Notiz und Pruef-Flag, ohne gesetzte Nutzerdaten zu ueberschreiben.
+
+    Wird eine Notiz uebertragen, ist sie Teil der Suchspalte (F-SUC-01); diese
+    wird deshalb neu gebaut.
+    """
+    note_transferred = False
     if snapshot.note and not booked.note:
         booked.note = snapshot.note
+        note_transferred = True
     if snapshot.checked and not booked.checked:
         booked.checked = True
         # UtcDateTime ist ein TypeDecorator; setattr haelt mypy mit der
         # ORM-Deklaration zufrieden (gleiches Muster wie import_run.py).
         setattr(booked, "checked_at", snapshot.checked_at)
+    if note_transferred:
+        refresh_search_text(booked)
 
 
 def _hint_text(snapshot: PendingSnapshot, reason: str) -> str:

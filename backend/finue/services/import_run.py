@@ -78,6 +78,7 @@ from finue.services.mapping import (
     TransactionData as MappedTransactionData,
     apply_mapping,
 )
+from finue.services.search_text import build_search_text, refresh_search_text
 from finue.timeutil import utc_now
 
 __all__ = ["execute_import"]
@@ -386,6 +387,13 @@ def _to_duplicate_data(
             reconciled=parsed.reconciled,
             reconciled_at=parsed.reconciled_at,
             reconciled_origin=parsed.reconciled_origin,
+            search_text=build_search_text(
+                counterparty=parsed.counterparty,
+                purpose=parsed.purpose,
+                note=parsed.note,
+                counterparty_iban=parsed.counterparty_iban,
+                external_ref=parsed.external_ref,
+            ),
         )
 
     mapped: MappedTransactionData = parsed
@@ -398,6 +406,11 @@ def _to_duplicate_data(
         counterparty_iban=mapped.counterparty_iban,
         purpose=mapped.purpose,
         origin=fallback_origin,
+        search_text=build_search_text(
+            counterparty=mapped.counterparty,
+            purpose=mapped.purpose,
+            counterparty_iban=mapped.counterparty_iban,
+        ),
     )
 
 
@@ -502,10 +515,14 @@ def _apply_restore_values(transaction: Transaction, values: _RestoreValues) -> N
 
     Die Schreibvermeidung bei Gleichstand haelt einen wiederholten
     Wiederherstellungs-Import ohne Aenderung von einer unnoetigen
-    Versionserhoehung fern.
+    Versionserhoehung fern. Notiz und externe Referenz sind Teil der
+    Suchspalte (F-SUC-01, F-ABS-05); aendert sich eines von beiden, wird
+    ``search_text`` neu gebaut.
     """
+    search_relevant_changed = False
     if transaction.note != values.note:
         transaction.note = values.note
+        search_relevant_changed = True
     if transaction.checked != values.checked:
         transaction.checked = values.checked
     if transaction.checked_at != values.checked_at:
@@ -521,6 +538,9 @@ def _apply_restore_values(transaction: Transaction, values: _RestoreValues) -> N
         transaction.reconciled_origin = values.reconciled_origin
     if transaction.external_ref != values.external_ref:
         transaction.external_ref = values.external_ref
+        search_relevant_changed = True
+    if search_relevant_changed:
+        refresh_search_text(transaction)
 
 
 def _finish_successful_run(

@@ -28,6 +28,7 @@ from finue.models.account import Account, AccountGroup
 from finue.models.bank import Bank, BankAccess
 from finue.models.standing_order import StandingOrder
 from finue.models.transaction import Transaction
+from finue.services.search_text import build_search_text
 from finue.timeutil import utc_now
 
 # Fiktive Stammdaten (rein erfunden, nicht auf echte Institute beziehbar).
@@ -264,7 +265,12 @@ def seed_demo(session: Session, seed: int = 42) -> None:
                 counterparty=pair_cpf,
                 counterparty_iban=pair_iban,
                 purpose=pair_purpose,
-                search_text=f"{pair_cpf} {pair_purpose}".lower(),
+                search_text=build_search_text(
+                    counterparty=pair_cpf,
+                    purpose=pair_purpose,
+                    counterparty_iban=pair_iban,
+                    external_ref=f"demo-duplikat-{offset}",
+                ),
                 origin="fints",
                 external_ref=f"demo-duplikat-{offset}",
                 fingerprint=pair_fingerprint,
@@ -290,6 +296,8 @@ def seed_demo(session: Session, seed: int = 42) -> None:
         status = "vorgemerkt" if pending else "gebucht"
         checked = not pending and i % 4 == 0
         reconciled = checked and i % 8 == 0
+        note = "Demo-Notiz" if i % 20 == 0 else None
+        external_ref = f"demo-{i:04d}"
 
         fingerprint = _fingerprint(
             account_id,
@@ -312,14 +320,20 @@ def seed_demo(session: Session, seed: int = 42) -> None:
                 counterparty=counterparty,
                 counterparty_iban=counterparty_iban,
                 purpose=purpose,
-                search_text=f"{counterparty} {purpose}".lower(),
-                note="Demo-Notiz" if i % 20 == 0 else None,
+                search_text=build_search_text(
+                    counterparty=counterparty,
+                    purpose=purpose,
+                    note=note,
+                    counterparty_iban=counterparty_iban,
+                    external_ref=external_ref,
+                ),
+                note=note,
                 checked=checked,
                 checked_at=utc_now() if checked else None,
                 reconciled=reconciled,
                 reconciled_at=utc_now() if reconciled else None,
                 origin=origin,
-                external_ref=f"demo-{i:04d}",
+                external_ref=external_ref,
                 fingerprint=fingerprint,
                 occurrence_index=reserve_index(account_id, fingerprint, 1),
             )

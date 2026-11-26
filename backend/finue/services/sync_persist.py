@@ -80,6 +80,7 @@ from finue.services.fints_types import (
     TanTimeoutError,
 )
 from finue.services.pending_sync import replace_pending, transfer_flags
+from finue.services.search_text import build_search_text
 from finue.timeutil import utc_now
 
 __all__ = [
@@ -413,7 +414,13 @@ def _reusable_run(session: Session, run: ImportRun, account_id: int) -> ImportRu
 
 
 def _to_transaction_data(row: FetchedTransaction) -> TransactionData:
-    """Ueberfuehrt eine abgerufene Buchung in die Persistenz-Datenstruktur."""
+    """Ueberfuehrt eine abgerufene Buchung in die Persistenz-Datenstruktur.
+
+    Die Suchspalte (F-SUC-01, F-SUC-06) wird aus Gegenpartei, Verwendungszweck
+    und der IBAN gebaut; die Bank liefert keine Notiz. Wird die Vormerkung
+    spaeter gebucht und dabei eine Notiz uebertragen, baut
+    :func:`finue.services.pending_sync.transfer_flags` die Spalte neu.
+    """
     return TransactionData(
         booking_date=row.booking_date,
         amount_cents=row.amount_cents,
@@ -425,6 +432,12 @@ def _to_transaction_data(row: FetchedTransaction) -> TransactionData:
         purpose=row.purpose,
         status=row.status,
         external_ref=row.raw_reference,
+        search_text=build_search_text(
+            counterparty=row.counterparty,
+            purpose=row.purpose,
+            counterparty_iban=row.counterparty_iban,
+            external_ref=row.raw_reference,
+        ),
     )
 
 
