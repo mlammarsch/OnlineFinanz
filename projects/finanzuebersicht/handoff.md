@@ -2,6 +2,25 @@
 
 ## Next actions
 
+- **T-088 umgesetzt (M4 Welle 3, Konten und Gruppen - Service und API, Risiko medium).** Konflikt-Check: Ja
+  (`routes.py` nur die Include-Zeilen; getrennt von Such-/Edit-/Session-Etappen T-087/T-108..T-110/T-111). Neu:
+  `backend/finue/services/accounts.py` (IBAN normalisieren/Modulo-97 validieren, `mask_iban`, `list_accounts`,
+  `latest_sync_times` aus ImportRun `kind=sync` mit Status `erfolgreich`/`teilweise`, `compute_total` mit
+  Fremdwaehrung getrennt, Konto-/Gruppen-CRUD mit Versionspruefung ueber `StaleDataError` -> 409),
+  `backend/finue/api/accounts.py` (GET/POST `/api/accounts`, GET/PATCH `/api/accounts/{id}`,
+  POST `/api/accounts/{id}/archive|restore`; Liste mit `iban_masked`, Detail mit voller `iban`; Ereignis
+  `account.changed`) und `backend/finue/api/groups.py` (GET/POST `/api/groups`, PUT `/api/groups/order` als
+  ID-Liste, PATCH/DELETE `/api/groups/{id}`; Mitglieder/Kontenzahl/Summe; Loeschen setzt `group_id` NULL; Ereignis
+  `group.changed`). Fremdwaehrungsregel: Gesamtsaldo und Gruppensumme addieren nur die Buchwaehrung (EUR), andere
+  Waehrungen stehen getrennt im Feld `foreign` (`decisions.md`). Router-Struktur: jeder Fachrouter traegt
+  `prefix="/api"` und `require_user` selbst (FastAPI 0.165 setzt das Elternpraefix nicht in `APIRoute.path`);
+  Vertragstabelle um 7 Eintraege erweitert, die `limit`-Pflicht gilt nur der GET-Listenroute. Evidenz:
+  `uv run pytest tests/unit/test_accounts_api.py tests/unit/test_groups_api.py -q` = 39 passed;
+  `uv run pytest tests/unit -q` = 1214 passed, 1 skipped; `ruff check backend tests scripts` und
+  `ruff format --check backend tests scripts` gruen; `mypy backend` = Success (70 Dateien). Doku: `docs/api.md`
+  (IBAN-Maskenregel, Endpunkttabelle) und `decisions.md` (Fremdwaehrungsregel, API-Struktur). **Offen:** die
+  unabhaengige verifier-Pruefung (medium) steht aus; kein Push.
+
 - **T-111 umgesetzt (M4-Entlastung, DB-Session-Freigabe an der TAN-Pause, N-DB-04).** Konflikt-Check: Ja
   (plan.md M4-Entlastung; Aenderung ausschliesslich in `backend/finue/services/sync_service.py`, keine
   REST-/Runner-/Event-/Folgeaenderungen aus T-112). Umsetzung: `_RunContext` traegt die Session nur waehrend eines

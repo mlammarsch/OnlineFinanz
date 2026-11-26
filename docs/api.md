@@ -115,6 +115,65 @@ Aenderungen ueber die REST-API tragen die Herkunft `ui` (`REST_ORIGIN` in
 `backend/finue/api/conventions.py`, F-ABS-01/02). MCP nutzt `mcp`, der
 Datei-Import `import` (siehe `finue/services/export_schema.py`).
 
+## Konten und Gruppen (F-KTO)
+
+Die Fachlogik liegt in `backend/finue/services/accounts.py`; die Router
+`backend/finue/api/accounts.py` und `backend/finue/api/groups.py` uebersetzen
+nur HTTP. Beide Router bringen ihr `prefix="/api"` und die Auth-Naht selbst mit.
+
+### IBAN-Maskierung (F-KTO-01)
+
+Die **Kontenliste** zeigt eine maskierte IBAN (`iban_masked`): Die ersten vier
+Zeichen (Laenderkennung und Pruefziffern) und die letzten vier Zeichen bleiben
+sichtbar, alle Zeichen dazwischen werden durch je ein `*` ersetzt; Leerzeichen
+werden vorher entfernt. Beispiele: `DE89370400440532013000` →
+`DE89**************3000`, `DE12` → `****`. Die **Detailansicht**
+(`GET /api/accounts/{id}`) liefert zum Pflegen die volle `iban` (F-KTO-04).
+
+### Gesamtsaldo und Fremdwaehrung (F-KTO-02)
+
+Die Liste liefert oben den Gesamtsaldo mit seiner Zusammensetzung:
+
+```json
+{
+  "items": [ ... ],
+  "total": {
+    "currency": "EUR",
+    "amount_cents": 100000,
+    "included": [ { "id": 1, "name": "Giro", "currency": "EUR", "amount_cents": 100000 } ],
+    "excluded": [ { "id": 2, "name": "Darlehen", "currency": "EUR", "amount_cents": 500000 } ],
+    "foreign": [ { "currency": "USD", "amount_cents": 25000, "account_ids": [3] } ]
+  },
+  "next_cursor": null
+}
+```
+
+`total.amount_cents` summiert nur die einfliessenden Konten in der Buchwaehrung;
+`excluded` sind die Konten mit `include_in_total=false`. Konten in einer anderen
+Waehrung werden unter `foreign` **getrennt ausgewiesen und nicht addiert**
+(Regel in `projects/finanzuebersicht/decisions.md`). Archivierte Konten zaehlen
+nicht mit (F-KTO-06). Dieselbe Regel gilt fuer die Gruppensumme.
+
+### Endpunkte
+
+| Methode | Pfad | Zweck |
+|---|---|---|
+| GET | `/api/accounts` | Kontenliste mit Gesamtsaldo; `?archived=true` liefert nur archivierte (F-KTO-01/02/06) |
+| POST | `/api/accounts` | Offline-Konto anlegen, `source=datei`, optionaler Ankersaldo (F-KTO-05b) |
+| GET | `/api/accounts/{id}` | Kontodetails mit voller IBAN (F-KTO-04) |
+| PATCH | `/api/accounts/{id}` | Details pflegen mit `version` (F-KTO-04, F-CON-02) |
+| POST | `/api/accounts/{id}/archive` | Archivieren mit `version` (F-KTO-06) |
+| POST | `/api/accounts/{id}/restore` | Wiederherstellen mit `version` (F-KTO-06) |
+| GET | `/api/groups` | Gruppen mit Mitgliedern, Kontenzahl, Summe (F-KTO-03) |
+| POST | `/api/groups` | Gruppe anlegen (F-KTO-03) |
+| PUT | `/api/groups/order` | Neuordnung als ID-Liste `{"ids": [...]}` (F-KTO-03) |
+| PATCH | `/api/groups/{id}` | Umbenennen mit `version` (F-KTO-03, F-CON-02) |
+| DELETE | `/api/groups/{id}?version=n` | Loeschen; Konten bleiben mit `group_id=null` (F-KTO-03) |
+
+`iban` wird beim Anlegen und Pflegen per Modulo-97-Pruefziffer validiert
+(F-KTO-04); `source` ist beim Offline-Konto fest `datei`. Icon-Verweise zeigen
+auf den mit F-KTO-11/T-090 folgenden Endpunkt `/api/accounts/{id}/icon`.
+
 ## Grenzen (config)
 
 Zentral in `backend/finue/config.py`:
@@ -137,6 +196,8 @@ ihn in T-101 aus.
 
 `tests/unit/test_api_contract.py` ist die Guardrail: jede schreibende Route
 braucht einen Eintrag in der Vertragstabelle mit Art
-(`version`/`setzen`/`anlegen`/`aktion`) und Begruendung, jede Listenroute den
-Parameter `limit`, jede `/api`-Route die Auth-Naht. Unbekannte Routen und
-veraltete Eintraege machen den Test rot. Jeder API-Task erweitert die Tabelle.
+(`version`/`setzen`/`anlegen`/`aktion`) und Begruendung, jede lesende
+Listenroute den Parameter `limit` (die Pflicht gilt nur fuer die GET-Route, ein
+POST auf demselben Pfad nicht), jede `/api`-Route die Auth-Naht. Unbekannte
+Routen und veraltete Eintraege machen den Test rot. Jeder API-Task erweitert die
+Tabelle.

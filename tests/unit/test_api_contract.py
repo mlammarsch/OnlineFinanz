@@ -66,6 +66,43 @@ CONTRACT: dict[str, RouteContract] = {
         reason="Readiness-Check mit Datenbank, Schema und Zeitplaner (N-OPS-04)",
         auth=False,
     ),
+    "/api/accounts": RouteContract(
+        frozenset({"GET", "POST"}),
+        kind="anlegen",
+        reason="Liste aktiver/archivierter Konten mit Gesamtsaldo; Offline-Konto anlegen (F-KTO-01/02/05b/06)",
+        is_list=True,
+    ),
+    "/api/accounts/{account_id}": RouteContract(
+        frozenset({"GET", "PATCH"}),
+        kind="version",
+        reason="Kontodetails ansehen und pflegen mit Versionspruefung (F-KTO-04, F-CON-02)",
+    ),
+    "/api/accounts/{account_id}/archive": RouteContract(
+        frozenset({"POST"}),
+        kind="version",
+        reason="Konto archivieren mit Versionspruefung (F-KTO-06, F-CON-02)",
+    ),
+    "/api/accounts/{account_id}/restore": RouteContract(
+        frozenset({"POST"}),
+        kind="version",
+        reason="Konto wiederherstellen mit Versionspruefung (F-KTO-06, F-CON-02)",
+    ),
+    "/api/groups": RouteContract(
+        frozenset({"GET", "POST"}),
+        kind="anlegen",
+        reason="Gruppenliste mit Mitgliedern, Kontenzahl und Summe; Gruppe anlegen (F-KTO-03)",
+        is_list=True,
+    ),
+    "/api/groups/order": RouteContract(
+        frozenset({"PUT"}),
+        kind="setzen",
+        reason="Neuordnung der Gruppen als ID-Liste (Setz-Semantik, F-KTO-03)",
+    ),
+    "/api/groups/{group_id}": RouteContract(
+        frozenset({"PATCH", "DELETE"}),
+        kind="version",
+        reason="Gruppe umbenennen oder loeschen mit Versionspruefung; Konten bleiben (F-KTO-03, F-CON-02)",
+    ),
 }
 
 
@@ -152,12 +189,18 @@ def api_routes_without_require_user(app: FastAPI, contract: dict[str, RouteContr
 
 
 def list_routes_without_limit(app: FastAPI, contract: dict[str, RouteContract]) -> list[str]:
-    """Als Liste markierte Routen ohne ``limit``-Parameter (SPEC F-MCP-11)."""
+    """Als Liste markierte GET-Routen ohne ``limit``-Parameter (SPEC F-MCP-11).
+
+    Die ``limit``-Pflicht gilt nur fuer die lesende GET-Route; ein POST auf
+    demselben Pfad (z. B. Anlage unter ``/api/accounts``) ist keine Listenroute.
+    """
 
     violations: list[str] = []
     for route in _api_routes(app):
         entry = contract.get(route.path)
         if entry is None or not entry.is_list:
+            continue
+        if "GET" not in route.methods:
             continue
         if "limit" not in inspect.signature(route.endpoint).parameters:
             violations.append(route.path)
@@ -186,9 +229,11 @@ def test_keine_veralteten_vertragseintraege() -> None:
 
 
 def test_schreibende_routen_haben_art_und_begruendung() -> None:
-    """Schreibende Routen tragen Art (version|setzen|anlegen|aktion) und Begruendung (F-CON-02/03)."""
+    """Jede schreibende Route traegt Art (version|setzen|anlegen|aktion) und Begruendung (F-CON-02/03)."""
     assert changing_routes_without_valid_kind(CONTRACT) == []
-    assert all(method not in CHANGING_METHODS for entry in CONTRACT.values() for method in entry.methods)
+    assert any(method in CHANGING_METHODS for entry in CONTRACT.values() for method in entry.methods), (
+        "Es muss mindestens eine schreibende Route mit Vertragseintrag geben."
+    )
 
 
 def test_api_routen_haengen_an_require_user() -> None:
@@ -260,6 +305,26 @@ def test_checker_meldet_fehlendes_limit() -> None:
     contract = {"/api/konten": RouteContract(frozenset({"GET"}), kind="lesen", reason="Liste", is_list=True)}
 
     assert list_routes_without_limit(app, contract) == ["/api/konten"]
+
+
+def test_checker_liste_prueft_nur_get_route() -> None:
+    """Ein POST auf einem Listenpfad braucht kein ``limit`` (SPEC F-MCP-11)."""
+    api = APIRouter(prefix="/api", dependencies=[Depends(require_user)])
+
+    @api.get("/konten")
+    def list_konten(limit: int = 50) -> list[int]:
+        return []
+
+    @api.post("/konten")
+    def create_konto() -> dict[str, bool]:
+        return {"ok": True}
+
+    app = FastAPI()
+    app.include_router(api)
+    contract = {"/api/konten": RouteContract(frozenset({"GET", "POST"}), kind="anlegen", reason="Anlage", is_list=True)}
+
+    assert list_routes_without_limit(app, contract) == []
+    assert unregistered_routes(app, contract) == []
 
 
 def test_checker_akzeptiert_korrekte_route() -> None:
