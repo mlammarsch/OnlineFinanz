@@ -2,6 +2,10 @@
 
 ## Next actions
 
+- **M2-Dokumentation nach Merge geprueft.** `docs/export-format.md` beschreibt Schema, Versionierung, Roundtrip und
+  jetzt auch Re-Import-/Wiederherstellungssemantik. Einen falschen F-DUP-Verweis bei `merged` (F-DUP-04 statt F-DUP-05)
+  korrigiert. M2-Dokumentation ist damit vollstaendig; offene Owner-CSV-Beispiele und der bekannte `ruff format`-Drift
+  bleiben als nicht blockierende Punkte bestehen.
 - **T-059 abgeschlossen (M2-Abnahme).** Konflikt-Check: Ja (M2-Abnahme nach `plan.md` "validate.py m2 (+ roundtrip
   Import-Teil)" deckt die SPEC-Anforderungen F-DUP-01..04, F-IMP-01..08, F-EXP-04/07; die unbelegten Seed-Vorlagen
   N26/Easybank/PayPal sind als bewusste, dokumentierte Annahme in `decisions.md` festgehalten). `python scripts/validate.py m2`

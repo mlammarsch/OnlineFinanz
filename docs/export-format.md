@@ -92,7 +92,7 @@ genau dann gesetzt, wenn das jeweilige Kennzeichen `true` ist (F-ABS-01).
 | `external_ref` | String oder `null` | ja | Externe Referenz (F-ABS-05). |
 | `fingerprint` | String | ja | SHA-256-Fingerprint als Hex fuer Dublettenkennung und Re-Import. |
 | `occurrence_index` | Ganzzahl | ja | Vorkommen-Index gleicher Fingerprints je Konto. |
-| `merged` | Boolean | ja | Markierung einer zusammengefuehrten Buchung (F-DUP-04). |
+| `merged` | Boolean | ja | Markierung einer zusammengefuehrten Buchung (F-DUP-05). |
 | `amount` | String | ja | Betrag als Dezimal-String mit Punkt, z. B. `"-48.83"`. |
 | `currency` | String | ja | ISO-4217-Waehrung, drei Grossbuchstaben. |
 
@@ -116,6 +116,21 @@ genau dann gesetzt, wenn das jeweilige Kennzeichen `true` ist (F-ABS-01).
 - **Verlustfreiheit**: `fingerprint`, `occurrence_index`, Notiz, Pruef- und
   Abstimmungskennzeichen sowie die externe Referenz sind enthalten, damit
   Export und Re-Import denselben Datenstand ergeben (F-EXP-04, F-EXP-06).
+
+## Re-Import
+
+Der Datei-Import klassifiziert jede Zeile als `neu`, `vorhanden` oder
+`verdachtsdublette` und protokolliert den Lauf mit Zaehlern und einzelnen
+Zeilenfehlern. Der Multimengen-Abgleich verhindert, dass ein wiederholter
+Import bereits vorhandene Buchungen erneut anlegt.
+
+Standardmaessig werden Notiz, `checked`, `reconciled` und `external_ref` nur
+bei neuen Buchungen aus der Datei uebernommen. Fuer eine ausdrueckliche
+Wiederherstellung kann der Import die Option
+`restore_flags_for_existing=true` verwenden; dann werden diese Werte bei
+bereits vorhandenen Buchungen ueber den Fingerprint und das Vorkommen
+zugeordnet. Diese Option darf nur fuer vertrauenswuerdige eigene
+Wiederherstellungsdateien verwendet werden.
 
 ## Beispiel
 
