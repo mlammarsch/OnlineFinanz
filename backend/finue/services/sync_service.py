@@ -44,6 +44,15 @@ Der Service verbindet die Bausteine aus M3 zu einem Batch- oder Einzel-Sync:
 - N-SEC-02/N-SEC-03: PIN, TAN und Dialogdaten bleiben ausschliesslich im
   Arbeitsspeicher. Der Service loggt weder PIN noch TAN noch Banktexte mit
   Geheimnissen. Fehler und Protokollzeilen enthalten nur feste Klartexte.
+- N-DB-04: An der TAN-Pause (``AWAITING_TAN``, Text- und App-Freigabe)
+  schliesst der Lauf die DB-Session; der Verbindungspool haelt dann keine
+  Verbindung und parallele Schreibvorgaenge laufen ohne Sperrwartezeit
+  (SQLite WAL mit ``busy_timeout``). Nach der Freigabe oeffnet der Lauf eine
+  frische Session und laedt die benoetigten Objekte ueber ihre IDs. Zwischen
+  den Schritten traegt der Laufzustand nur IDs und Werte, kein ORM-Objekt.
+  Der pausierte Dialog bleibt nur im Arbeitsspeicher (N-SEC-03), die
+  Fuenf-Minuten-Frist bleibt unveraendert; Abbruch und Timeout geben Session
+  und Dialog frei.
 
 Der Service kennt keine echten Bankzugriffe: Der
 :class:`~finue.services.fints_client.FinTSGateway` erhaelt eine injizierbare
@@ -216,9 +225,11 @@ class _RunContext:
     """Laufzustand waehrend einer TAN-Pause, nur im Arbeitsspeicher.
 
     Der :class:`~finue.services.fints_client.TanHandoff` enthaelt Dialog- und
-    Clientzustand und wird nie serialisiert (N-SEC-03). ``session`` bleibt
-    waehrend der Pause offen, damit der Generator nach der Freigabe ohne
-    Neuaufbau fortsetzen kann.
+    Clientzustand und wird nie serialisiert (N-SEC-03). ``session`` ist nur
+    waehrend eines laufenden Schritts gesetzt und an der TAN-Pause ``None``
+    (N-DB-04): Vor dem Pausieren schliesst der Lauf die Session, nach der
+    Freigabe oeffnet er eine frische. Der Kontext traegt darueber hinaus nur
+    IDs und Werte, kein ORM-Objekt.
     """
 
     job: SyncJob
@@ -232,6 +243,7 @@ class _RunContext:
     index: int = 0
     current_account_id: int | None = None
     waiting_run_id: int | None = None
+    blz: str | None = None
     handoff: TanHandoff[Any] | None = None
     challenge: TanChallenge | None = None
     busy: bool = False
@@ -245,23 +257,39 @@ class _GatewayHolder:
     Wiederaufnahme liefert die Bibliothek nur noch das Ergebnis der
     ausloesenden Operation; weitere Abrufe brauchen deshalb einen frischen
     Dialog.
+
+    Der Halter traegt nur den Bankzugang als ID und die PIN im
+    Arbeitsspeicher, kein ORM-Objekt (N-DB-04). Jeder Dialog wird ueber die
+    jeweils offene Session des Laufs aufgebaut; an der TAN-Pause wird der
+    Dialog verworfen, damit waehrend der Pause keine Verbindung gebunden ist.
     """
 
-    def __init__(self, service: "SyncService", access: BankAccess, pin: str) -> None:
+    def __init__(self, service: "SyncService", bank_access_id: int, pin: str) -> None:
         self._service = service
-        self._access = access
+        self._bank_access_id = bank_access_id
         self._pin = pin
         self.gateway: FinTSGateway | None = None
         self.stale = False
 
-    def ensure_open(self) -> FinTSGateway:
+    def ensure_open(self, session: Session) -> FinTSGateway:
         if self.gateway is None or self.stale:
             self.close()
-            gateway = self._service._open_gateway(self._access, self._pin)
+            gateway = self._build(session)
             gateway.__enter__()
             self.gateway = gateway
             self.stale = False
         return self.gateway
+
+    def resume_gateway(self, session: Session) -> FinTSGateway:
+        """Baut einen Dialoghalter ohne offenes ``with`` fuer ``resume_tan``.
+
+        Die Wiederaufnahme baut ihren Client selbst aus den Handoff-Bytes; ein
+        ``__enter__`` waere falsch. Der zurueckgegebene Gateway wird nur fuer
+        diesen einen Aufruf gehalten und danach verworfen.
+        """
+
+        self.close()
+        return self._build(session)
 
     def restart(self) -> None:
         """Verwirft den aktuellen Dialog; der naechste Schritt oeffnet neu."""
@@ -275,16 +303,23 @@ class _GatewayHolder:
         if gateway is not None:
             gateway.__exit__(None, None, None)
 
+    def _build(self, session: Session) -> FinTSGateway:
+        access = session.get(BankAccess, self._bank_access_id)
+        if access is None:
+            raise LookupError(f"Bankzugang {self._bank_access_id} nicht gefunden.")
+        return self._service._open_gateway(access, self._pin)
+
 
 class SyncService:
     """Startet Batch- und Einzel-Syncs je Bankzugang (F-SYN-01, F-SYN-02).
 
     Die Abhaengigkeiten sind injizierbar, damit Tests ohne Netz, ohne echte
     PIN und ohne Wartezeit laufen (D8):
-
     Args:
-        session_factory: Liefert je Sync eine SQLAlchemy-Session. Der Service
-            schliesst sie am Ende des Laufs; die Persistenz committet je Konto.
+        session_factory: Liefert je Sync und nach jeder TAN-Pause eine
+            SQLAlchemy-Session. Der Service schliesst sie am Ende des Laufs
+            und an jeder TAN-Pause (N-DB-04); die Persistenz committet je
+            Konto.
         registry: In-Memory-Registry fuer Sperre und TAN-Dialogzustand
             (F-SYN-04, F-SYN-11). Ohne Angabe wird eine eigene Registry genutzt.
         settings: Anwendungskonfiguration mit ``FINTS_PRODUCT_ID``. Ohne
@@ -511,13 +546,14 @@ class SyncService:
         Die Funktion ist ein Generator: Jede TAN-Abfrage wird als
         :class:`~finue.services.fints_client.TanHandoff` geliefert; der
         Aufrufer sendet die TAN (oder ``None`` fuer eine App-Abfrage) zurueck.
-        Session und Dialog bleiben waehrend der Pause im Arbeitsspeicher
-        (N-SEC-03).
+        An der Pause schliesst der Lauf die DB-Session und traegt danach nur
+        noch IDs und Werte im Laufzustand (N-DB-04); der eingefrorene Dialog
+        bleibt nur im Arbeitsspeicher (N-SEC-03). Nach der Freigabe oeffnet
+        der Lauf eine frische Session und setzt fort.
         """
 
         job = context.job
-        session = self._session_factory()
-        context.session = session
+        session = self._open_session(context)
         holder: _GatewayHolder | None = None
         try:
             access = session.get(BankAccess, context.bank_access_id)
@@ -528,18 +564,20 @@ class SyncService:
             if not accounts:
                 raise SyncConfigurationError("Der Bankzugang hat keine aktiven FinTS-Konten fuer den Sync.")
             context.account_ids = tuple(account.id for account in accounts)
+            context.blz = access.bank.blz
             job.account_ids = context.account_ids
 
             pin = resolve_pin(access, supplied_pin, cipher=self._cipher)
-            blz = access.bank.blz
-            holder = _GatewayHolder(self, access, pin)
+            holder = _GatewayHolder(self, context.bank_access_id, pin)
+            # Kein ORM-Objekt und keine Session ueber die erste TAN-Pause tragen.
+            del access, accounts, session
 
             try:
                 sepa_accounts = yield from self._step(context, holder, None, lambda gateway: gateway.get_accounts())
             except (SyncCancelledError, TanTimeoutError):
                 raise
             except Exception as exc:
-                self._fail_all(context, session, accounts, exc, blz)
+                self._fail_all(context, context.account_ids, exc)
                 return
 
             by_iban: dict[str, SEPAAccount] = {}
@@ -548,75 +586,81 @@ class SyncService:
                 if iban is not None:
                     by_iban[iban] = sepa_account
 
-            for index in range(context.index, len(accounts)):
+            for index in range(context.index, len(context.account_ids)):
                 context.index = index
-                account = accounts[index]
+                account_id = context.account_ids[index]
                 if job.abort_requested:
                     raise SyncCancelledError()
-                context.current_account_id = account.id
-                sepa_account = by_iban.get(_normalized_iban(account.iban) or "")
+                context.current_account_id = account_id
+                exists, account_iban = self._account_iban(context, account_id)
+                if not exists:
+                    context.current_account_id = None
+                    continue
+                sepa_account = by_iban.get(_normalized_iban(account_iban) or "")
                 if sepa_account is None:
                     self._fail_current(
                         context,
-                        session,
-                        account,
-                        SyncAccountNotInBankError(account.id, account.iban),
-                        blz,
+                        account_id,
+                        SyncAccountNotInBankError(account_id, account_iban),
                         attempts=1,
                     )
                     context.current_account_id = None
                     continue
 
-                fetch_range = compute_fetch_range(session, account.id)
+                fetch_range = compute_fetch_range(self._require_session(context), account_id)
                 attempts = 1
                 try:
                     data, attempts = yield from self._fetch_with_retry(
                         context,
                         holder,
-                        session,
-                        account,
+                        account_id,
                         sepa_account,
+                        account_iban,
                         fetch_range,
-                        blz,
                     )
                     if job.abort_requested:
                         raise SyncCancelledError()
-                    run = self._persist_success(context, session, account, data)
+                    run = self._persist_success(context, account_id, data)
                     context.results.append(
                         AccountSyncResult(
-                            account_id=account.id,
+                            account_id=account_id,
                             status=_account_status(run.status),
                             import_run_id=run.id,
                             attempts=attempts,
                             message=run.message,
                         )
                     )
+                    del run
                     context.current_account_id = None
                     context.waiting_run_id = None
                 except (SyncCancelledError, TanTimeoutError):
                     raise
                 except Exception as exc:
-                    self._fail_current(context, session, account, exc, blz, attempts=attempts)
+                    self._fail_current(context, account_id, exc, attempts=attempts)
                     context.current_account_id = None
                     continue
         except (SyncCancelledError, TanTimeoutError) as exc:
-            self._finalize_interrupted(context, session, exc)
+            # An der Pause ist die Session geschlossen; fuer die
+            # Abschlussprotokolle oeffnet der Lauf eine frische (N-DB-04).
+            self._open_session(context)
+            try:
+                self._finalize_interrupted(context, exc)
+            finally:
+                self._close_session(context)
             raise
         finally:
             if holder is not None:
                 holder.close()
-            session.close()
-            context.session = None
+            self._close_session(context)
 
     def _fetch_with_retry(
         self,
         context: _RunContext,
         holder: _GatewayHolder,
-        session: Session,
-        account: Account,
+        account_id: int,
         sepa_account: SEPAAccount,
+        account_iban: str | None,
         fetch_range: tuple[date, date] | None,
-        blz: str,
     ) -> Generator[TanHandoff[Any], str | None, tuple[SyncAccountData, int]]:
         """Ruft ein Konto ab und wiederholt nur wiederholbare Bankfehler.
 
@@ -632,28 +676,52 @@ class SyncService:
             if attempts > 1:
                 holder.restart()
             try:
-                return (yield from self._fetch_account(context, holder, account, sepa_account, fetch_range)), attempts
+                return (
+                    yield from self._fetch_account(
+                        context,
+                        holder,
+                        account_id,
+                        sepa_account,
+                        account_iban,
+                        fetch_range,
+                    )
+                ), attempts
             except (SyncCancelledError, TanTimeoutError):
                 raise
             except PinWrongError as exc:
-                if not resolve_error(session, exc.code, blz, exc.original_text).retryable:
+                if not self._resolve_retryable(context, exc.code, exc.original_text):
                     raise
                 error: FinTSBankError = FinTSBankError(exc.code, exc.original_text)
             except FinTSBankError as exc:
                 error = exc
 
-            if attempts > self._max_retries or not resolve_error(session, error.code, blz, "").retryable:
+            if attempts > self._max_retries or not self._resolve_retryable(context, error.code, ""):
                 raise error
             _retry_sleep(context.job, self._sleep)(self._wait_seconds)
             if context.job.abort_requested:
                 raise SyncCancelledError()
 
+    def _resolve_retryable(self, context: _RunContext, code: str, original_text: str) -> bool:
+        """Prueft einen Bankcode ueber das Fehler-Mapping (F-SYN-05/06).
+
+        Die Session wird erst hier, nach einem etwaigen Resume, ueber den
+        Laufzustand geladen; sie ist in diesem Pfad immer offen.
+        """
+
+        return resolve_error(
+            self._require_session(context),
+            code,
+            context.blz,
+            original_text,
+        ).retryable
+
     def _fetch_account(
         self,
         context: _RunContext,
         holder: _GatewayHolder,
-        account: Account,
+        account_id: int,
         sepa_account: SEPAAccount,
+        account_iban: str | None,
         fetch_range: tuple[date, date] | None,
     ) -> Generator[TanHandoff[Any], str | None, SyncAccountData]:
         """Liest Saldo, Umsaetze und Auftraege eines Kontos (F-SYN-03)."""
@@ -661,14 +729,14 @@ class SyncService:
         balance: BalanceResult = yield from self._step(
             context,
             holder,
-            account.id,
+            account_id,
             lambda gateway: gateway.get_balance(sepa_account),
         )
         if fetch_range is None:
             fetch: TransactionFetch = yield from self._step(
                 context,
                 holder,
-                account.id,
+                account_id,
                 lambda gateway: gateway.get_transactions(sepa_account),
             )
         else:
@@ -676,7 +744,7 @@ class SyncService:
             fetch = yield from self._step(
                 context,
                 holder,
-                account.id,
+                account_id,
                 lambda gateway: gateway.get_transactions(
                     sepa_account,
                     start_date=start_date,
@@ -688,11 +756,11 @@ class SyncService:
         orders: OrdersResult = yield from self._step(
             context,
             holder,
-            account.id,
+            account_id,
             lambda gateway: gateway.fetch_standing_orders(sepa_account),
         )
         return SyncAccountData(
-            account_ref=_account_reference(sepa_account, account),
+            account_ref=_account_reference(sepa_account, account_id, account_iban),
             balance=balance,
             transactions=_to_fetched_transactions(fetch),
             orders=orders,
@@ -708,25 +776,33 @@ class SyncService:
         """Fuehrt einen lesenden Schritt aus und pausiert bei einer TAN.
 
         Der Generator liefert den Handoff an den Service; die Antwort wird als
-        ``str`` (Text-TAN) oder ``None`` (App-Freigabe) zurueckgesendet.
+        ``str`` (Text-TAN) oder ``None`` (App-Freigabe) zurueckgesendet. Vor
+        dem Pausieren schliesst der Schritt die DB-Session und verwirft den
+        Dialog (N-DB-04); nach der Freigabe oeffnet er eine frische Session
+        und setzt den eingefrorenen Dialog mit einem neuen Dialoghalter fort.
         """
 
         if context.job.abort_requested:
             raise SyncCancelledError()
-        gateway = holder.ensure_open()
+        gateway = holder.ensure_open(self._require_session(context))
         try:
             return operation(gateway)
         except TanRequired as exc:
             handoff = exc.handoff
-            # Der Adapter hat den Dialog bereits eingefroren und geschlossen.
-            holder.stale = True
+            holder.close()
+            del gateway
             while True:
                 self._prepare_waiting(context, account_id)
+                # Keine offene Verbindung waehrend der Pause (N-DB-04).
+                self._close_session(context)
                 tan = yield handoff
+                resumed = holder.resume_gateway(self._open_session(context))
                 try:
-                    return cast(_ResultT, gateway.resume_tan(handoff, tan))
+                    return cast(_ResultT, resumed.resume_tan(handoff, tan))
                 except TanRequired as further:
                     handoff = further.handoff
+                    holder.close()
+                    del resumed
 
     def _prepare_waiting(
         self,
@@ -737,21 +813,55 @@ class SyncService:
 
         if account_id is None or context.waiting_run_id is not None:
             return
+        run = persist_waiting_for_tan(self._require_session(context), account_id, context.job_group_id)
+        context.waiting_run_id = run.id
+
+    # -- Session-Lebenszyklus ----------------------------------------------
+
+    def _open_session(self, context: _RunContext) -> Session:
+        """Oeffnet die Session des Laufs, falls keine offen ist (N-DB-04)."""
+
+        if context.session is None:
+            context.session = self._session_factory()
+        return context.session
+
+    def _close_session(self, context: _RunContext) -> None:
+        """Schliesst die Session des Laufs und gibt die Verbindung frei (N-DB-04)."""
+
+        session = context.session
+        context.session = None
+        if session is not None:
+            session.close()
+
+    def _require_session(self, context: _RunContext) -> Session:
+        """Liefert die offene Session; wartet der Lauf, wirft der Aufruf."""
+
         session = context.session
         if session is None:
             raise RuntimeError("Kein Laufzustand fuer die TAN-Pause vorhanden.")
-        run = persist_waiting_for_tan(session, account_id, context.job_group_id)
-        context.waiting_run_id = run.id
+        return session
+
+    def _account_iban(self, context: _RunContext, account_id: int) -> tuple[bool, str | None]:
+        """Liest die IBAN eines Kontos frisch aus der offenen Session.
+
+        Zwischen den Schritten wird ausschliesslich dieser Wert gehalten, kein
+        ORM-Objekt (N-DB-04).
+        """
+
+        account = self._require_session(context).get(Account, account_id)
+        if account is None:
+            return False, None
+        return True, account.iban
 
     # -- Ergebnis und Persistenz -------------------------------------------
 
     def _persist_success(
         self,
         context: _RunContext,
-        session: Session,
-        account: Account,
+        account_id: int,
         data: SyncAccountData,
     ) -> ImportRun:
+        session = self._require_session(context)
         waiting = session.get(ImportRun, context.waiting_run_id) if context.waiting_run_id is not None else None
         if data.orders is not None:
             # F-AUF-04/F-AUF-05: Der Auftragsbestand wird vor dem Commit von
@@ -762,7 +872,7 @@ class SyncService:
             try:
                 replace_standing_orders(
                     session,
-                    account.id,
+                    account_id,
                     data.orders.orders,
                     utc_now(),
                 )
@@ -774,7 +884,7 @@ class SyncService:
                 raise
         return persist_account_sync(
             session,
-            account.id,
+            account_id,
             data,
             context.job_group_id,
             waiting_run=waiting,
@@ -783,25 +893,24 @@ class SyncService:
     def _fail_current(
         self,
         context: _RunContext,
-        session: Session,
-        account: Account,
+        account_id: int,
         error: Exception,
-        blz: str | None,
         *,
         attempts: int,
     ) -> None:
+        session = self._require_session(context)
         waiting = session.get(ImportRun, context.waiting_run_id) if context.waiting_run_id is not None else None
         run = persist_sync_failure(
             session,
-            account.id,
+            account_id,
             context.job_group_id,
             error,
-            blz=blz,
+            blz=context.blz,
             waiting_run=waiting,
         )
         context.results.append(
             AccountSyncResult(
-                account_id=account.id,
+                account_id=account_id,
                 status=_account_status(run.status),
                 import_run_id=run.id,
                 attempts=attempts,
@@ -813,41 +922,39 @@ class SyncService:
     def _fail_all(
         self,
         context: _RunContext,
-        session: Session,
-        accounts: Sequence[Account],
+        account_ids: Sequence[int],
         error: Exception,
-        blz: str,
     ) -> None:
-        for account in accounts:
-            self._fail_current(context, session, account, error, blz, attempts=1)
+        for account_id in account_ids:
+            self._fail_current(context, account_id, error, attempts=1)
 
     def _finalize_interrupted(
         self,
         context: _RunContext,
-        session: Session,
         error: Exception,
     ) -> None:
         """Protokolliert Abbruch/Timeout je Konto (F-SYN-10).
 
         Das laufende Konto wird nicht uebernommen; vollstaendig uebernommene
         Konten bleiben erhalten. Fuer das laufende und die noch nicht
-        gestarteten Konten entsteht je eine Protokollzeile.
+        gestarteten Konten entsteht je eine Protokollzeile. Die Protokolle
+        laufen auf der vor dem Aufruf frisch geoeffneten Session (N-DB-04).
         """
 
+        session = self._require_session(context)
         if context.current_account_id is not None:
-            account = session.get(Account, context.current_account_id)
-            if account is not None:
-                self._fail_current(context, session, account, error, _account_blz(account), attempts=1)
+            account_id = context.current_account_id
+            if session.get(Account, account_id) is not None:
+                self._fail_current(context, account_id, error, attempts=1)
             context.current_account_id = None
             start = context.index + 1
         else:
             start = context.index
 
         for account_id in context.account_ids[start:]:
-            account = session.get(Account, account_id)
-            if account is None:
+            if session.get(Account, account_id) is None:
                 continue
-            self._fail_current(context, session, account, error, _account_blz(account), attempts=1)
+            self._fail_current(context, account_id, error, attempts=1)
 
     # -- Antworten und Status ----------------------------------------------
 
@@ -1096,22 +1203,18 @@ def _to_fetched_transaction(row: TransactionData) -> FetchedTransaction:
     )
 
 
-def _account_reference(sepa_account: SEPAAccount, account: Account) -> str:
-    """Liefert die von der Bank gelieferte Kontoreferenz."""
+def _account_reference(sepa_account: SEPAAccount, account_id: int, account_iban: str | None) -> str:
+    """Liefert die von der Bank gelieferte Kontoreferenz.
+
+    Zwischen den Schritten stehen nur die Konto-ID und die IBAN zur Verfuegung,
+    kein ORM-Objekt (N-DB-04).
+    """
     iban = sepa_account.iban
     if isinstance(iban, str) and iban.strip():
         return iban.strip()
-    if account.iban:
-        return account.iban
-    return f"Konto {account.id}"
-
-
-def _account_blz(account: Account) -> str | None:
-    """Liest die Bankleitzahl des Kontos fuer das Fehler-Mapping."""
-    access = account.bank_access
-    if access is None:
-        return None
-    return access.bank.blz
+    if account_iban:
+        return account_iban
+    return f"Konto {account_id}"
 
 
 def _normalized_iban(value: str | None) -> str | None:

@@ -2,6 +2,28 @@
 
 ## Next actions
 
+- **T-111 umgesetzt (M4-Entlastung, DB-Session-Freigabe an der TAN-Pause, N-DB-04).** Konflikt-Check: Ja
+  (plan.md M4-Entlastung; Aenderung ausschliesslich in `backend/finue/services/sync_service.py`, keine
+  REST-/Runner-/Event-/Folgeaenderungen aus T-112). Umsetzung: `_RunContext` traegt die Session nur waehrend eines
+  laufenden Schritts (`session=None` an der Pause) und zusaetzlich nur die Bankleitzahl als Wert; `_GatewayHolder`
+  haelt jetzt Bankzugang-ID + PIN statt eines ORM-`BankAccess` und baut jeden Dialog ueber die offene Session
+  (`ensure_open`, `resume_gateway` ohne `__enter__`, `close`/`restart`). `_run` traegt nur Konten-IDs und Werte
+  (kein ORM) ueber die Pause; `_step` schliesst die Session unmittelbar vor jedem `yield` und verwirft den
+  Dialog, oeffnet nach der Freigabe eine frische Session und setzt den eingefrorenen Dialog mit einem neuen
+  Dialoghalter fort. Neue Helfer `_open_session`/`_close_session`/`_require_session`/`_account_iban`; Abbruch und
+  Timeout oeffnen fuer die Abschlussprotokolle kurz eine frische Session und schliessen sie danach. Der 5-Minuten-
+  Timeout (Registry-Uhr), `N-SEC-03` (Handoff nur im RAM) und die je-Konto-genau-eine-ImportRun-Zeile bleiben
+  unveraendert. Neue Tests `tests/unit/test_sync_session_release.py` (5 Tests: keine Session/Connection offen,
+  parallele Schreibvorgaenge ohne Sperrwartezeit, Resume-Paritaet gegen Lauf ohne Pause, Abbruch, Timeout;
+  Pool-Assert `Engine.pool.checkedout()==0` plus `context.session is None`; zusaetzlich Feldpruefung, dass der
+  Laufzustand kein Session-/ORM-Objekt traegt). Evidenz: `uv run pytest tests/unit/test_sync_session_release.py -q`
+  = 5 passed; `uv run pytest tests/unit -q -k sync` = 104 passed; `uv run pytest tests/integration/test_sync_flow.py
+  tests/integration/test_sync_orders.py -q` = 17 passed; `ruff check`/`ruff format --check` der geaenderten Dateien
+  gruen, `mypy backend/finue/services/sync_service.py` = Success. Mutationstest: ohne `self._close_session(context)`
+  in `_step` schlagen 4/5 Tests fehl (Session bleibt gesetzt), die Tests sind also wirksam. **Offen:** Der
+  Medium-Task wird in dieser Entlastungswelle nicht separat durch `verifier` geprueft; die unabhaengige Pruefung
+  erfolgt im Abschlusstask T-099. Wichtig fuer T-112: dieselben Pool-Asserts im Runner-Test wiederholen. Kein Push.
+
 - **T-087 umgesetzt (M4 Welle 3, Suchspalte pflegen + Backfill-Migration 0004).** Konflikt-Check: Ja (F-SUC-01,
   F-SUC-06, F-ABS-05; Dateien getrennt von T-088/T-099/T-111). Neu: `backend/finue/services/search_text.py`
   (`build_search_text(counterparty, purpose, note, counterparty_iban, external_ref)`, `normalize_query_term`,
