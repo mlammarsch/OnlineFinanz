@@ -13,21 +13,27 @@ Datenbank ist ein No-Op), weil Alembic die Revision vor dem Lauf prueft.
 from __future__ import annotations
 
 import logging
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
+from datetime import datetime
 
 from fastapi import FastAPI
 
-from finue.api.health import router as health_router
+from finue.api.container import AppServices
+from finue.api.errors import register_exception_handlers
+from finue.api.routes import build_router
 from finue.config import Settings, get_settings
 from finue.db.engine import create_db_engine, make_session_factory
 from finue.db.migrate import upgrade_to_head
 from finue.logging_setup import configure_logging
+from finue.services.events import EventBus
+from finue.services.sync_registry import SyncRegistry
+from finue.timeutil import utc_now
 
 logger = logging.getLogger(__name__)
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+def create_app(settings: Settings | None = None, *, clock: Callable[[], datetime] | None = None) -> FastAPI:
     """Erzeugt und konfiguriert die FastAPI-Anwendung.
 
     Ohne ``settings`` werden die Standard-Settings aus Umgebungsvariablen
@@ -37,16 +43,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     Der Lifespan richtet das JSON-Logging ein (N-OPS-05, N-SEC-02 maskiert
     Geheimnisse), erzeugt die SQLAlchemy-Engine, migriert das Schema auf ``head``
-    (N-DB-03) und hinterlegt Engine und Session-Factory in ``app.state``. Beim
-    Herunterfahren wird die Engine geschlossen.
+    (N-DB-03) und hinterlegt den Service-Container in ``app.state`` (D12):
+    Engine/Session-Factory, Ereignisbus (F-CON-04), Sync-Registry als Singleton
+    und die Uhr. Beim Herunterfahren wird die Engine geschlossen.
 
     Args:
         settings: Optionale Konfiguration; ohne Angabe die Projekt-Defaults.
+        clock: Injizierbare Uhr (Default ``finue.timeutil.utc_now``) fuer Bus,
+            Sync-Registry und Tests.
 
     Returns:
         Konfigurierte FastAPI-Instanz.
     """
     resolved = settings if settings is not None else get_settings()
+    resolved_clock: Callable[[], datetime] = clock if clock is not None else utc_now
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -57,8 +67,23 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         upgrade_to_head(resolved.database_url)
         logger.info("Schema auf head migriert")
 
+        session_factory = make_session_factory(engine)
+        event_bus = EventBus(clock=resolved_clock)
+        sync_registry = SyncRegistry(clock=resolved_clock)
+        services = AppServices(
+            settings=resolved,
+            session_factory=session_factory,
+            event_bus=event_bus,
+            sync_registry=sync_registry,
+            clock=resolved_clock,
+        )
+
         app.state.engine = engine
-        app.state.session_factory = make_session_factory(engine)
+        app.state.session_factory = session_factory
+        app.state.services = services
+        app.state.event_bus = event_bus
+        app.state.sync_registry = sync_registry
+        app.state.clock = resolved_clock
         # Der Zeitplaner kommt erst in M8; bis dahin ist er nicht gestartet.
         app.state.scheduler_running = False
         try:
@@ -68,7 +93,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             logger.info("Anwendung beendet")
 
     app = FastAPI(title="Finanzuebersicht", lifespan=lifespan)
-    app.include_router(health_router)
+    register_exception_handlers(app)
+    app.include_router(build_router())
     return app
 
 

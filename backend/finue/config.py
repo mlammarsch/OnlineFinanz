@@ -38,6 +38,33 @@ class Settings(BaseSettings):
         default=False,
         description="Zeitplaner muss laufen, damit /api/health/ready bereit meldet (ab M8)",
     )
+    auth_required: bool = Field(
+        default=False,
+        description=(
+            "Anmeldung erzwingen. In M4 ist die Auth-Naht require_user ohne Pruefung aktiv; "
+            "die tatsaechliche Anmeldung folgt mit N-SEC-04 in M10."
+        ),
+    )
+    api_default_page_size: int = Field(
+        default=50,
+        ge=1,
+        description="Standard-Seitengroesse bei Listen (SPEC F-MCP-11)",
+    )
+    api_max_page_size: int = Field(
+        default=200,
+        ge=1,
+        description="Hoechste Seitengroesse bei Listen (SPEC F-MCP-11)",
+    )
+    api_max_batch_size: int = Field(
+        default=1000,
+        ge=1,
+        description="Hoechste Zahl von Eintraegen je Batch-Aktion (F-CON-03)",
+    )
+    api_max_upload_bytes: int = Field(
+        default=50 * 1024 * 1024,
+        ge=1,
+        description="Hoechste Groesse einer hochgeladenen Datei in Bytes (Import, M4)",
+    )
 
     def __init__(self, **data: Any) -> None:
         """Initialisierung mit Standard-DATABASE_URL-Berechnung."""

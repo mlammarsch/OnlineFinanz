@@ -2,6 +2,26 @@
 
 ## Next actions
 
+- **T-086 abgeschlossen (M4 Welle 2, API-Grundgeruest).** Konflikt-Check: Ja (plan.md M4 T-086; keine
+  SPEC-Aenderung, keine Migration, kein Fachtask). Neu: `backend/finue/api/routes.py` (zentrale Registrierung:
+  Health ohne Auth, geschuetzter `/api`-Router mit `require_user`-Dependency), `errors.py` (einheitliches Format
+  `{code,message,details}` plus `current` bei 409 (F-CON-02); deutsche 422-Uebersetzung; 404/405/413/401/500;
+  500 ohne interne Details, N-SEC-02), `pagination.py` (`{items,next_cursor}`, limit Standard 50/hoechstens 200,
+  SPEC F-MCP-11), `conventions.py` (`VersionedRequest`, Batch-Umschlag mit `geaendert|unveraendert|konflikt|fehler`
+  (F-CON-03), REST-Herkunft `ui`, Batch-/Upload-Grenzen), `container.py` + `deps.py` (AppServices,
+  `get_event_bus`/`get_clock`/`get_sync_registry`, `require_user`). `services/events.py`: threadsicherer EventBus
+  (publish/subscribe/unsubscribe plus Queue-Abonnement fuer SSE T-101); Ereignis = Typ plus IDs, nie Geheimnisse
+  (F-CON-04). `config.py`: Seitengroesse 50/200, Batch 1000, Upload 50 MiB, `auth_required`. `main.py`: Container
+  (Session-Factory, EventBus, SyncRegistry-Singleton, injizierbare Uhr) in `app.state`, Fehlerhandler registriert.
+  `tests/conftest.py` (Datei-SQLite WAL + TestClient), `tests/unit/test_api_foundation.py`, `test_events.py`,
+  `test_api_contract.py` (Guardrail: Routen registriert, schreibende Routen mit Art/Begruendung, Listenrouten mit
+  limit, jede /api-Route an require_user; synthetische Positiv-/Negativfaelle). `docs/api.md` und `decisions.md`
+  (Auth-Naht). Evidenz: `uv run pytest tests/unit/test_api_foundation.py tests/unit/test_events.py
+  tests/unit/test_api_contract.py -q` = 44 passed; `uv run ruff check backend tests scripts` = All checks passed;
+  `uv run ruff format --check backend tests scripts` = 145 files already formatted; `uv run mypy backend` = Success
+  (65 Dateien). **Parallelitaet:** T-085 lief gleichzeitig im selben Arbeitsbaum; der Commit umfasst nur
+  T-086-Dateien. Naechster Schritt: unabhaengige verifier-Pruefung (medium), danach T-088/T-092/T-099/T-101/T-102/T-111.
+
 - **T-084 abgeschlossen (M4 Welle 1, validate.py-Geruest).** Konflikt-Check: Ja (plan.md M4 "validate.py aendern
   T-084"; keine SPEC-Aenderung, keine Fachlogik). `scripts/validate.py`: `STAGE_M4` leer in `IMPLEMENTED`
   registriert (kumulativ, `validate.py m4` faehrt m0..m4), `check_lint` prueft jetzt zusaetzlich
@@ -250,3 +270,11 @@
 - SMB-Ziel fuer Backups (Live-Test Backup, `docs/live-test-backup.md`, M8).
 - Docker-Hub-Repository und `docker login` (M10).
 - Bank-Endpunkte (nur ING als Owner-Vorgabe, unbelegt) und Fehlercodes (u. a. echter ING-90-Tage-Code): Quelle oder Beleg aus `docs/live-test-fints.md`.
+
+## Planer-Update 2026-11-26 (M4-Entlastung)
+
+- Neue Etappentasks: T-108, T-109, T-110 (zu T-094), T-111, T-112 (zu T-099), T-113, T-115 (zu T-106). T-114 cancelled (Fehlanlage).
+- T-094, T-099, T-106 stehen auf `blocked` als Abschlusstasks (nicht claimbar). Nach Abschluss aller Etappen: `task-set <T> pending`, dann claimen und `task-done`.
+- T-085/T-086 unveraendert. Naechste freie Tasks nach T-086: T-111; nach T-087: T-108.
+- T-097/T-098 nur Beobachtung, Schnitt in plan.md vorbereitet.
+- Details und Risiken: plan.md Abschnitt "M4-Entlastung".
