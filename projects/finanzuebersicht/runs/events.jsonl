@@ -361,3 +361,27 @@
 {"ts": "2026-11-26T18:15:58Z", "kind": "task.set", "task": "T-083", "status": "running"}
 {"ts": "2026-11-26T18:26:12Z", "kind": "task.verify", "task": "T-083", "ok": true, "status": "done", "attempts": 1}
 {"ts": "2026-11-26T18:29:38Z", "kind": "learn", "gaps": [], "task": "T-083", "improve": false}
+{"ts": "2026-11-26T19:02:21Z", "kind": "task.add", "task": "T-084", "goal": "G-005"}
+{"ts": "2026-11-26T19:02:22Z", "kind": "task.add", "task": "T-085", "goal": "G-005"}
+{"ts": "2026-11-26T19:02:22Z", "kind": "task.add", "task": "T-086", "goal": "G-005"}
+{"ts": "2026-11-26T19:02:22Z", "kind": "task.add", "task": "T-087", "goal": "G-005"}
+{"ts": "2026-11-26T19:02:22Z", "kind": "task.add", "task": "T-088", "goal": "G-005"}
+{"ts": "2026-11-26T19:02:22Z", "kind": "task.add", "task": "T-089", "goal": "G-005"}
+{"ts": "2026-11-26T19:02:23Z", "kind": "task.add", "task": "T-090", "goal": "G-005"}
+{"ts": "2026-11-26T19:02:23Z", "kind": "task.add", "task": "T-091", "goal": "G-005"}
+{"ts": "2026-11-26T19:02:23Z", "kind": "task.add", "task": "T-092", "goal": "G-005"}
+{"ts": "2026-11-26T19:02:23Z", "kind": "task.add", "task": "T-093", "goal": "G-005"}
+{"ts": "2026-11-26T19:02:23Z", "kind": "task.add", "task": "T-094", "goal": "G-005"}
+{"ts": "2026-11-26T19:02:23Z", "kind": "task.add", "task": "T-095", "goal": "G-005"}
+{"ts": "2026-11-26T19:02:23Z", "kind": "task.add", "task": "T-096", "goal": "G-005"}
+{"ts": "2026-11-26T19:02:24Z", "kind": "task.add", "task": "T-097", "goal": "G-005"}
+{"ts": "2026-11-26T19:02:24Z", "kind": "task.add", "task": "T-098", "goal": "G-005"}
+{"ts": "2026-11-26T19:02:24Z", "kind": "task.add", "task": "T-099", "goal": "G-005"}
+{"ts": "2026-11-26T19:02:24Z", "kind": "task.add", "task": "T-100", "goal": "G-005"}
+{"ts": "2026-11-26T19:02:24Z", "kind": "task.add", "task": "T-101", "goal": "G-005"}
+{"ts": "2026-11-26T19:02:24Z", "kind": "task.add", "task": "T-102", "goal": "G-005"}
+{"ts": "2026-11-26T19:02:24Z", "kind": "task.add", "task": "T-103", "goal": "G-005"}
+{"ts": "2026-11-26T19:02:25Z", "kind": "task.add", "task": "T-104", "goal": "G-005"}
+{"ts": "2026-11-26T19:02:25Z", "kind": "task.add", "task": "T-105", "goal": "G-005"}
+{"ts": "2026-11-26T19:02:25Z", "kind": "task.add", "task": "T-106", "goal": "G-005"}
+{"ts": "2026-11-26T19:02:25Z", "kind": "task.add", "task": "T-107", "goal": "G-005"}

@@ -2,6 +2,14 @@
 
 ## Next actions
 
+- **M4-Taskplan angelegt (G-005, T-084 bis T-107, 24 Tasks, Branch `m4/develop`).** Wellen, Befunde und
+  Abgrenzung in `plan.md` Abschnitt "M4 Taskplan". Abnahme T-107: `validate.py m4` mit roundtrip (erweitert), perf
+  (N-PERF-01, 100.000 Buchungen), concurrency und API-E2E (T-106: echter Uvicorn-Prozess, Fake-Bank, SSE, ein
+  zusammenhaengendes Szenario von Leerzustand bis Konto loeschen). Planungsbefunde: `search_text` bleibt bei Import
+  und Sync leer (T-087), Herkunft der Kennzeichen ohne Spalte (T-085), Bank ohne Icon/Version und keine
+  Exportprofile (T-085), DB-Session waehrend TAN-Pause offen (T-099), keine Anmeldung bis M10 (Auth-Naht in T-086).
+  Naechster Schritt: T-084 claimen (Welle 1, solo), danach T-085 und T-086 parallel.
+
 - **T-083 abgeschlossen (M3-Abnahme und Aufraeumen).** Konflikt-Check: **Ja** (SPEC F-SYN-01..11,
   F-AUF-04/05/07, F-CON-05, N-SEC-01..03 decken sich mit `plan.md` M3 "`validate.py m3` (+ integration)";
   positiver F-AUF-07-Zweig, keine SPEC-Aenderung). `scripts/validate.py`: `STAGE_M3` enthaelt jetzt

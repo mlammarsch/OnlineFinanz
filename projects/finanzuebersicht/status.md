@@ -1,10 +1,10 @@
 # Status finanzuebersicht
 
-_generated 2026-11-26T18:32:55Z_
+_generated 2026-11-26T19:03:28Z_
 
-Tasks: pending=0, running=0, done=80, failed=0, blocked=0, cancelled=3
+Tasks: pending=24, running=0, done=80, failed=0, blocked=0, cancelled=3
 
-Verified complete: 80/83; retry rate 0.06; learnings 71; events 363
+Verified complete: 80/107; retry rate 0.05; learnings 71; events 387
 
 ## now
 
@@ -12,11 +12,33 @@ Verified complete: 80/83; retry rate 0.06; learnings 71; events 363
 
 ## next
 
-- (empty)
+- [ ] T-084 M4: validate.py Stufe m4, Formatcheck, type-ignore-Regel und Roundtrip-Skript auslagern
 
 ## blocked
 
-- (empty)
+- [ ] T-085 M4: Migration 0003 Schema-Ergaenzungen (Herkunft Kennzeichen, Bank-Icon/Version, Exportprofile, Indizes): waiting on T-084
+- [ ] T-086 M4: API-Grundgeruest (Router, Fehlerformat, 409, Paginierung, Batch-Umschlag, EventBus, Auth-Naht, Vertragstest): waiting on T-084
+- [ ] T-087 M4: Suchspalte pflegen (search_text bei Import, Sync, Vormerkung) und Backfill-Migration 0004: waiting on T-085
+- [ ] T-088 M4: Konten und Gruppen - Service und API (F-KTO-01..04, F-KTO-05b, F-KTO-06): waiting on T-085,T-086
+- [ ] T-089 M4: Konto loeschen mit vollstaendiger Bereinigung (F-KTO-07): waiting on T-088
+- [ ] T-090 M4: Banken-Stammdaten und Icon-Upload (F-KTO-10, F-KTO-11): waiting on T-088
+- [ ] T-091 M4: FinTS-Anlage-Assistent im Backend (F-KTO-05a): waiting on T-088,T-099
+- [ ] T-092 M4: Such- und Filterabfrage als gemeinsamer Baustein plus Such-API (F-SUC-01..07, F-ABS-04/05): waiting on T-086,T-087
+- [ ] T-093 M4: Buchungsliste mit Vormerkungen, Tagessalden, Gruppenansicht und Keyset-Paginierung (F-BUC-01..06): waiting on T-088,T-092
+- [ ] T-094 M4: Kennzeichen, Notiz, externe Referenz und Batch mit Setz-Semantik und Versionspruefung (F-ABS-01/02/05/06, F-CON-01..03): waiting on T-086,T-087
+- [ ] T-095 M4: Abstimmungsuebersicht je Konto und Gruppe (F-ABS-03): waiting on T-085,T-088
+- [ ] T-096 M4: Aufloesung von Verdachtsdubletten - Zusammenfuehren, Rueckgaengig, Ignorieren (F-DUP-05): waiting on T-094
+- [ ] T-097 M4: Export-Service JSON und Markdown mit Umfang, Filter und Dateiname (F-EXP-01, 02, 04, 05): waiting on T-092,T-085
+- [ ] T-098 M4: CSV-Export mit Optionen, Exportprofilen und passender Importvorlage (F-EXP-03, F-EXP-06): waiting on T-097
+- [ ] T-099 M4: Sync-REST mit TAN-Endpunkten und DB-Session-Freigabe waehrend der TAN-Pause: waiting on T-086
+- [ ] T-100 M4: REST fuer Datei-Import, Importvorlagen, Lauf-Protokoll und lesende Auftraege: waiting on T-086,T-087,T-085
+- [ ] T-101 M4: Aenderungsbenachrichtigung per Server-Sent Events /api/events (F-CON-04): waiting on T-086,T-099
+- [ ] T-102 M4: Sitzungsuebersicht und Abmelden einzelner Sitzungen im Backend (F-CON-06): waiting on T-086
+- [ ] T-103 M4: Performance-Block mit 100.000 Buchungen (N-PERF-01, F-BUC-06): waiting on T-093
+- [ ] T-104 M4: Concurrency-Block (F-CON-01..05, N-DB-04): waiting on T-088,T-094,T-099,T-101
+- [ ] T-105 M4: Roundtrip-Block erweitern (Mehrkonto-JSON, CSV mit Vorlage, alle Schema-Versionen) (F-EXP-06/07, F-ABS-06): waiting on T-094,T-096,T-098,T-100
+- [ ] T-106 M4: API-E2E-Szenario gegen echten Uvicorn-Prozess mit Fake-Bank und SSE: waiting on T-089,T-090,T-091,T-093,T-095,T-096,T-098,T-100,T-101,T-102
+- [ ] T-107 M4: Abnahme und Aufraeumen (validate.py m4 inkl. roundtrip, perf, concurrency, api-e2e): waiting on T-084,T-085,T-086,T-087,T-088,T-089,T-090,T-091,T-092,T-093,T-094,T-095,T-096,T-097,T-098,T-099,T-100,T-101,T-102,T-103,T-104,T-105,T-106
 
 ## improve
 

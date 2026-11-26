@@ -84,3 +84,44 @@ Alle Builder-Tasks laufen mit DeepSeek V4.1 Flash, Effort max. Alle medium/high 
 eine unabhaengige Verifier-Pruefung mit Claude Sonnet 5.5, Effort medium. Low-Risk-Tasks koennen nach ihrem
 Verifikationsbefehl direkt abgeschlossen werden. FinTS bleibt lesend; Tests verwenden ausschliesslich Fake-Clients
 und Mocks, echte Bankzugriffe und Secrets sind ausgeschlossen. T-077 ist high risk und braucht `task-approve`.
+
+## M4 Taskplan (G-005, T-084 bis T-107)
+
+DEV-Branch `m4/develop`. Abnahme: `validate.py m4` = m0..m3 plus `roundtrip` (erweitert), `perf`, `concurrency` und
+API-E2E (`pytest -m api_e2e`). Browser-E2E folgt mit der UI in M5; M4 weist die Ende-zu-Ende-Fachlogik ueber ein
+zusammenhaengendes Szenario gegen einen echten Uvicorn-Prozess nach (T-106).
+
+Befunde aus der Planung, die Tasks ausloesen:
+- `transaction.search_text` wird bisher nur von `demo.py` befuellt; Import und Sync lassen die Spalte leer (T-087).
+- Herkunft der Kennzeichen (F-ABS-01) hat keine Spalte, der JSON-Export ist dadurch nicht verlustfrei (T-085).
+- Bank hat weder Icon (F-KTO-10) noch Versionsspalte (F-CON-02); Exportprofile (F-EXP-03) fehlen im Schema (T-085).
+- `SyncService` haelt die DB-Session waehrend der TAN-Pause offen (Improve-Queue, T-099).
+- Es gibt keine Anmeldung; N-SEC-04 gehoert zu M10. T-086 legt eine Auth-Naht `require_user` an allen
+  `/api`-Routen an, in M4 ohne Pruefung (Entscheidung in `decisions.md`).
+- REST fuer Import, Vorlagen, Sync und Auftraege (Services aus M2/M3) entsteht in M4 (T-099, T-100), weil M5/M6
+  reine Frontend-Milestones sind.
+
+| Welle | Tasks | Abhaengig von | Risiko |
+|---|---|---|---|
+| 1 | T-084 validate m4, Formatcheck, Roundtrip-Skript auslagern | - | low |
+| 2 | T-085 Migration 0003, T-086 API-Grundgeruest | T-084 | medium, medium |
+| 3 | T-087 Suchspalte + Backfill 0004, T-088 Konten/Gruppen, T-099 Sync-REST + Session-Fix, T-102 Sitzungen | T-085 bzw. T-086 | medium, medium, medium, low |
+| 4a | T-092 Suche, T-094 Kennzeichen/Notiz/Batch, T-095 Abstimmungsuebersicht, T-100 Import-/Vorlagen-/Auftraege-REST | Welle 3 | medium |
+| 4b | T-089 Konto loeschen, T-090 Banken + Icons, T-091 FinTS-Assistent, T-101 SSE | Welle 3 | medium |
+| 5 | T-093 Buchungsliste, T-096 Dubletten-Aufloesung, T-097 Export JSON/MD, T-104 Concurrency-Block | T-092 bzw. T-094 bzw. T-101 | medium |
+| 6 | T-098 CSV-Export + Profile, T-103 Perf-Block | T-097 bzw. T-093 | medium |
+| 7 | T-105 Roundtrip-Block erweitert, T-106 API-E2E-Szenario | Welle 4-6 | medium |
+| 8 | T-107 M4-Abnahme und Aufraeumen | alle T-084..T-106 | medium |
+
+Hinweise:
+- Wellen 4a und 4b sind voneinander unabhaengig; die Teilung begrenzt nur die Zahl paralleler Builder auf vier.
+- `scripts/validate.py` aendern T-084, T-103, T-104, T-105 und T-106; Eintraege in `STAGE_M4` nacheinander committen.
+- T-086 legt `tests/unit/test_api_contract.py` als Guardrail an: jede aendernde Route braucht einen Eintrag
+  (Version, Setz-Semantik, Anlage oder Aktion), jede Listenroute ein `limit`. Jeder Folgetask erweitert die Tabelle.
+- Service-Funktionen fuer Kennzeichen, Notiz, Abstimmung und Suche nehmen `origin` bzw. Grenzen als Parameter,
+  damit M9 (MCP) dieselbe Schicht nutzt (D10), ohne MCP vorwegzunehmen.
+- Nicht in M4: Fehler-Mapping-Pflege (F-SYN-09, M7), Icon-Web-Abruf (F-KTO-08, M7), Badge ungepruefter Buchungen
+  (F-KTO-09, M7), Anmeldung (N-SEC-04, M10).
+- Owner-Eingabe offen: Finanzblick-CSV-Beispiel fuer das Standard-Exportprofil (T-098 baut bis dahin unbelegt).
+- Routing wie M3: Builder DeepSeek V4.1 Flash (Effort max), Verifier Claude Sonnet 5.5 (Effort medium) fuer alle
+  medium-Tasks; T-084 und T-102 sind low und schliessen nach gruenem Verifikationsbefehl ab.
