@@ -3,8 +3,9 @@
 Setzt die Review-Checkliste aus AGENTS.md (Abschnitt "Review-Checkliste fuer
 verifier": Anforderungs-IDs in Tests referenziert) um. Dieser Test stellt
 sicher, dass die nicht-funktionalen Anforderungen aus den Bereichen
-Datenhaltung (N-DB) und Betrieb (N-OPS) in mindestens einer echten Testdatei
-unter tests/ namentlich genannt werden.
+Datenhaltung (N-DB) und Betrieb (N-OPS) sowie die Abnahme-IDs des
+Milestones M2 (F-DUP, F-IMP, F-EXP-04/07) in mindestens einer echten
+Testdatei unter tests/ namentlich genannt werden.
 
 Die Meta-Testdatei schliesst sich selbst von der Suche aus, damit die Pflicht-IDs
 ausschliesslich aus Fachtests stammen und nicht trivial durch die Auflistung in
@@ -20,8 +21,10 @@ TESTS_DIR = Path(__file__).resolve().parent.parent
 SELF = Path(__file__).resolve()
 
 # Pflicht-IDs: nicht-funktionale Anforderungen mit Bezug zu Datenhaltung (N-DB)
-# und Betrieb (N-OPS). Jede muss mindestens einmal als Substring in einer echten
-# Testdatei unter tests/ vorkommen.
+# und Betrieb (N-OPS) sowie die funktionalen Abnahme-IDs des Milestones M2
+# (Dubletten F-DUP, Import F-IMP, Export-Schema F-EXP-04/07). Jede muss
+# mindestens einmal als Substring in einer echten Testdatei unter tests/
+# vorkommen.
 REQUIRED_IDS = (
     "N-DB-01",
     "N-DB-02",
@@ -31,6 +34,20 @@ REQUIRED_IDS = (
     "N-OPS-04",
     "N-OPS-05",
     "N-OPS-06",
+    "F-DUP-01",
+    "F-DUP-02",
+    "F-DUP-03",
+    "F-DUP-04",
+    "F-IMP-01",
+    "F-IMP-02",
+    "F-IMP-03",
+    "F-IMP-04",
+    "F-IMP-05",
+    "F-IMP-06",
+    "F-IMP-07",
+    "F-IMP-08",
+    "F-EXP-04",
+    "F-EXP-07",
 )
 
 

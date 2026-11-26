@@ -1,0 +1,12 @@
+{
+  "task": "T-058",
+  "ts": "2026-11-26T13:26:11Z",
+  "ok": true,
+  "results": [
+    {
+      "cmd": "python scripts/validate.py roundtrip",
+      "exit": 0,
+      "out": "# validate.py roundtrip\n\n[OK] roundtrip: Import-Roundtrip (JSON v1, 0 neue Buchungen bei Re-Import) - ROUNDTRIP_OK erster_lauf=5 zweiter_lauf=0 bestand=5\n\nErgebnis: bestanden\n"
+    }
+  ]
+}

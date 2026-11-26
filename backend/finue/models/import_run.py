@@ -34,12 +34,14 @@ class ImportRun(Base, VersionedMixin, TimestampMixin):
     für optimistische Sperre).
 
     `kind` unterscheidet FinTS-Sync ('sync') von Datei-Importen ('csv', 'json').
-    `status` beschreibt den Lauf: 'laeuft', 'erfolgreich', 'fehlgeschlagen',
-    'abgebrochen' oder 'wartet_auf_tan' (angehaltener Dialog, N-SEC-03). Die
-    Zähler `new_count`, `skipped_count`, `suspected_count` und `failed_count`
-    protokollieren das Ergebnis (F-IMP-06, F-SYN-07). `message` ist der
-    Klartext-Status bzw. die Handlungsempfehlung nach F-SYN-05 und enthält
-    keine Geheimnisse (N-SEC-02).
+    `status` fuehrt die abschliessenden Werte nach F-SYN-07: 'erfolgreich',
+    'teilweise', 'fehler', 'abgebrochen' und 'zeitueberschreitung'. Zusaetzlich
+    sind die technischen Zwischenzustaende 'laeuft' (Lauf gestartet) und
+    'wartet_auf_tan' (angehaltener Dialog, N-SEC-03) erlaubt; sie sind keine
+    abschliessenden SPEC-Statuswerte. Die Zähler `new_count`, `skipped_count`,
+    `suspected_count` und `failed_count` protokollieren das Ergebnis (F-IMP-06,
+    F-SYN-07). `message` ist der Klartext-Status bzw. die Handlungsempfehlung
+    nach F-SYN-05 und enthält keine Geheimnisse (N-SEC-02).
 
     Die Zeilen werden beim Sync bzw. Import angelegt und während des Laufs
     aktualisiert; jeder Einzel-Fehler hängt als ImportRunError am Lauf.
@@ -93,7 +95,10 @@ class ImportRun(Base, VersionedMixin, TimestampMixin):
             name="ck_import_run_kind",
         ),
         CheckConstraint(
-            "status IN ('laeuft', 'erfolgreich', 'fehlgeschlagen', 'abgebrochen', 'wartet_auf_tan')",
+            # F-SYN-07: abschliessende Statuswerte plus technische Zwischenzustaende
+            # 'laeuft' und 'wartet_auf_tan' (N-SEC-03).
+            "status IN ('laeuft', 'wartet_auf_tan', 'erfolgreich', 'teilweise', "
+            "'fehler', 'abgebrochen', 'zeitueberschreitung')",
             name="ck_import_run_status",
         ),
         # Läufe werden je Konto nach Startzeit gelistet (F-SYN-07)

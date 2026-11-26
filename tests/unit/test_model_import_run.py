@@ -86,7 +86,7 @@ def test_import_run_with_two_errors(factory) -> None:  # type: ignore[no-untyped
 
     with factory() as session:
         run = make_test_run(account_id, kind="csv")
-        run.status = "fehlgeschlagen"
+        run.status = "fehler"
         run.new_count = 3
         run.skipped_count = 1
         run.suspected_count = 2
@@ -114,7 +114,7 @@ def test_import_run_with_two_errors(factory) -> None:  # type: ignore[no-untyped
         retrieved = session.query(ImportRun).filter_by(id=run_id).one()
         assert retrieved.account_id == account_id
         assert retrieved.kind == "csv"
-        assert retrieved.status == "fehlgeschlagen"
+        assert retrieved.status == "fehler"
         assert retrieved.new_count == 3
         assert retrieved.skipped_count == 1
         assert retrieved.suspected_count == 2
@@ -156,7 +156,11 @@ def test_import_run_status_defaults_to_running(factory) -> None:  # type: ignore
 
 
 def test_import_run_status_wartet_auf_tan(factory) -> None:  # type: ignore[no-untyped-def]
-    """Status 'wartet_auf_tan' ist erlaubt (F-SYN-07)."""
+    """Status 'wartet_auf_tan' bleibt als technischer Zwischenzustand erlaubt.
+
+    F-SYN-07 fuehrt ihn nicht als abschliessenden Status; er beschreibt den
+    angehaltenen FinTS-Dialog (N-SEC-03) und wird daher im Constraint belassen.
+    """
     with factory() as session:
         account = make_test_account()
         session.add(account)
@@ -173,6 +177,35 @@ def test_import_run_status_wartet_auf_tan(factory) -> None:  # type: ignore[no-u
     with factory() as session:
         retrieved = session.query(ImportRun).filter_by(id=run_id).one()
         assert retrieved.status == "wartet_auf_tan"
+
+
+@pytest.mark.parametrize(
+    "status",
+    ["erfolgreich", "teilweise", "fehler", "abgebrochen", "zeitueberschreitung"],
+)
+def test_import_run_allows_spec_final_status(factory, status) -> None:  # type: ignore[no-untyped-def]
+    """Die abschliessenden F-SYN-07-Statuswerte sind im Constraint erlaubt.
+
+    Geprueft werden insbesondere 'teilweise', 'fehler' und
+    'zeitueberschreitung'; 'laeuft' und 'wartet_auf_tan' bleiben als
+    technische Zwischenzustaende separat erlaubt.
+    """
+    with factory() as session:
+        account = make_test_account()
+        session.add(account)
+        session.commit()
+        account_id = account.id
+
+    with factory() as session:
+        run = make_test_run(account_id, kind="sync")
+        run.status = status
+        session.add(run)
+        session.commit()
+        run_id = run.id
+
+    with factory() as session:
+        retrieved = session.query(ImportRun).filter_by(id=run_id).one()
+        assert retrieved.status == status
 
 
 def test_import_run_rejects_invalid_kind(factory) -> None:  # type: ignore[no-untyped-def]

@@ -210,3 +210,33 @@
 {"ts": "2026-11-26T10:56:05Z", "kind": "task.verify", "task": "T-049", "ok": true, "status": "done", "attempts": 1}
 {"ts": "2026-11-26T10:56:41Z", "kind": "learn", "gaps": [], "task": "T-046", "improve": false}
 {"ts": "2026-11-26T10:57:14Z", "kind": "learn", "gaps": [], "task": "T-049", "improve": false}
+{"ts": "2026-11-26T12:19:21Z", "kind": "task.claim", "task": "T-057", "worker": "builder-t047"}
+{"ts": "2026-11-26T12:19:25Z", "kind": "task.claim", "task": "T-056", "worker": "builder-t056"}
+{"ts": "2026-11-26T12:19:30Z", "kind": "task.claim", "task": "T-047", "worker": "builder-t057"}
+{"ts": "2026-11-26T12:22:25Z", "kind": "task.verify", "task": "T-057", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-26T12:22:53Z", "kind": "learn", "gaps": [], "task": "T-057", "improve": false}
+{"ts": "2026-11-26T12:23:51Z", "kind": "task.verify", "task": "T-056", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-26T12:23:51Z", "kind": "task.verify", "task": "T-047", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-26T12:24:11Z", "kind": "learn", "gaps": [], "task": "T-056", "improve": false}
+{"ts": "2026-11-26T12:24:51Z", "kind": "learn", "gaps": [], "task": "T-047", "improve": false}
+{"ts": "2026-11-26T12:27:25Z", "kind": "task.claim", "task": "T-053", "worker": "builder-t053"}
+{"ts": "2026-11-26T12:38:21Z", "kind": "task.verify", "task": "T-053", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-26T12:39:23Z", "kind": "learn", "gaps": [], "task": "T-053", "improve": false}
+{"ts": "2026-11-26T12:50:18Z", "kind": "task.claim", "task": "T-054", "worker": "builder-t054"}
+{"ts": "2026-11-26T13:07:16Z", "kind": "task.verify", "task": "T-054", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-26T13:08:40Z", "kind": "task.set", "task": "T-054", "status": "blocked"}
+{"ts": "2026-11-26T13:08:46Z", "kind": "learn", "gaps": ["bad-decomposition"], "task": "T-054", "improve": true}
+{"ts": "2026-11-26T13:16:25Z", "kind": "task.set", "task": "T-054", "status": "pending"}
+{"ts": "2026-11-26T13:16:30Z", "kind": "task.claim", "task": "T-054", "worker": "builder-t054-status"}
+{"ts": "2026-11-26T13:20:59Z", "kind": "task.verify", "task": "T-054", "ok": true, "status": "done", "attempts": 2}
+{"ts": "2026-11-26T13:22:11Z", "kind": "learn", "gaps": [], "task": "T-054", "improve": false}
+{"ts": "2026-11-26T13:23:12Z", "kind": "task.claim", "task": "T-055", "worker": "builder-t055"}
+{"ts": "2026-11-26T13:23:16Z", "kind": "task.claim", "task": "T-058", "worker": "builder-t058"}
+{"ts": "2026-11-26T13:26:11Z", "kind": "task.verify", "task": "T-058", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-26T13:26:37Z", "kind": "learn", "gaps": [], "task": "T-058", "improve": false}
+{"ts": "2026-11-26T13:33:41Z", "kind": "task.verify", "task": "T-055", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-26T13:35:24Z", "kind": "learn", "gaps": [], "task": "T-055", "improve": false}
+{"ts": "2026-11-26T13:35:43Z", "kind": "task.claim", "task": "T-059", "worker": "builder-t059"}
+{"ts": "2026-11-26T13:44:06Z", "kind": "task.verify", "task": "T-059", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-26T13:44:22Z", "kind": "learn", "gaps": [], "task": "T-059", "improve": true}
+{"ts": "2026-11-26T13:46:36Z", "kind": "learn", "gaps": [], "task": "T-059", "improve": false}

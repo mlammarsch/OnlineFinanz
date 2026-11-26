@@ -2,6 +2,23 @@
 
 ## Next actions
 
+- **T-059 abgeschlossen (M2-Abnahme).** Konflikt-Check: Ja (M2-Abnahme nach `plan.md` "validate.py m2 (+ roundtrip
+  Import-Teil)" deckt die SPEC-Anforderungen F-DUP-01..04, F-IMP-01..08, F-EXP-04/07; die unbelegten Seed-Vorlagen
+  N26/Easybank/PayPal sind als bewusste, dokumentierte Annahme in `decisions.md` festgehalten). `python scripts/validate.py m2`
+  lief mit Exit 0: m0/m1 weiter gruen, lint (ruff check) und mypy gruen, 652 Unit-Tests und 1 Smoke-Test bestanden,
+  Roundtrip `ROUNDTRIP_OK erster_lauf=5 zweiter_lauf=0 bestand=5`. `tests/unit/test_requirement_refs.py` prueft die
+  M2-IDs jetzt zusaetzlich automatisch. Offen bleibt die Owner-Eingabe echter CSV-Beispieldateien (N26/Easybank/PayPal/
+  Finanzblick) unter "Open questions"; die Seed-Vorlagen sind bis dahin unbelegt. Restrisiko: `ruff format --check`
+  wuerde `export_schema.py`, `import_run.py` und zwei Testdateien umformatieren; `validate.py m2` prueft nur
+  `ruff check`, daher wurde wegen "nur notwendige Fehler" nichts umformatiert. Evidenz:
+  `projects/finanzuebersicht/artifacts/T-059-verify-1795700646.json` (Exit 0).
+- **T-058 abgeschlossen (roundtrip-Import in validate.py).** `check_roundtrip_import()` importiert
+  `tests/fixtures/export_v1_sample.json` zweimal ueber `execute_import` in einer isolierten temporaeren SQLite-Datei und
+  verlangt im zweiten Lauf `new_count == 0`; zusaetzlich werden erster Lauf (5 neu), Status, Fehlerzaehler und
+  Bestandsgleichheit geprueft. Registriert als eigener BLOCKS-Check `IMPLEMENTED['roundtrip']` und zusaetzlich in
+  `STAGE_M2` (SPEC/plan.md: M2-Abnahme mit Roundtrip-Import-Teil). Konflikt-Check war Ja. Evidenz:
+  `python scripts/validate.py roundtrip` und `python scripts/validate.py m2` beide Exit 0, m2 mit 646 Unit-Tests,
+  1 Smoke-Test, ruff/mypy gruen. Naechster Schritt: Welle 8, T-059 (M2-Abnahme) nach T-055.
 - **M2-Taskplan angelegt (G-003, T-044 bis T-059, 16 Tasks).** Noch keine Task gestartet. Ausfuehrungswellen,
   Parallelitaet und Modellrouting stehen in `plan.md` Abschnitt "M2 Taskplan". Kurzfassung: Welle 1 (T-044 solo)
   -> Welle 2 (T-045/T-048/T-050, 3x parallel) -> Welle 3 (T-046/T-049, 2x parallel) -> Welle 4 (T-047/T-051/T-052/

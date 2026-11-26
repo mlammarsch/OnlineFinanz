@@ -238,7 +238,8 @@ def upgrade() -> None:
             name=op.f("ck_import_run_ck_import_run_kind"),
         ),
         sa.CheckConstraint(
-            "status IN ('laeuft', 'erfolgreich', 'fehlgeschlagen', 'abgebrochen', 'wartet_auf_tan')",
+            "status IN ('laeuft', 'wartet_auf_tan', 'erfolgreich', 'teilweise', "
+            "'fehler', 'abgebrochen', 'zeitueberschreitung')",
             name=op.f("ck_import_run_ck_import_run_status"),
         ),
         sa.ForeignKeyConstraint(

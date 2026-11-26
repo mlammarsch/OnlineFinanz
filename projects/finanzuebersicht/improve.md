@@ -13,3 +13,7 @@
 - [ ] Nach Alembic-Autogenerate die neue Migrationsdatei immer mit 'uv run ruff format' formatieren (Post-Generate-Schritt vor dem Commit), damit generierte Dateien den lint-Block von scripts/validate.py nicht rot machen.
 - [ ] scripts/validate.py: Regel ergaenzen, dass jeder '# type: ignore[...]' eine nachgestellte Begruendung tragen muss, sonst Stufe lint rot (verhindert undokumentierte/pauschale ignores, siehe T-041).
 - [ ] scripts/validate.py: IMPLEMENTED['m1'] auf STAGE_M1 kuerzen (run_stage haengt die m0-Kette bereits selbst an), verhindert doppelte Check-Ausgabe bei jeder kuenftigen mN-Stufe
+- [ ] Vor ImportRun-Tasks Statuswerte aus SPEC und Modell als expliziten Vorab-Check aufnehmen; keine Implementierung bei Vokabular-Konflikt.
+- [ ] scripts/validate.py: check_roundtrip_import bildet die Fixture-Konten (1/2) beim Import bewusst auf ein Zielkonto ab; fuer M4 den Mehrkonto-Roundtrip (Kontozuordnung, Gruppen) als eigenen Check ergaenzen. Ausserdem deckt der Check nur JSON v1 ab; CSV-Roundtrip mit Vorlage folgt mit dem CSV-Export (M4).
+- [ ] scripts/validate.py: den eingebetteten ROUNDTRIP_SCRIPT-String bei wachsendem Umfang in ein eigenes, mit uv ausgefuehrtes Pruefskript unter scripts/ auslagern (bleibt testbar, vermeidet grosse String-Literale in validate.py).
+- [ ] scripts/validate.py: check_lint um 'uv run ruff format --check backend tests scripts' ergaenzen, damit Formatdrift nicht erst spaeter auffaellt.

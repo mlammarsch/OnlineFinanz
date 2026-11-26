@@ -222,6 +222,116 @@ def check_smoke() -> Result:
     return run_external(["uv", "run", "pytest", "-m", "smoke", "tests/integration", "-q"])
 
 
+# Eingebettetes Pruefprogramm fuer den Import-Roundtrip. Es laeuft im
+# Projekt-Interpreter (uv run python), weil scripts/validate.py selbst nur die
+# Standardbibliothek nutzen darf. Die Fixture wird in einer temporaeren,
+# isolierten SQLite-Datei zweimal ueber execute_import importiert (F-EXP-04,
+# F-EXP-06); echte Kontodaten werden nicht verwendet.
+ROUNDTRIP_SCRIPT = """
+import json
+import sys
+import tempfile
+from pathlib import Path
+
+root = Path(sys.argv[1]).resolve()
+sys.path.insert(0, str(root / "backend"))
+
+from sqlalchemy import func, select
+
+import finue.models
+from finue.db.base import Base
+from finue.db.engine import create_db_engine, make_session_factory
+from finue.models.account import Account
+from finue.models.transaction import Transaction
+from finue.services.import_run import execute_import
+
+fixture = root / "tests" / "fixtures" / "export_v1_sample.json"
+if not fixture.is_file():
+    print("ROUNDTRIP_FEHLER: Fixture fehlt: %s" % fixture)
+    raise SystemExit(2)
+
+document = json.loads(fixture.read_text(encoding="utf-8"))
+expected = len(document.get("transactions", []))
+if expected < 1:
+    print("ROUNDTRIP_FEHLER: Fixture enthaelt keine Buchungen")
+    raise SystemExit(2)
+
+with tempfile.TemporaryDirectory(prefix="finue-roundtrip-") as tmp:
+    engine = create_db_engine("sqlite:///" + (Path(tmp) / "roundtrip.db").as_posix())
+    try:
+        Base.metadata.create_all(engine)
+        session_factory = make_session_factory(engine)
+        with session_factory() as session:
+            account = Account(id=1, name="Roundtrip-Pruefung", currency="EUR", source="datei")
+            session.add(account)
+            session.commit()
+
+            first = execute_import(account.id, document, None, "json", session)
+            total_first = session.scalar(select(func.count()).select_from(Transaction)) or 0
+            second = execute_import(account.id, document, None, "json", session)
+            total_second = session.scalar(select(func.count()).select_from(Transaction)) or 0
+    finally:
+        engine.dispose()
+
+fehler = []
+if first.status != "erfolgreich":
+    fehler.append("erster Lauf Status %r" % first.status)
+if first.new_count != expected:
+    fehler.append("erster Lauf new_count=%s, erwartet %s" % (first.new_count, expected))
+if first.failed_count != 0:
+    fehler.append("erster Lauf failed_count=%s" % first.failed_count)
+if total_first != expected:
+    fehler.append("Bestand nach erstem Lauf %s, erwartet %s" % (total_first, expected))
+if second.status != "erfolgreich":
+    fehler.append("zweiter Lauf Status %r" % second.status)
+if second.new_count != 0:
+    fehler.append("zweiter Lauf new_count=%s, erwartet 0" % second.new_count)
+if total_second != total_first:
+    fehler.append("Bestand nach zweitem Lauf %s, erwartet %s" % (total_second, total_first))
+
+if fehler:
+    print("ROUNDTRIP_FEHLER: " + "; ".join(fehler))
+    raise SystemExit(1)
+
+print(
+    "ROUNDTRIP_OK erster_lauf=%s zweiter_lauf=%s bestand=%s"
+    % (first.new_count, second.new_count, total_second)
+)
+"""
+
+
+def check_roundtrip_import() -> Result:
+    """Import-Roundtrip der JSON-v1-Fixture: zweiter Lauf legt nichts neu an.
+
+    Referenziert F-EXP-04 (verlustfreier Export/Re-Import), F-EXP-06
+    (Roundtrip ohne neue Buchungen) und F-IMP-04 (eigenes JSON ohne Mapping).
+    """
+    try:
+        proc = subprocess.run(
+            ["uv", "run", "python", "-", str(ROOT)],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            input=ROUNDTRIP_SCRIPT,
+        )
+    except Exception as exc:  # Pruefung darf nie still abbrechen
+        return False, f"Fehler beim Ausfuehren: {exc!r}"
+
+    stdout = proc.stdout.strip()
+    if proc.returncode == 0 and "ROUNDTRIP_OK" in stdout:
+        marker = [line for line in stdout.splitlines() if "ROUNDTRIP_OK" in line]
+        return True, marker[-1] if marker else "Roundtrip bestanden"
+
+    detail = ""
+    for stream in (stdout, proc.stderr.strip()):
+        lines = [line for line in stream.splitlines() if line.strip()]
+        if lines:
+            detail = lines[-1]
+            break
+    return False, f"Exit {proc.returncode}: {detail or 'keine Ausgabe'}"
+
+
 STAGE_M0: list[tuple[str, Callable[[], Result]]] = [
     ("Pflichtdateien", check_required_files),
     ("Skill-Frontmatter", check_skill_frontmatter),
@@ -239,16 +349,24 @@ STAGE_M1: list[tuple[str, Callable[[], Result]]] = [
     ("smoke (pytest)", check_smoke),
 ]
 
-# M2-Pruefungen. Noch leer: die Pruefungen der Import- und Dublettenlogik entstehen mit ihren
-# Tasks (T-045 bis T-057). Den Import-Roundtrip haengt T-058 an STAGE_M2 an; der BLOCKS-Eintrag
-# "roundtrip" bleibt davon getrennt und wird erst in T-058 befuellt.
-STAGE_M2: list[tuple[str, Callable[[], Result]]] = []
+# M2-Pruefungen. Die Pruefungen der Import- und Dublettenlogik entstehen mit
+# ihren Tasks (T-045 bis T-057). Der Import-Roundtrip wird hier explizit
+# mitgeprueft, weil plan.md fuer die M2-Abnahme "validate.py m2 (+ roundtrip
+# Import-Teil)" verlangt. Der BLOCKS-Eintrag "roundtrip" bleibt davon getrennt
+# und ist unter IMPLEMENTED registriert.
+ROUNDTRIP_CHECK: tuple[str, Callable[[], Result]] = (
+    "Import-Roundtrip (JSON v1, 0 neue Buchungen bei Re-Import)",
+    check_roundtrip_import,
+)
+
+STAGE_M2: list[tuple[str, Callable[[], Result]]] = [ROUNDTRIP_CHECK]
 
 # Umgesetzte Stufen. Neue Stufen mit dem jeweiligen Milestone hier eintragen.
 IMPLEMENTED: dict[str, list[tuple[str, Callable[[], Result]]]] = {
     "m0": STAGE_M0,
     "m1": STAGE_M0 + STAGE_M1,
     "m2": STAGE_M2,
+    "roundtrip": [ROUNDTRIP_CHECK],
 }
 
 

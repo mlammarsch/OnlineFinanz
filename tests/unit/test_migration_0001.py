@@ -91,6 +91,46 @@ def test_migration_0001_creates_all_tables(tmp_path: Path) -> None:
         engine.dispose()
 
 
+def test_migration_0001_import_run_status_constraint_matches_spec(tmp_path: Path) -> None:
+    """Die migrierte ImportRun-Statuspruefung fuehrt die F-SYN-07-Werte.
+
+    Die Initialmigration ist die Schemaquelle. Der Status-Constraint muss
+    daher ``teilweise``, ``fehler`` und ``zeitueberschreitung`` zulassen und
+    den alten Wert ``fehlgeschlagen`` nicht mehr enthalten. ``laeuft`` und
+    ``wartet_auf_tan`` bleiben als technische Zwischenzustaende erlaubt.
+    """
+    db_path = tmp_path / "migration_0001_import_status.db"
+    config = _build_alembic_config(db_path)
+
+    command.upgrade(config, "head")
+
+    engine = create_engine(f"sqlite:///{db_path.as_posix()}")
+    try:
+        constraints = inspect(engine).get_check_constraints("import_run")
+    finally:
+        engine.dispose()
+
+    status_constraints = [
+        str(constraint.get("sqltext", ""))
+        for constraint in constraints
+        if "ck_import_run_status" in (constraint.get("name") or "")
+    ]
+    assert status_constraints, f"Status-Constraint fehlt: {constraints}"
+
+    sqltext = " ".join(status_constraints)
+    for allowed in (
+        "erfolgreich",
+        "teilweise",
+        "fehler",
+        "abgebrochen",
+        "zeitueberschreitung",
+        "laeuft",
+        "wartet_auf_tan",
+    ):
+        assert allowed in sqltext, f"Status {allowed!r} fehlt im Constraint: {sqltext}"
+    assert "fehlgeschlagen" not in sqltext
+
+
 def test_migration_0001_downgrade_is_not_supported(tmp_path: Path) -> None:
     """downgrade() bricht ab, statt Tabellen zu loeschen (N-DB-03: nur vorwaerts)."""
     db_path = tmp_path / "downgrade_0001.db"

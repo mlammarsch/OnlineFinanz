@@ -6,17 +6,11 @@
 
 ## next
 
-- [ ] T-047 M2: Verdachtsdubletten-Erkennung (F-DUP-03)
-- [ ] T-056 M2: Mapping-Vorlagen speichern und vorschlagen (F-IMP-05)
-- [ ] T-057 M2: PayPal-Hilfszeilen-Filter (F-IMP-08)
+- (empty)
 
 ## blocked
 
-- [ ] T-053 M2: Import-Vorschau-Service (F-IMP-06): waiting on T-047,T-049,T-051
-- [ ] T-054 M2: Import-Durchfuehrung mit ImportRun-Protokoll (F-IMP-06, F-SYN-07): waiting on T-053
-- [ ] T-055 M2: Uebernahme von Notiz/geprueft/abgestimmt/externe Referenz bei Re-Import (F-IMP-07): waiting on T-054
-- [ ] T-058 M2: roundtrip-Block (Import-Teil) in validate.py verdrahten: waiting on T-051,T-052,T-054
-- [ ] T-059 M2: Abnahme (validate.py m2 inkl. roundtrip Import-Teil): waiting on T-044,T-045,T-046,T-047,T-048,T-049,T-050,T-051,T-052,T-053,T-054,T-055,T-056,T-057,T-058
+- (empty)
 
 ## improve
 
@@ -35,6 +29,10 @@
 - [ ] Nach Alembic-Autogenerate die neue Migrationsdatei immer mit 'uv run ruff format' formatieren (Post-Generate-Schritt vor dem Commit), damit generierte Dateien den lint-Block von scripts/validate.py nicht rot machen.
 - [ ] scripts/validate.py: Regel ergaenzen, dass jeder '# type: ignore[...]' eine nachgestellte Begruendung tragen muss, sonst Stufe lint rot (verhindert undokumentierte/pauschale ignores, siehe T-041).
 - [ ] scripts/validate.py: IMPLEMENTED['m1'] auf STAGE_M1 kuerzen (run_stage haengt die m0-Kette bereits selbst an), verhindert doppelte Check-Ausgabe bei jeder kuenftigen mN-Stufe
+- [ ] Vor ImportRun-Tasks Statuswerte aus SPEC und Modell als expliziten Vorab-Check aufnehmen; keine Implementierung bei Vokabular-Konflikt.
+- [ ] scripts/validate.py: check_roundtrip_import bildet die Fixture-Konten (1/2) beim Import bewusst auf ein Zielkonto ab; fuer M4 den Mehrkonto-Roundtrip (Kontozuordnung, Gruppen) als eigenen Check ergaenzen. Ausserdem deckt der Check nur JSON v1 ab; CSV-Roundtrip mit Vorlage folgt mit dem CSV-Export (M4).
+- [ ] scripts/validate.py: den eingebetteten ROUNDTRIP_SCRIPT-String bei wachsendem Umfang in ein eigenes, mit uv ausgefuehrtes Pruefskript unter scripts/ auslagern (bleibt testbar, vermeidet grosse String-Literale in validate.py).
+- [ ] scripts/validate.py: check_lint um 'uv run ruff format --check backend tests scripts' ergaenzen, damit Formatdrift nicht erst spaeter auffaellt.
 
 ## recurring
 
