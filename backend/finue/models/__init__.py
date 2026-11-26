@@ -24,6 +24,7 @@ from finue.models.backup import BackupJob, BackupRun
 from finue.models.bank import Bank, BankAccess
 from finue.models.bank_error import BankErrorMapping
 from finue.models.duplicate import DuplicateDecision
+from finue.models.export_profile import ExportProfile
 from finue.models.import_run import ImportRun, ImportRunError
 from finue.models.import_template import ImportTemplate
 from finue.models.security import McpToken, UserSession
@@ -41,6 +42,7 @@ __all__ = [
     "BankErrorMapping",
     "Base",
     "DuplicateDecision",
+    "ExportProfile",
     "ImportRun",
     "ImportRunError",
     "ImportTemplate",

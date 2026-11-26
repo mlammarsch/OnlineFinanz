@@ -30,3 +30,4 @@
 - [ ] hx.py: Befehl task-deps (depends_on bestehender Tasks aendern) und Bedingung cancelled/superseded als erfuellte Abhaengigkeit ergaenzen
 - [ ] backend/finue/api/health.py nutzt fuer `scheduler_required` weiterhin das globale `get_settings()` statt der in `create_app` injizierten Settings; in Tests mit eigenen Settings kann die Readiness dadurch von der App-Konfiguration abweichen. Bei Gelegenheit `app.state.services.settings` verwenden (T-086-Fund).
 - [ ] Vertragstest: FastAPI 0.165 bindet Router verschachtelt ein (`_IncludedRouter` mit `original_router`), daher muss `tests/unit/test_api_contract.py` die Routen rekursiv einsammeln. Bei einem FastAPI-Sprung die Hilfsfunktion `_iter_api_routes` pruefen (T-086).
+- [ ] helpers_migration.upgrade_preserves_data um eine Child-Table-Pruefung erweitern (Batch-Umbau darf Kindzeilen nicht loeschen), sobald eine zweite Tabelle mit FK-Kindern in einem Batch umgebaut wird.

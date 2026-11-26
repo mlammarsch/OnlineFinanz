@@ -287,8 +287,10 @@ class TestReimportWithRestore:
             assert stored.note == "neue Notiz"
             assert stored.checked is True
             assert stored.checked_at == CHECKED_AT
+            assert stored.checked_origin == "import"
             assert stored.reconciled is True
             assert stored.reconciled_at == RECONCILED_AT
+            assert stored.reconciled_origin == "import"
             assert stored.external_ref == "neu-ref"
             assert stored.version > old_version
             assert count_transactions(session) == 1
@@ -335,8 +337,10 @@ class TestReimportWithRestore:
             assert stored.note is None
             assert stored.checked is False
             assert stored.checked_at is None
+            assert stored.checked_origin is None
             assert stored.reconciled is False
             assert stored.reconciled_at is None
+            assert stored.reconciled_origin is None
             assert stored.external_ref is None
             assert count_transactions(session) == 1
 
@@ -427,7 +431,9 @@ class TestNewTransactionFlags:
             assert transaction.note == "Notiz aus Datei"
             assert transaction.checked is True
             assert transaction.checked_at == CHECKED_AT
+            assert transaction.checked_origin == "import"
             assert transaction.reconciled is True
             assert transaction.reconciled_at == RECONCILED_AT
+            assert transaction.reconciled_origin == "import"
             assert transaction.external_ref == "ref-aus-datei"
             assert count_transactions(session) == 1

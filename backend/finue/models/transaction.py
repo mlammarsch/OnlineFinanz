@@ -57,8 +57,13 @@ class Transaction(Base, VersionedMixin, TimestampMixin, AmountMixin):
     # Abgestimmungs-Flags (F-ABS-01): checked für geprüft, reconciled für abgestimmt
     checked: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     checked_at: Mapped[UtcDateTime | None] = mapped_column(UtcDateTime, nullable=True)
+    # Herkunft der letzten Änderung des Kennzeichens (F-ABS-01). Wertebereich ist
+    # identisch mit FlagOrigin aus services/export_schema.py (ui/mcp/import); NULL,
+    # solange kein Kennzeichen gesetzt wurde.
+    checked_origin: Mapped[str | None] = mapped_column(String(10), nullable=True)
     reconciled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     reconciled_at: Mapped[UtcDateTime | None] = mapped_column(UtcDateTime, nullable=True)
+    reconciled_origin: Mapped[str | None] = mapped_column(String(10), nullable=True)
 
     # Herkunft der Buchung: FinTS, CSV oder JSON (F-DUP-01)
     origin: Mapped[str] = mapped_column(
@@ -88,6 +93,16 @@ class Transaction(Base, VersionedMixin, TimestampMixin, AmountMixin):
             "origin IN ('fints', 'csv', 'json')",
             name="ck_transaction_origin",
         ),
+        # F-ABS-01: Herkunft der Kennzeichen nur als NULL oder ui/mcp/import
+        # (Wertebereich wie FlagOrigin in services/export_schema.py).
+        CheckConstraint(
+            "checked_origin IS NULL OR checked_origin IN ('ui', 'mcp', 'import')",
+            name="ck_transaction_checked_origin",
+        ),
+        CheckConstraint(
+            "reconciled_origin IS NULL OR reconciled_origin IN ('ui', 'mcp', 'import')",
+            name="ck_transaction_reconciled_origin",
+        ),
         # Eindeutigkeit: (account_id, fingerprint, occurrence_index)
         UniqueConstraint(
             "account_id",
@@ -98,6 +113,10 @@ class Transaction(Base, VersionedMixin, TimestampMixin, AmountMixin):
         # Indizes für Suche und Duplicate-Detection
         Index("ix_transaction_account_booking", "account_id", "booking_date"),
         Index("ix_transaction_fingerprint", "fingerprint"),
+        # Indizes für Liste/Suche (F-SUC-01, F-BUC-01); Feintuning in T-103.
+        Index("ix_transaction_account_status_booking_id", "account_id", "status", "booking_date", "id"),
+        Index("ix_transaction_booking_id", "booking_date", "id"),
+        Index("ix_transaction_amount_cents", "amount_cents"),
     )
 
     # Bidirektionale Relation zu Account

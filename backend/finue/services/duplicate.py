@@ -139,9 +139,9 @@ class TransactionData:
     bewusst: Es ist Argument von :func:`reconcile_multiset`, damit eine
     Lieferung nicht versehentlich Buchungen auf fremde Konten schreibt.
 
-    Notiz, geprueft/abgestimmt samt Zeitpunkten und externe Referenz sind
-    optionale Zusatzfelder fuer neu anzulegende Buchungen (F-ABS-01,
-    F-IMP-07). Sie nehmen nicht am Fingerprint teil (F-ABS-06).
+    Notiz, geprueft/abgestimmt samt Zeitpunkten und Herkunft sowie externe
+    Referenz sind optionale Zusatzfelder fuer neu anzulegende Buchungen
+    (F-ABS-01, F-IMP-07). Sie nehmen nicht am Fingerprint teil (F-ABS-06).
     """
 
     booking_date: date
@@ -157,8 +157,10 @@ class TransactionData:
     external_ref: str | None = None
     checked: bool = False
     checked_at: datetime | None = None
+    checked_origin: str | None = None
     reconciled: bool = False
     reconciled_at: datetime | None = None
+    reconciled_origin: str | None = None
     search_text: str = ""
 
 
@@ -529,8 +531,10 @@ def _build_transaction(
         note=item.note,
         checked=item.checked,
         checked_at=item.checked_at,
+        checked_origin=item.checked_origin,
         reconciled=item.reconciled,
         reconciled_at=item.reconciled_at,
+        reconciled_origin=item.reconciled_origin,
         origin=item.origin,
         external_ref=item.external_ref,
         fingerprint=fingerprint,

@@ -46,6 +46,7 @@ EXPECTED_TABLES: Final[frozenset[str]] = frozenset(
         "bank_access",
         "bank_error_mapping",
         "duplicate_decision",
+        "export_profile",
         "import_run",
         "import_run_error",
         "import_template",
@@ -70,16 +71,17 @@ FORBIDDEN_NAME_PARTS: Final[tuple[str, ...]] = (
 # Tabellen ohne Versionsspalte (F-CON-01/F-CON-02). Zwei Gruppen:
 # * append-only Protokoll-/Lauf-Tabellen ohne optimistisches Sperren
 #   (AuditLog, BackupRun, ImportRunError, siehe Modul-Docstrings),
-# * bewusst unversionierte Tabellen: Bank ist Stammdaten-Referenz ohne
-#   Nutzer-Bearbeitungspfad (T-017: nur BankAccess hat VersionedMixin);
-#   UserSession/McpToken nutzen Setz-Semantik bzw. Heartbeat und sind in
-#   F-CON-02 nicht als versionierte Entitäten genannt (T-024, security.py).
+# * bewusst unversionierte Tabellen: UserSession/McpToken nutzen Setz-Semantik
+#   bzw. Heartbeat und sind in F-CON-02 nicht als versionierte Entitaeten
+#   genannt (T-024, security.py).
+# Bank war bis M3 unversioniert (T-027). Mit F-KTO-10 wird die Banken-Stammdaten-
+# tabelle editierbar; Migration 0003 (T-085) ergaenzt daher nach F-CON-02 die
+# Versionsspalte, Bank ist hier seither nicht mehr ausgenommen.
 UNVERSIONED_TABLES: Final[frozenset[str]] = frozenset(
     {
         "audit_log",
         "backup_run",
         "import_run_error",
-        "bank",
         "user_session",
         "mcp_token",
     }

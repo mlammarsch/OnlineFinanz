@@ -22,6 +22,31 @@
   (65 Dateien). **Parallelitaet:** T-085 lief gleichzeitig im selben Arbeitsbaum; der Commit umfasst nur
   T-086-Dateien. Naechster Schritt: unabhaengige verifier-Pruefung (medium), danach T-088/T-092/T-099/T-101/T-102/T-111.
 
+- **T-085 umgesetzt (M4 Welle 2, Migration 0003 Schema-Ergaenzungen).** Konflikt-Check: Ja (F-ABS-01, F-KTO-10,
+  F-EXP-03, F-CON-02, N-DB-03; getrennte Dateien von T-086). `backend/finue/migrations/versions/0003_*.py`:
+  `transaction.checked_origin`/`reconciled_origin` (nullable, CHECK ui/mcp/import), `bank.version` (server_default 1),
+  `bank.icon`/`bank.icon_mime`, neue Tabelle `export_profile` (Name eindeutig, is_default, options/columns JSON,
+  Version, Zeitstempel) und drei Listen-/Suchindizes auf `transaction`. Modelle angepasst: `Transaction` (+Herkunft)
+  mit Indizes, `Bank` mit `VersionedMixin` + Icon, neu `models/export_profile.py`, Sammelimport in
+  `models/__init__.py`. F-IMP-07: `duplicate.TransactionData` und `import_run` (`_to_duplicate_data`,
+  `_RestoreValues`) speichern `checked_origin`/`reconciled_origin`; die "keine Spalte"-Hinweise entfernt.
+  **SQLite-Umbau:** CHECK-Constraints erfordern einen Tabellen-Neubau; mit `foreign_keys=ON` haette das implizite
+  `DROP TABLE transaction` die Kindzeilen in `duplicate_decision` geloescht. Die Migration schaltet die
+  Fremdschluesselpruefung mit `PRAGMA foreign_keys=OFF`/`ON` nur fuer den Umbau ab (Alembic SQLite:
+  `transactional_ddl=False`); `test_migration_0003` belegt mit einer Kindzeile, dass nichts verloren geht.
+  Entscheidungen (Bank-Spalte heisst wie ueberall `version`, nicht `version_id`; PRAGMA-Weg) in `decisions.md`.
+  Tests: neues `tests/unit/test_migration_0003.py` (Schema via `compare_metadata`, Daten ab 0002 inkl.
+  Kindzeile, CHECK-Erzwingung, Profil-Eindeutigkeit, downgrade), neues `tests/unit/test_model_export_profile.py`,
+  Bank-Version/Icon- und Transaction-Herkunftstests, angepasst `test_migration_0001` (17 Tabellen),
+  `test_alembic_config` (Kette bis 0003), `test_models_registry` (export_profile; Bank nicht mehr unversioniert),
+  `test_migration_data` (Beispieltabelle auf `account_group` umgestellt, weil `bank` in 0003 eine Spalte erhaelt),
+  `test_import_restore_flags` (prueft gespeicherte Herkunft). Evidenz (Verifikationsplan, alle gruen):
+  `uv run pytest tests/unit/test_migration_0003.py -q` 5 passed; `uv run pytest tests/unit -q` 1149 passed/1 skipped;
+  `uv run ruff check backend tests scripts` All checks passed; `uv run ruff format --check backend tests scripts`
+  145 files already formatted; `uv run mypy backend` Success (ohne Fehler). **Offen:** unabhaengige
+  verifier-Pruefung (medium) steht aus -> task-done noch nicht aufgerufen; danach entsperren T-087, T-088, T-095,
+  T-097, T-100 (T-085 als Abhaengigkeit). Beobachtung: `test_events.py` (T-086) war im Sammlauf einmal
+  ordnungsabhaengig rot, isoliert und im zweiten Sammlauf gruen (nicht durch T-085 verursacht). Kein Push.
 - **T-084 abgeschlossen (M4 Welle 1, validate.py-Geruest).** Konflikt-Check: Ja (plan.md M4 "validate.py aendern
   T-084"; keine SPEC-Aenderung, keine Fachlogik). `scripts/validate.py`: `STAGE_M4` leer in `IMPLEMENTED`
   registriert (kumulativ, `validate.py m4` faehrt m0..m4), `check_lint` prueft jetzt zusaetzlich

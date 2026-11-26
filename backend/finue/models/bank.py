@@ -1,8 +1,8 @@
 """Modelle für Banken und Bankzugänge.
 
 Implementiert N-DB-01 (kein rohes SQL für Daten), N-SEC-01 (PINs nur
-verschlüsselt, kein Klartext-PIN-Feld) und F-CON-01 (Versionsspalte für
-optimistische Sperre).
+verschlüsselt, kein Klartext-PIN-Feld), F-KTO-10 (Banken-Stammdaten mit Icon)
+und F-CON-01/F-CON-02 (Versionsspalte für optimistische Sperre).
 """
 
 from typing import TYPE_CHECKING
@@ -17,10 +17,15 @@ if TYPE_CHECKING:
     from finue.models.account import Account
 
 
-class Bank(Base):
+class Bank(Base, VersionedMixin):
     """Bankverbindung mit Basisdaten und FinTS-Konfiguration.
 
-    Implementiert N-DB-01 (kein rohes SQL).
+    Implementiert N-DB-01 (kein rohes SQL), F-KTO-10 (Banken-Stammdaten
+    editierbar, inklusive Icon) und F-CON-02 (Versionsspalte fuer optimistisches
+    Sperren der Bearbeitung).
+
+    Das Icon wird als Bytefolge samt MIME-Typ in der Datenbank gehalten
+    (N-OPS-02). Die Versionsspalte steigt bei jeder Aenderung der Stammdaten.
     """
 
     __tablename__ = "bank"
@@ -30,6 +35,8 @@ class Bank(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     website: Mapped[str | None] = mapped_column(String(255), nullable=True)
     fints_url: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    icon: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    icon_mime: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
     # Bidirektionale Relation zu BankAccess
     accesses: Mapped[list["BankAccess"]] = relationship(

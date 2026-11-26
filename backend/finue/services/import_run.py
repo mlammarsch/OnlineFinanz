@@ -362,12 +362,10 @@ def _to_duplicate_data(
     """Uebertraegt eine Vorschauzeile in die Dubletten-Datenstruktur (F-DUP-02).
 
     Beim eigenen JSON werden Notiz, Status, Herkunft, externe Referenz und die
-    Kennzeichen geprueft/abgestimmt samt Zeitpunkten uebernommen, damit neue
-    Buchungen die Dateifelder erhalten (F-IMP-07). Beim Mapping-Import gilt die
-    Herkunft ``csv`` bzw. ``json``; gemappte Zeilen tragen keine Kennzeichen.
-    Die Herkunftsangaben der Kennzeichen (``checked_origin``/
-    ``reconciled_origin``) haben im Persistenzmodell keine Spalte und werden
-    daher nicht gespeichert; Zeitpunkt und Kennzeichen bleiben erhalten.
+    Kennzeichen geprueft/abgestimmt samt Zeitpunkten und Herkunft uebernommen,
+    damit neue Buchungen die Dateifelder erhalten (F-IMP-07, F-ABS-01). Beim
+    Mapping-Import gilt die Herkunft ``csv`` bzw. ``json``; gemappte Zeilen
+    tragen keine Kennzeichen.
     """
     if isinstance(parsed, OwnJsonTransactionData):
         return DuplicateTransactionData(
@@ -384,8 +382,10 @@ def _to_duplicate_data(
             external_ref=parsed.external_ref,
             checked=parsed.checked,
             checked_at=parsed.checked_at,
+            checked_origin=parsed.checked_origin,
             reconciled=parsed.reconciled,
             reconciled_at=parsed.reconciled_at,
+            reconciled_origin=parsed.reconciled_origin,
         )
 
     mapped: MappedTransactionData = parsed
@@ -405,16 +405,19 @@ def _to_duplicate_data(
 class _RestoreValues:
     """Dateiwerte fuer die Wiederherstellung vorhandener Buchungen (F-IMP-07).
 
-    Die Herkunft der Kennzeichen wird bewusst nicht gefuehrt: Das
-    Persistenzmodell speichert nur Kennzeichen und Zeitpunkt, keine
-    Herkunftsspalte. Der Fingerprint enthaelt diese Felder nicht (F-ABS-06).
+    Fuehrt auch die Herkunft der Kennzeichen (``checked_origin``/
+    ``reconciled_origin``, F-ABS-01), damit ein Re-Import den vollstaendigen
+    Stand inklusive der letzten Aenderungsquelle wiederherstellt. Der
+    Fingerprint enthaelt diese Felder nicht (F-ABS-06).
     """
 
     note: str | None
     checked: bool
     checked_at: datetime | None
+    checked_origin: str | None
     reconciled: bool
     reconciled_at: datetime | None
+    reconciled_origin: str | None
     external_ref: str | None
 
 
@@ -485,8 +488,10 @@ def _restore_values_from(parsed: ParsedTransaction) -> _RestoreValues | None:
             note=parsed.note,
             checked=parsed.checked,
             checked_at=parsed.checked_at,
+            checked_origin=parsed.checked_origin,
             reconciled=parsed.reconciled,
             reconciled_at=parsed.reconciled_at,
+            reconciled_origin=parsed.reconciled_origin,
             external_ref=parsed.external_ref,
         )
     return None
@@ -506,10 +511,14 @@ def _apply_restore_values(transaction: Transaction, values: _RestoreValues) -> N
     if transaction.checked_at != values.checked_at:
         # UtcDateTime ist ein TypeDecorator; setattr haelt mypy mit der ORM-Deklaration zufrieden.
         setattr(transaction, "checked_at", values.checked_at)
+    if transaction.checked_origin != values.checked_origin:
+        transaction.checked_origin = values.checked_origin
     if transaction.reconciled != values.reconciled:
         transaction.reconciled = values.reconciled
     if transaction.reconciled_at != values.reconciled_at:
         setattr(transaction, "reconciled_at", values.reconciled_at)
+    if transaction.reconciled_origin != values.reconciled_origin:
+        transaction.reconciled_origin = values.reconciled_origin
     if transaction.external_ref != values.external_ref:
         transaction.external_ref = values.external_ref
 

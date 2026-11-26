@@ -702,3 +702,51 @@ def test_transaction_checked_reconciled_timestamps_aware_utc(factory) -> None:  
         expected_utc = datetime(2024, 7, 15, 8, 30, 0, tzinfo=timezone.utc)
         assert transaction.checked_at == expected_utc
         assert transaction.reconciled_at == expected_utc
+
+
+def test_transaction_origin_columns_default_null(factory) -> None:  # type: ignore[no-untyped-def]
+    """Herkunftsspalten der Kennzeichen sind standardmaessig NULL (F-ABS-01)."""
+    with factory() as session:
+        account = Account(name="Testkonto", currency="EUR", source="fints")
+        session.add(account)
+        session.commit()
+        account_id = account.id
+
+    with factory() as session:
+        transaction = make_test_transaction(account_id=account_id, fingerprint="q" * 64)
+        session.add(transaction)
+        session.commit()
+        assert transaction.checked_origin is None
+        assert transaction.reconciled_origin is None
+
+    with factory() as session:
+        transaction = make_test_transaction(account_id=account_id, fingerprint="r" * 64)
+        transaction.checked = True
+        transaction.checked_origin = "ui"
+        transaction.reconciled = True
+        transaction.reconciled_origin = "import"
+        session.add(transaction)
+        session.commit()
+        transaction_id = transaction.id
+
+    with factory() as session:
+        stored = session.get(Transaction, transaction_id)
+        assert stored is not None
+        assert stored.checked_origin == "ui"
+        assert stored.reconciled_origin == "import"
+
+
+def test_transaction_origin_columns_reject_unknown_value(factory) -> None:  # type: ignore[no-untyped-def]
+    """CHECK-Bedingung weist unbekannte Herkunftswerte ab (F-ABS-01)."""
+    with factory() as session:
+        account = Account(name="Testkonto", currency="EUR", source="fints")
+        session.add(account)
+        session.commit()
+        account_id = account.id
+
+    with factory() as session:
+        transaction = make_test_transaction(account_id=account_id, fingerprint="s" * 64)
+        transaction.checked_origin = "sms"
+        session.add(transaction)
+        with pytest.raises(IntegrityError):
+            session.commit()

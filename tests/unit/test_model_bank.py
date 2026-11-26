@@ -1,8 +1,8 @@
 """Tests für die Bank-Modelle.
 
 Referenziert N-DB-01 (kein rohes SQL), N-SEC-01 (PIN nur verschlüsselt,
-kein Klartext-PIN-Feld) und F-CON-01 (Versionsspalte für optimistische
-Sperre).
+kein Klartext-PIN-Feld), F-KTO-10 (Banken-Stammdaten mit Icon) und
+F-CON-01/F-CON-02 (Versionsspalte für optimistische Sperre).
 """
 
 import time
@@ -288,3 +288,44 @@ def test_bank_access_references_correct_bank(factory) -> None:  # type: ignore[n
         assert access1.bank.name == "Bank A"
         assert access2.bank.id == bank2_id
         assert access2.bank.name == "Bank B"
+
+
+def test_bank_version_increments_on_update(factory) -> None:  # type: ignore[no-untyped-def]
+    """F-CON-02: Bank.version startet bei 1 und steigt bei Update."""
+    with factory() as session:
+        bank = Bank(blz="10101010", name="Version Test Bank")
+        session.add(bank)
+        session.commit()
+        assert bank.version == 1
+        bank_id = bank.id
+
+    with factory() as session:
+        bank = session.get(Bank, bank_id)
+        assert bank is not None
+        bank.name = "Umbenannte Bank"
+        session.commit()
+        assert bank.version == 2
+
+
+def test_bank_icon_columns(factory) -> None:  # type: ignore[no-untyped-def]
+    """F-KTO-10: Bank.icon und Bank.icon_mime sind optional und speicherbar."""
+    with factory() as session:
+        bank = Bank(blz="20202020", name="Icon Test Bank")
+        session.add(bank)
+        session.commit()
+        assert bank.icon is None
+        assert bank.icon_mime is None
+        bank_id = bank.id
+
+    with factory() as session:
+        bank = session.get(Bank, bank_id)
+        assert bank is not None
+        bank.icon = b"\x89PNG\r\n\x1a\n"
+        bank.icon_mime = "image/png"
+        session.commit()
+
+    with factory() as session:
+        bank = session.get(Bank, bank_id)
+        assert bank is not None
+        assert bank.icon == b"\x89PNG\r\n\x1a\n"
+        assert bank.icon_mime == "image/png"
