@@ -1,0 +1,22 @@
+{
+  "task": "T-074",
+  "ts": "2026-11-26T16:28:14Z",
+  "ok": true,
+  "results": [
+    {
+      "cmd": "uv run pytest tests/unit/test_sync_persist.py -q",
+      "exit": 0,
+      "out": "..................                                                       [100%]\n18 passed in 1.26s\n"
+    },
+    {
+      "cmd": "uv run ruff check backend tests scripts",
+      "exit": 0,
+      "out": "All checks passed!\n"
+    },
+    {
+      "cmd": "uv run mypy backend",
+      "exit": 0,
+      "out": "Success: no issues found in 54 source files\n"
+    }
+  ]
+}

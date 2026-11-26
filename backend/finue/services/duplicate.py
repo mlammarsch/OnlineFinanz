@@ -30,6 +30,7 @@ from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
+from typing import Final
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
@@ -46,6 +47,10 @@ _WHITESPACE_RE = re.compile(r"\s+")
 
 # F-DUP-03: Buchungstag-Fenster fuer Verdachtsdubletten (jeweils +/- Tage).
 _SUSPECT_DAY_WINDOW = 2
+
+#: Buchungsstatus einer gebuchten Buchung. Vormerkungen (``vorgemerkt``)
+#: nehmen nach F-DUP-04 nicht am Fingerprint-Abgleich teil.
+_BOOKED_STATUS: Final[str] = "gebucht"
 
 __all__ = [
     "ReconcileResult",
@@ -277,6 +282,8 @@ def reconcile_multiset(
     account_id: int,
     incoming: list[TransactionData],
     session: Session,
+    *,
+    include_pending_in_existing: bool = True,
 ) -> ReconcileResult:
     """Gleicht eine Lieferung als Multimenge gegen den Kontobestand ab.
 
@@ -286,11 +293,20 @@ def reconcile_multiset(
     eingefuegt werden ``max(0, n_neu - n_db)`` Buchungen mit fortlaufendem
     ``occurrence_index``. Der Index startet bei 0, wenn zu einem Fingerprint
     noch keine Buchung existiert, und setzt sonst hinter dem hoechsten
-    vorhandenen Index fort.
+    vorhandenen Index fort. Der Index wird immer ueber alle gespeicherten
+    Zeilen bestimmt, auch ueber ausgeschlossene Vormerkungen, damit der
+    Unique-Constraint ``(account_id, fingerprint, occurrence_index)`` haelt.
 
     Bereits als ``merged`` markierte Buchungen zaehlen bei ``n_db`` mit. Ihr
     Fingerprint und Index bleiben nach F-DUP-05 belegt, damit ein spaeterer
     Sync oder Import dieselbe Buchung nicht erneut anlegt.
+
+    ``include_pending_in_existing=False`` schliesst vorgemerkte Buchungen aus
+    ``n_db`` aus (F-DUP-04). Der Sync setzt das, weil er die Vormerkungen
+    derselben Lieferung vorher bereits angelegt hat und sie eine gebuchte Zeile
+    mit gleichem Fingerprint nicht verdecken duerfen. Der Datei-Import nutzt
+    den Standard ``True``, damit eine Datei mit Vormerkungen beim erneuten
+    Import weiterhin 0 neue Buchungen erzeugt (F-DUP-02).
 
     Die Funktion fuegt neue Buchungen der Session hinzu und ruft ``flush()``
     auf, damit der Unique-Constraint ``(account_id, fingerprint,
@@ -303,6 +319,9 @@ def reconcile_multiset(
         account_id: Konto, gegen dessen Bestand abgeglichen wird.
         incoming: Gelieferte Buchungen in beliebiger Reihenfolge.
         session: SQLAlchemy-Session fuer Abfrage und Einfuegung.
+        include_pending_in_existing: ``True`` (Standard) zaehlt Vormerkungen
+            als Bestand mit; ``False`` schliesst sie aus ``n_db`` aus
+            (F-DUP-04, Sync-Pfad).
 
     Returns:
         :class:`ReconcileResult` mit den neu angelegten Buchungen, der Anzahl
@@ -312,7 +331,12 @@ def reconcile_multiset(
     if not fingerprints:
         return ReconcileResult(to_insert=[], skipped_count=0, warnings=[])
 
-    db_counts, next_indices = _load_existing_state(account_id, set(fingerprints), session)
+    db_counts, next_indices = _load_existing_state(
+        account_id,
+        set(fingerprints),
+        session,
+        include_pending_in_existing=include_pending_in_existing,
+    )
 
     new_counts = Counter(fingerprints)
     warnings: list[str] = []
@@ -438,21 +462,39 @@ def _load_existing_state(
     account_id: int,
     fingerprints: set[str],
     session: Session,
+    *,
+    include_pending_in_existing: bool = True,
 ) -> tuple[dict[str, int], dict[str, int]]:
     """Liest Bestand und naechsten freien Index je Fingerprint aus der DB.
 
     ``merged`` zaehlt absichtlich mit (F-DUP-05). Der naechste Index ist das
-    Maximum der vorhandenen Indizes plus eins; ohne Bestand ist er 0.
+    Maximum der vorhandenen Indizes plus eins; ohne Bestand ist er 0. Er wird
+    immer ueber alle Zeilen bestimmt, damit eine ausgeschlossene Vormerkung
+    ihren Index nicht an eine neue Buchung vergibt.
+
+    ``include_pending_in_existing=False`` zaehlt nur gebuchte Buchungen fuer
+    ``n_db`` (F-DUP-04). Der Index bleibt davon unberuehrt.
     """
     if not fingerprints:
         return {}, {}
 
-    rows = session.execute(
-        select(
-            Transaction.fingerprint,
-            func.count(Transaction.id),
-            func.max(Transaction.occurrence_index),
+    count_statement = (
+        select(Transaction.fingerprint, func.count(Transaction.id))
+        .where(
+            Transaction.account_id == account_id,
+            Transaction.fingerprint.in_(fingerprints),
         )
+        .group_by(Transaction.fingerprint)
+    )
+    if not include_pending_in_existing:
+        count_statement = count_statement.where(Transaction.status == _BOOKED_STATUS)
+
+    db_counts: dict[str, int] = {
+        fingerprint: int(count) for fingerprint, count in session.execute(count_statement).all()
+    }
+
+    index_rows = session.execute(
+        select(Transaction.fingerprint, func.max(Transaction.occurrence_index))
         .where(
             Transaction.account_id == account_id,
             Transaction.fingerprint.in_(fingerprints),
@@ -460,11 +502,9 @@ def _load_existing_state(
         .group_by(Transaction.fingerprint)
     ).all()
 
-    db_counts: dict[str, int] = {}
-    next_indices: dict[str, int] = {}
-    for fingerprint, count, max_index in rows:
-        db_counts[fingerprint] = count
-        next_indices[fingerprint] = (max_index if max_index is not None else -1) + 1
+    next_indices: dict[str, int] = {
+        fingerprint: (max_index if max_index is not None else -1) + 1 for fingerprint, max_index in index_rows
+    }
     return db_counts, next_indices
 
 

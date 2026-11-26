@@ -61,3 +61,26 @@ Hinweise:
   per Nachtrag zu korrigieren (keine Blockade, siehe `AGENTS.md`-Edge-Case-Regel).
 - `scripts/validate.py` STAGE_M2 schliesst den `roundtrip`-Block (Import-Teil) nach T-058 aktiv mit ein, da
   `plan.md`-Abnahmestufe fuer M2 explizit "`validate.py m2` (+ roundtrip Import-Teil)" verlangt.
+
+## M3 Taskplan (G-004, T-060 bis T-083)
+
+M3 startet mit der Machbarkeitspruefung F-AUF-07. Der Ausgang ist ein Gate:
+Bei positivem Ergebnis werden T-075 und T-079 ausgefuehrt; bei negativem Ergebnis wird nur T-077 nach
+Owner-Freigabe fuer die SPEC-Zurueckstellung ausgefuehrt. Der nicht gewaehlte Zweig wird ueber `hx.py task-set`
+als `cancelled` beendet und nicht als technische Blockade behandelt.
+
+| Welle | Tasks | Abhaengigkeiten | Risiko |
+|---|---|---|---|
+| 1 | T-060 Machbarkeit F-AUF-07 und Abhaengigkeiten | - | medium |
+| 2 | T-061 validate-m3, T-062 PIN-Fernet, T-063 Modelle/Migration 0002, T-064 Job-Registry/Sperre, T-065 FinTS-Typen | T-060 | low, medium, medium, medium, low |
+| 3 | T-066 Fehler-Mapping, T-067 Fake-Client, T-068 camt/MT940, T-069 Vormerkungen, T-070 Retry | T-063/T-065 bzw. T-060 | medium, low, medium, medium, medium |
+| 4 | T-071 Bankzugang, T-072 Read-only-Guard, T-073 FinTS-Adapter, T-074 Sync-Persistenz | jeweilige Welle 2/3 | medium, low, medium, medium |
+| 5 | T-075 Auftragsabruf bei positivem Gate, T-076 Sync-Orchestrierung, T-077 SPEC-Zurueckstellung bei negativem Gate | Gate/Abhaengigkeiten | medium, medium, high |
+| 6 | T-078 TAN-Pause/Resume | T-076 | medium |
+| 7 | T-079 Auftragsbestand bei positivem Gate, T-080 Geheimnis-Leckagetests, T-081 Sync-Integration, T-082 Live-Test-Doku | T-075/T-078 bzw. T-078 | medium, medium, medium, low |
+| 8 | T-083 M3-Abnahme und Aufraeumen | gewaehlter Gate-Zweig sowie T-060..T-074, T-076, T-078, T-080..T-082 | medium |
+
+Alle Builder-Tasks laufen mit DeepSeek V4.1 Flash, Effort max. Alle medium/high Tasks erhalten vor `task-done`
+eine unabhaengige Verifier-Pruefung mit Claude Sonnet 5.5, Effort medium. Low-Risk-Tasks koennen nach ihrem
+Verifikationsbefehl direkt abgeschlossen werden. FinTS bleibt lesend; Tests verwenden ausschliesslich Fake-Clients
+und Mocks, echte Bankzugriffe und Secrets sind ausgeschlossen. T-077 ist high risk und braucht `task-approve`.

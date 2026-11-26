@@ -1,7 +1,9 @@
 # FinTS mit python-fints
 
 Quelle der API-Angaben: Context7 `/websites/python-fints_readthedocs_io_en` (python-fints.readthedocs.io, abgerufen
-2026-11-25). Version in M3 pinnen und die Signaturen gegen die gepinnte Version nochmals pruefen.
+2026-11-25) und - fuer die mit **(5.0.1)** markierten Punkte - der Quelltext der gepinnten, installierten Version
+python-fints 5.0.1 (`pyproject.toml`, `uv.lock`, offline geprueft in `tests/unit/test_fints_capabilities.py`, T-060).
+Bei einem Versionssprung die Capability-Tests erneut laufen lassen.
 
 ## Client und Dialog
 
@@ -43,14 +45,26 @@ Quelle: tans.html, client.py `pause_dialog`/`resume_dialog`.
    (`from_data` ist nicht fuer fremde Daten gedacht). Nur im Arbeitsspeicher halten, nie auf Platte oder in den Browser (N-SEC-03).
    Ein Worker-Prozess, weil die Job-Registry im Speicher liegt.
 7. Timeout, Abbruch: Dialog verwerfen, Job auf `zeitueberschreitung` bzw. `abgebrochen`, je Konto in eigener Transaktion speichern (F-SYN-10).
-8. TAN-Bedarf schon bei der Dialog-Initialisierung (`init_tan_response`): gleicher Weg. Name und Verhalten in M3 gegen die
-   gepinnte Version belegen (in dieser Recherche nicht belegt: **unbelegt**).
+8. TAN-Bedarf schon bei der Dialog-Initialisierung: **belegt (5.0.1)**. `FinTS3Client.init_tan_response` ist ein
+   Attribut (kein Methodenname), initial `None` (`client.py:196`). Verlangt schon der Dialogaufbau eine TAN, setzt
+   `fints/dialog.py:90` `client.init_tan_response = NeedTANResponse(None, <HITAN-Segment>, '_continue_dialog_initialization', ...)`;
+   bei Code `3955` wird zusaetzlich `decoupled = True` gesetzt. Fortsetzen wie oben ueber `pause_dialog`/`deconstruct`
+   bzw. `resume_dialog`/`send_tan`; `send_tan` ignoriert `tan` bei `decoupled == True` (`client.py:1534`).
 
 ## Auftragsabruf (F-AUF-07)
 
-python-fints dokumentiert keinen fertigen Abruf fuer Dauerauftraege (HKCDB) und Terminauftraege (HKCSB) (Owner-Vorgabe,
-unbelegt). Erster Task in M3: in der gepinnten Version nach Unterstuetzung suchen. Fehlt sie: lesende Erweiterung im
-Projekt mit Mocks, sonst F-AUF-05 (Hinweis "Keine Auftragsdaten von der Bank verfuegbar"). Ergebnis in `decisions.md`.
+**Ergebnis T-060: tragfaehig, aber nicht eingebaut.** Geprueft gegen python-fints 5.0.1:
+- Kein fertiger HKCDB- (Dauerauftraege) oder HKCSB- (Terminauftraege) Abruf; `HKCDB`/`HKCSB` kommen in der
+  installierten Distribution nicht vor (siehe `tests/unit/test_fints_capabilities.py`).
+- Lesende Erweiterung ist technisch tragfaehig: eigene Segmente als Unterklasse von `fints.segments.base.FinTS3Segment`
+  (Typ/Version aus dem Klassennamen, automatische Registrierung, `segments/base.py:26,50`), Versionswahl ueber
+  `FinTS3Client._find_highest_supported_command` und die BPD-Parametersegmente `HICDBS`/`HICSBS` (`client.py:504`),
+  Abruf und Antwortauswertung ueber `_fetch_with_touchdowns` (`client.py:483`) mit `FinTSMessage.response_segments`,
+  Muster `get_transactions_xml` (`client.py:620`).
+- Umsetzung (T-075): Segmentklassen `HKCDB4`/`HICDB4`, `HKCSB4`/`HICSB4` mit Feldern aus der offiziellen
+  FinTS-Spezifikation (nicht raten), rein lesende Fetch-Funktionen, Tests mit Fake-Client (D8). Aufwand ca. 1-2 Tage.
+- Grenze: der generische Kommando-Weg nutzt geschuetzte (`_`)Helfer; durch den exakten Pin abgesichert. Ohne
+  FinTS-Feldvorlage bleibt F-AUF-05 ("Keine Auftragsdaten von der Bank verfuegbar") der Laufzeitzustand.
 Schreibende Funktionen wie `sepa_transfer` werden nie aufgerufen (die Doku nutzt sie nur als Beispiel fuer die TAN-Mechanik).
 
 ## Mock-Dialogskripte (D8)

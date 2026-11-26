@@ -32,9 +32,9 @@ from sqlalchemy import Integer
 import finue.models  # noqa: F401  (registriert alle Tabellen im gemeinsamen Metadata)
 from finue.db.base import Base
 
-# Erwartete Tabellen aus allen Modell-Tasks T-017 bis T-026. Die Gleichheit in
-# test_all_expected_tables_registered erzwingt, dass eine neue Tabelle hier
-# bewusst eingetragen wird.
+# Erwartete Tabellen aus allen Modell-Tasks T-017 bis T-026 sowie 0002 (T-063).
+# Die Gleichheit in test_all_expected_tables_registered erzwingt, dass eine neue
+# Tabelle hier bewusst eingetragen wird.
 EXPECTED_TABLES: Final[frozenset[str]] = frozenset(
     {
         "account",
@@ -44,6 +44,7 @@ EXPECTED_TABLES: Final[frozenset[str]] = frozenset(
         "backup_run",
         "bank",
         "bank_access",
+        "bank_error_mapping",
         "duplicate_decision",
         "import_run",
         "import_run_error",

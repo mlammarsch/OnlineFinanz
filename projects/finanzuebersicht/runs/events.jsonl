@@ -240,3 +240,124 @@
 {"ts": "2026-11-26T13:44:06Z", "kind": "task.verify", "task": "T-059", "ok": true, "status": "done", "attempts": 1}
 {"ts": "2026-11-26T13:44:22Z", "kind": "learn", "gaps": [], "task": "T-059", "improve": true}
 {"ts": "2026-11-26T13:46:36Z", "kind": "learn", "gaps": [], "task": "T-059", "improve": false}
+{"ts": "2026-11-26T14:13:29Z", "kind": "task.add", "task": "T-060", "goal": "G-004"}
+{"ts": "2026-11-26T14:13:30Z", "kind": "task.add", "task": "T-061", "goal": "G-004"}
+{"ts": "2026-11-26T14:13:30Z", "kind": "task.add", "task": "T-062", "goal": "G-004"}
+{"ts": "2026-11-26T14:13:49Z", "kind": "task.add", "task": "T-063", "goal": "G-004"}
+{"ts": "2026-11-26T14:13:49Z", "kind": "task.add", "task": "T-064", "goal": "G-004"}
+{"ts": "2026-11-26T14:13:49Z", "kind": "task.add", "task": "T-065", "goal": "G-004"}
+{"ts": "2026-11-26T14:13:50Z", "kind": "task.add", "task": "T-066", "goal": "G-004"}
+{"ts": "2026-11-26T14:14:13Z", "kind": "task.add", "task": "T-067", "goal": "G-004"}
+{"ts": "2026-11-26T14:14:13Z", "kind": "task.add", "task": "T-068", "goal": "G-004"}
+{"ts": "2026-11-26T14:14:13Z", "kind": "task.add", "task": "T-069", "goal": "G-004"}
+{"ts": "2026-11-26T14:14:13Z", "kind": "task.add", "task": "T-070", "goal": "G-004"}
+{"ts": "2026-11-26T14:14:13Z", "kind": "task.add", "task": "T-071", "goal": "G-004"}
+{"ts": "2026-11-26T14:14:14Z", "kind": "task.add", "task": "T-072", "goal": "G-004"}
+{"ts": "2026-11-26T14:14:38Z", "kind": "task.add", "task": "T-073", "goal": "G-004"}
+{"ts": "2026-11-26T14:14:39Z", "kind": "task.add", "task": "T-074", "goal": "G-004"}
+{"ts": "2026-11-26T14:14:39Z", "kind": "task.add", "task": "T-075", "goal": "G-004"}
+{"ts": "2026-11-26T14:14:39Z", "kind": "task.add", "task": "T-076", "goal": "G-004"}
+{"ts": "2026-11-26T14:14:39Z", "kind": "task.add", "task": "T-077", "goal": "G-004"}
+{"ts": "2026-11-26T14:15:26Z", "kind": "task.add", "task": "T-078", "goal": "G-004"}
+{"ts": "2026-11-26T14:15:36Z", "kind": "task.add", "task": "T-079", "goal": "G-004"}
+{"ts": "2026-11-26T14:15:44Z", "kind": "task.add", "task": "T-080", "goal": "G-004"}
+{"ts": "2026-11-26T14:15:44Z", "kind": "task.add", "task": "T-081", "goal": "G-004"}
+{"ts": "2026-11-26T14:15:53Z", "kind": "task.add", "task": "T-082", "goal": "G-004"}
+{"ts": "2026-11-26T14:15:58Z", "kind": "task.add", "task": "T-083", "goal": "G-004"}
+{"ts": "2026-11-26T15:25:53Z", "kind": "task.claim", "task": "T-060", "worker": "builder-t060"}
+{"ts": "2026-11-26T15:31:06Z", "kind": "task.set", "task": "T-077", "status": "cancelled"}
+{"ts": "2026-11-26T15:32:01Z", "kind": "task.verify", "task": "T-060", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-26T15:36:27Z", "kind": "learn", "gaps": [], "task": "T-060", "improve": false}
+{"ts": "2026-11-26T15:37:38Z", "kind": "task.claim", "task": "T-061", "worker": "builder-t061"}
+{"ts": "2026-11-26T15:37:44Z", "kind": "task.claim", "task": "T-062", "worker": "builder-t062"}
+{"ts": "2026-11-26T15:37:52Z", "kind": "task.claim", "task": "T-063", "worker": "builder-t063"}
+{"ts": "2026-11-26T15:37:58Z", "kind": "task.claim", "task": "T-064", "worker": "builder-t064"}
+{"ts": "2026-11-26T15:38:06Z", "kind": "task.claim", "task": "T-065", "worker": "builder-t065"}
+{"ts": "2026-11-26T15:43:01Z", "kind": "task.verify", "task": "T-064", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-26T15:43:38Z", "kind": "task.verify", "task": "T-062", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-26T15:43:41Z", "kind": "task.verify", "task": "T-065", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-26T15:44:07Z", "kind": "learn", "gaps": [], "task": "T-065", "improve": false}
+{"ts": "2026-11-26T15:45:16Z", "kind": "learn", "gaps": [], "task": "T-064", "improve": false}
+{"ts": "2026-11-26T15:45:19Z", "kind": "task.verify", "task": "T-063", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-26T15:45:25Z", "kind": "learn", "gaps": [], "task": "T-062", "improve": false}
+{"ts": "2026-11-26T15:46:31Z", "kind": "learn", "gaps": [], "task": "T-063", "improve": false}
+{"ts": "2026-11-26T15:49:36Z", "kind": "task.verify", "task": "T-061", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-26T15:50:02Z", "kind": "learn", "gaps": [], "task": "T-061", "improve": false}
+{"ts": "2026-11-26T15:50:27Z", "kind": "task.claim", "task": "T-071", "worker": "builder-t066"}
+{"ts": "2026-11-26T15:51:04Z", "kind": "task.set", "task": "T-071", "status": "pending"}
+{"ts": "2026-11-26T15:51:11Z", "kind": "task.set", "task": "T-066", "status": "running"}
+{"ts": "2026-11-26T15:51:17Z", "kind": "task.set", "task": "T-067", "status": "running"}
+{"ts": "2026-11-26T15:51:23Z", "kind": "task.set", "task": "T-068", "status": "running"}
+{"ts": "2026-11-26T15:51:29Z", "kind": "task.set", "task": "T-069", "status": "running"}
+{"ts": "2026-11-26T15:51:35Z", "kind": "task.set", "task": "T-070", "status": "running"}
+{"ts": "2026-11-26T15:52:09Z", "kind": "task.claim", "task": "T-071", "worker": "builder"}
+{"ts": "2026-11-26T15:52:20Z", "kind": "task.claim", "task": "T-072", "worker": "builder-t068"}
+{"ts": "2026-11-26T15:53:54Z", "kind": "task.set", "task": "T-072", "status": "pending"}
+{"ts": "2026-11-26T15:53:54Z", "kind": "task.claim", "task": "T-068", "worker": "builder-t068"}
+{"ts": "2026-11-26T15:53:55Z", "kind": "task.claim", "task": "T-072", "worker": "builder-t066"}
+{"ts": "2026-11-26T15:53:58Z", "kind": "task.set", "task": "T-071", "status": "pending"}
+{"ts": "2026-11-26T15:54:08Z", "kind": "task.set", "task": "T-069", "status": "running"}
+{"ts": "2026-11-26T15:54:25Z", "kind": "task.set", "task": "T-072", "status": "pending"}
+{"ts": "2026-11-26T15:55:34Z", "kind": "task.verify", "task": "T-070", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-26T15:56:23Z", "kind": "task.claim", "task": "T-071", "worker": "builder-t067"}
+{"ts": "2026-11-26T15:57:08Z", "kind": "learn", "gaps": [], "task": "T-070", "improve": false}
+{"ts": "2026-11-26T15:57:42Z", "kind": "task.set", "task": "T-071", "status": "pending"}
+{"ts": "2026-11-26T16:02:58Z", "kind": "task.verify", "task": "T-068", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-26T16:03:02Z", "kind": "task.verify", "task": "T-066", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-26T16:03:29Z", "kind": "task.verify", "task": "T-069", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-26T16:04:33Z", "kind": "learn", "gaps": [], "task": "T-066", "improve": false}
+{"ts": "2026-11-26T16:04:47Z", "kind": "learn", "gaps": [], "task": "T-069", "improve": false}
+{"ts": "2026-11-26T16:04:54Z", "kind": "learn", "gaps": [], "task": "T-068", "improve": false}
+{"ts": "2026-11-26T16:06:51Z", "kind": "task.verify", "task": "T-067", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-26T16:07:14Z", "kind": "learn", "gaps": [], "task": "T-067", "improve": false}
+{"ts": "2026-11-26T16:10:01Z", "kind": "task.set", "task": "T-071", "status": "running"}
+{"ts": "2026-11-26T16:10:06Z", "kind": "task.set", "task": "T-072", "status": "running"}
+{"ts": "2026-11-26T16:10:12Z", "kind": "task.set", "task": "T-073", "status": "running"}
+{"ts": "2026-11-26T16:10:17Z", "kind": "task.set", "task": "T-074", "status": "running"}
+{"ts": "2026-11-26T16:14:29Z", "kind": "task.verify", "task": "T-071", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-26T16:15:15Z", "kind": "task.verify", "task": "T-072", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-26T16:15:46Z", "kind": "learn", "gaps": [], "task": "T-072", "improve": false}
+{"ts": "2026-11-26T16:16:26Z", "kind": "learn", "gaps": [], "task": "T-071", "improve": false}
+{"ts": "2026-11-26T16:18:09Z", "kind": "task.verify", "task": "T-074", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-26T16:19:48Z", "kind": "task.set", "task": "T-074", "status": "pending"}
+{"ts": "2026-11-26T16:19:55Z", "kind": "task.set", "task": "T-074", "status": "running"}
+{"ts": "2026-11-26T16:25:29Z", "kind": "task.verify", "task": "T-073", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-26T16:27:45Z", "kind": "learn", "gaps": ["missing-eval"], "task": "T-074", "improve": true}
+{"ts": "2026-11-26T16:28:04Z", "kind": "learn", "gaps": [], "task": "T-074", "improve": false}
+{"ts": "2026-11-26T16:28:14Z", "kind": "task.verify", "task": "T-074", "ok": true, "status": "done", "attempts": 2}
+{"ts": "2026-11-26T16:29:39Z", "kind": "learn", "gaps": [], "task": "T-073", "improve": false}
+{"ts": "2026-11-26T16:30:09Z", "kind": "learn", "gaps": [], "task": "T-074", "improve": false}
+{"ts": "2026-11-26T16:30:31Z", "kind": "task.set", "task": "T-075", "status": "running"}
+{"ts": "2026-11-26T16:30:39Z", "kind": "task.set", "task": "T-076", "status": "running"}
+{"ts": "2026-11-26T16:41:13Z", "kind": "task.verify", "task": "T-076", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-26T17:11:49Z", "kind": "task.verify", "task": "T-075", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-26T17:14:09Z", "kind": "learn", "gaps": [], "task": "T-075", "improve": false}
+{"ts": "2026-11-26T17:14:27Z", "kind": "learn", "gaps": [], "task": "T-076", "improve": false}
+{"ts": "2026-11-26T17:14:49Z", "kind": "task.set", "task": "T-078", "status": "running"}
+{"ts": "2026-11-26T17:30:08Z", "kind": "task.verify", "task": "T-078", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-26T17:30:32Z", "kind": "learn", "gaps": [], "task": "T-078", "improve": true}
+{"ts": "2026-11-26T17:32:52Z", "kind": "task.set", "task": "T-078", "status": "pending"}
+{"ts": "2026-11-26T17:32:59Z", "kind": "task.set", "task": "T-078", "status": "running"}
+{"ts": "2026-11-26T17:38:23Z", "kind": "task.verify", "task": "T-078", "ok": true, "status": "done", "attempts": 2}
+{"ts": "2026-11-26T17:43:33Z", "kind": "learn", "gaps": [], "task": "T-078", "improve": false}
+{"ts": "2026-11-26T17:44:03Z", "kind": "task.set", "task": "T-079", "status": "running"}
+{"ts": "2026-11-26T17:44:10Z", "kind": "task.set", "task": "T-082", "status": "running"}
+{"ts": "2026-11-26T17:44:51Z", "kind": "task.claim", "task": "T-080", "worker": "builder-t082"}
+{"ts": "2026-11-26T17:47:03Z", "kind": "task.claim", "task": "T-081", "worker": "builder-t079"}
+{"ts": "2026-11-26T17:47:23Z", "kind": "task.set", "task": "T-081", "status": "pending"}
+{"ts": "2026-11-26T17:47:24Z", "kind": "task.set", "task": "T-079", "status": "pending"}
+{"ts": "2026-11-26T17:47:24Z", "kind": "task.claim", "task": "T-079", "worker": "builder-t079"}
+{"ts": "2026-11-26T17:49:59Z", "kind": "task.set", "task": "T-080", "status": "pending"}
+{"ts": "2026-11-26T17:52:55Z", "kind": "task.verify", "task": "T-079", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-26T17:54:42Z", "kind": "learn", "gaps": [], "task": "T-079", "improve": false}
+{"ts": "2026-11-26T18:00:43Z", "kind": "task.verify", "task": "T-082", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-26T18:01:42Z", "kind": "learn", "gaps": [], "task": "T-082", "improve": false}
+{"ts": "2026-11-26T18:01:51Z", "kind": "task.set", "task": "T-080", "status": "running"}
+{"ts": "2026-11-26T18:01:59Z", "kind": "task.set", "task": "T-081", "status": "running"}
+{"ts": "2026-11-26T18:09:35Z", "kind": "task.verify", "task": "T-081", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-26T18:11:19Z", "kind": "learn", "gaps": [], "task": "T-081", "improve": false}
+{"ts": "2026-11-26T18:13:40Z", "kind": "task.verify", "task": "T-080", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-26T18:15:40Z", "kind": "learn", "gaps": [], "task": "T-080", "improve": false}
+{"ts": "2026-11-26T18:15:58Z", "kind": "task.set", "task": "T-083", "status": "running"}
+{"ts": "2026-11-26T18:26:12Z", "kind": "task.verify", "task": "T-083", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-26T18:29:38Z", "kind": "learn", "gaps": [], "task": "T-083", "improve": false}

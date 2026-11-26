@@ -7,8 +7,10 @@ Geprueft wird ueber die Alembic-Programm-API (``alembic.config``,
 ``alembic.script``) statt ueber CLI-Subprozesse:
 
 * ``alembic.ini`` ist ladbar und das Migrationsverzeichnis existiert,
-* ``versions/`` ist vorhanden und enthaelt die Revision 0001 (siehe T-029),
-* die Migrationshistorie hat genau einen Head (Revision 0001).
+* ``versions/`` ist vorhanden und enthaelt die Revisionen 0001 und 0002,
+  (siehe T-029 und T-063),
+* die Migrationshistorie hat genau einen Head und ist eine lineare Kette ohne
+  Verzweigung (N-DB-03).
 """
 
 from __future__ import annotations
@@ -40,12 +42,27 @@ def test_alembic_config_is_loadable() -> None:
     assert Path(script.versions).is_dir(), f"versions/-Verzeichnis fehlt: {script.versions}"
 
 
-def test_initial_migration_is_single_head() -> None:
-    """Die Migrationshistorie beginnt mit genau einem Head: Revision 0001 (N-DB-03).
+def test_migration_history_is_single_linear_head() -> None:
+    """Die Historie hat genau einen Head und die Kette 0001 -> 0002 (N-DB-03).
 
-    Bis T-028 war die Historie leer; mit T-029 (erste Migration) muss genau die
-    Revision 0001 als einzelner Head vorliegen.
+    Die Pruefung ist generisch: Sie verlangt genau einen Head, die Basis 0001
+    und eine lineare Kette ohne Verzweigung. Die fuer T-063 geforderte Kante
+    0001 -> 0002 wird zusaetzlich geprueft; kuenftige Migrationen (0003, ...)
+    brechen den Test nicht, solange die Historie linear bleibt.
     """
     script = ScriptDirectory.from_config(load_config())
+
     heads = list(script.get_heads())
-    assert heads == ["0001"], f"Erwartet wurde genau ein Head '0001', gefunden: {heads}"
+    assert len(heads) == 1, f"Erwartet wurde genau ein Head, gefunden: {heads}"
+    assert script.get_base() == "0001", f"Erwartete Basis '0001', gefunden: {script.get_base()}"
+
+    revision_0002 = script.get_revision("0002")
+    assert revision_0002 is not None, "Revision 0002 fehlt in versions/"
+    assert revision_0002.down_revision == "0001", (
+        f"Revision 0002 muss auf 0001 folgen, gefunden: {revision_0002.down_revision}"
+    )
+
+    for revision in script.walk_revisions():
+        assert len(revision.nextrev) <= 1, (
+            f"Migrationshistorie verzweigt bei {revision.revision}: Nachfolger {revision.nextrev}"
+        )

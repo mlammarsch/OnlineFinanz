@@ -7,7 +7,7 @@ optimistische Sperre).
 
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, LargeBinary, String
+from sqlalchemy import Boolean, ForeignKey, LargeBinary, String, true
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from finue.db.base import Base
@@ -43,11 +43,17 @@ class BankAccess(Base, VersionedMixin, TimestampMixin):
     """Zugangsdaten zu einem Bankzugang.
 
     Implementiert N-DB-01 (kein rohes SQL), N-SEC-01 (PIN nur verschlüsselt,
-    kein Klartext-PIN-Feld pin oder pin_plain) und F-CON-01 (Versionsspalte).
+    kein Klartext-PIN-Feld pin oder pin_plain), F-SYN-08 (PIN verschlüsselt
+    speichern oder bei jedem Sync abfragen) und F-CON-01 (Versionsspalte).
 
     Die Verschlüsselung der PIN wird später implementiert; das Feld
     pin_encrypted ist vom Typ LargeBinary und nullable, damit Testdaten
     ohne Verschlüsselungsschlüssel erzeugt werden können.
+
+    `store_pin` steuert die Option aus F-SYN-08: Bei ``True`` bleibt die PIN
+    verschlüsselt gespeichert, bei ``False`` wird sie bei jedem Sync erneut
+    abgefragt. Der Datenbankvorgabewert ``true`` sorgt dafür, dass vorhandene
+    Zugänge beim Upgrade auf Migration 0002 die Option aktiviert bekommen.
     """
 
     __tablename__ = "bank_access"
@@ -60,6 +66,15 @@ class BankAccess(Base, VersionedMixin, TimestampMixin):
     login_name: Mapped[str] = mapped_column(String(255), nullable=False)
     pin_encrypted: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
     tan_method: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    # F-SYN-08: PIN verschlüsselt speichern (True) oder je Sync abfragen (False).
+    # server_default erhält Bestandsdaten beim Upgrade (Migration 0002).
+    store_pin: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        server_default=true(),
+    )
 
     # Bidirektionale Relation zu Bank
     bank: Mapped[Bank] = relationship(

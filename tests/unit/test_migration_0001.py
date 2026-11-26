@@ -29,7 +29,8 @@ PROJECT_ROOT: Final[Path] = Path(__file__).resolve().parents[2]
 ALEMBIC_INI: Final[Path] = PROJECT_ROOT / "alembic.ini"
 
 # Beispiel fuer den Umfang, den die Migration abdecken muss (N-DB-01/N-DB-03).
-EXPECTED_TABLE_COUNT: Final[int] = 15
+# 15 Tabellen aus 0001 plus bank_error_mapping aus 0002 (T-063).
+EXPECTED_TABLE_COUNT: Final[int] = 16
 
 
 def _build_alembic_config(db_path: Path) -> Config:

@@ -76,6 +76,18 @@ MASK_CASES = [
     ("PIN=A Password=B TOKEN=C", "PIN=*** Password=*** TOKEN=***"),
     ("pwd=A passwd: B", "pwd=*** passwd: ***"),
     ("monkey=banana pin=1", "monkey=banana pin=***"),
+    # T-080: passphrase, otp, jwt, csrf und Plurale
+    ("passphrase=SEK-P1", "passphrase=***"),
+    ("Passphrase: SEK-P2", "Passphrase: ***"),
+    ("otp=123456", "otp=***"),
+    ("otp_code=123456", "otp_code=***"),
+    ("jwt=abc.def.ghi", "jwt=***"),
+    ("csrf=SEK-C1", "csrf=***"),
+    ("X-CSRF-Token: SEK-C2", "X-CSRF-Token: ***"),
+    ("passwords=A tokens=B pins=C tans=D", "passwords=*** tokens=*** pins=*** tans=***"),
+    ("secrets=E keys=F cookies=G sessions=H", "secrets=*** keys=*** cookies=*** sessions=***"),
+    ("passphrases=I otps=J jwts=K", "passphrases=*** otps=*** jwts=***"),
+    ("OTPs=L JWTs=M", "OTPs=*** JWTs=***"),
 ]
 
 UNCHANGED_CASES = [
@@ -93,6 +105,10 @@ UNCHANGED_CASES = [
     "passenger=2",
     "sidebar=open",
     "amount=100",
+    "addresses=3",
+    "statuses=2",
+    "classes=4",
+    "processes=5",
     "",
 ]
 
@@ -155,6 +171,23 @@ class TestSensitiveKey:
             "pwd",
             "passwd",
             "pass",
+            "passphrase",
+            "otp",
+            "jwt",
+            "csrf",
+            "xsrf",
+            "credentials",
+            "tokens",
+            "passwords",
+            "pins",
+            "tans",
+            "secrets",
+            "keys",
+            "cookies",
+            "sessions",
+            "passphrases",
+            "otps",
+            "jwts",
         ],
     )
     def test_sensitive(self, key: str) -> None:
@@ -163,7 +196,25 @@ class TestSensitiveKey:
 
     @pytest.mark.parametrize(
         "key",
-        ["monkey", "turkey", "spin", "keyboard", "tank", "pinned", "passenger", "sidebar", "mypin", "user"],
+        [
+            "monkey",
+            "turkey",
+            "spin",
+            "keyboard",
+            "tank",
+            "pinned",
+            "passenger",
+            "sidebar",
+            "mypin",
+            "user",
+            "addresses",
+            "statuses",
+            "classes",
+            "processes",
+            "monkeys",
+            "turkeys",
+            "tanks",
+        ],
     )
     def test_not_sensitive(self, key: str) -> None:
         """N-SEC-02: Diese Schlüssel sind nicht sensibel."""
@@ -439,3 +490,33 @@ class TestContainerValues:
         start = time.perf_counter()
         mask_text(text)
         assert time.perf_counter() - start < 0.5
+
+
+class TestMultilineContainers:
+    """N-SEC-02 (T-080): Mehrzeilige Container werden ganz maskiert."""
+
+    @pytest.mark.parametrize(
+        ("text", "expected"),
+        [
+            ("password=[\n 'SEK1',\n 'SEK2'\n]", "password=***"),
+            ("{'token': {\n 'a': 'SEK1',\n 'b': 'SEK2'\n}}", "{'token': ***}"),
+            ("pin: (\n  'SEK1',\n  'SEK2'\n) danach", "pin: *** danach"),
+            ("passphrase=(\n  'SEK1',\n)", "passphrase=***"),
+            ("otps=[\n  123456,\n  654321\n] ende", "otps=*** ende"),
+            ("password=[\n 'SEK1',\n 'SEK2'\n", "password=***"),
+        ],
+    )
+    def test_multiline_container(self, text: str, expected: str) -> None:
+        """N-SEC-02: Container über mehrere Zeilen werden vollständig ersetzt."""
+        result = mask_text(text)
+        assert result == expected
+        assert mask_text(result) == result
+
+    def test_long_container_masks_rest(self) -> None:
+        """N-SEC-02: Mehr als 32 Zeilen werden sicherheitshalber ganz maskiert."""
+        text = "password=[\n" + "'SEK',\n" * 40 + "]"
+        assert mask_text(text) == "password=***"
+
+    def test_unbalanced_multiline_masks_rest(self) -> None:
+        """N-SEC-02: Ein offener Container maskiert sicherheitshalber den Rest."""
+        assert mask_text("password=[\nSEK1\nSEK2") == "password=***"

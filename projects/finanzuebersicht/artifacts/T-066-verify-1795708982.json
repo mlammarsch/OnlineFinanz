@@ -1,0 +1,22 @@
+{
+  "task": "T-066",
+  "ts": "2026-11-26T16:03:02Z",
+  "ok": true,
+  "results": [
+    {
+      "cmd": "uv run pytest tests/unit/test_bank_errors.py -q",
+      "exit": 0,
+      "out": "...................                                                      [100%]\n19 passed in 1.07s\n"
+    },
+    {
+      "cmd": "uv run ruff check backend tests scripts",
+      "exit": 0,
+      "out": "All checks passed!\n"
+    },
+    {
+      "cmd": "uv run mypy backend",
+      "exit": 0,
+      "out": "Success: no issues found in 51 source files\n"
+    }
+  ]
+}

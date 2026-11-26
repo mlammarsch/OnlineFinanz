@@ -3,9 +3,10 @@
 Setzt die Review-Checkliste aus AGENTS.md (Abschnitt "Review-Checkliste fuer
 verifier": Anforderungs-IDs in Tests referenziert) um. Dieser Test stellt
 sicher, dass die nicht-funktionalen Anforderungen aus den Bereichen
-Datenhaltung (N-DB) und Betrieb (N-OPS) sowie die Abnahme-IDs des
-Milestones M2 (F-DUP, F-IMP, F-EXP-04/07) in mindestens einer echten
-Testdatei unter tests/ namentlich genannt werden.
+Datenhaltung (N-DB), Betrieb (N-OPS) und Sicherheit (N-SEC) sowie die
+Abnahme-IDs der Milestones M2 (F-DUP, F-IMP, F-EXP-04/07) und M3 (Sync F-SYN,
+Auftraege F-AUF-04/05/07, Gleichzeitigkeit F-CON-05) in mindestens einer
+echten Testdatei unter tests/ namentlich genannt werden.
 
 Die Meta-Testdatei schliesst sich selbst von der Suche aus, damit die Pflicht-IDs
 ausschliesslich aus Fachtests stammen und nicht trivial durch die Auflistung in
@@ -20,11 +21,12 @@ TESTS_DIR = Path(__file__).resolve().parent.parent
 # Diese Meta-Testdatei wird von der Suche ausgeschlossen.
 SELF = Path(__file__).resolve()
 
-# Pflicht-IDs: nicht-funktionale Anforderungen mit Bezug zu Datenhaltung (N-DB)
-# und Betrieb (N-OPS) sowie die funktionalen Abnahme-IDs des Milestones M2
-# (Dubletten F-DUP, Import F-IMP, Export-Schema F-EXP-04/07). Jede muss
-# mindestens einmal als Substring in einer echten Testdatei unter tests/
-# vorkommen.
+# Pflicht-IDs: nicht-funktionale Anforderungen mit Bezug zu Datenhaltung (N-DB),
+# Betrieb (N-OPS) und Sicherheit (N-SEC), die funktionalen Abnahme-IDs des
+# Milestones M2 (Dubletten F-DUP, Import F-IMP, Export-Schema F-EXP-04/07) sowie
+# die Abnahme-IDs des Milestones M3 (Sync F-SYN-01..11, Auftraege F-AUF-04/05/07,
+# Gleichzeitigkeit F-CON-05, Sicherheit N-SEC-01..03). Jede muss mindestens
+# einmal als Substring in einer echten Testdatei unter tests/ vorkommen.
 REQUIRED_IDS = (
     "N-DB-01",
     "N-DB-02",
@@ -48,6 +50,24 @@ REQUIRED_IDS = (
     "F-IMP-08",
     "F-EXP-04",
     "F-EXP-07",
+    "F-SYN-01",
+    "F-SYN-02",
+    "F-SYN-03",
+    "F-SYN-04",
+    "F-SYN-05",
+    "F-SYN-06",
+    "F-SYN-07",
+    "F-SYN-08",
+    "F-SYN-09",
+    "F-SYN-10",
+    "F-SYN-11",
+    "F-AUF-04",
+    "F-AUF-05",
+    "F-AUF-07",
+    "F-CON-05",
+    "N-SEC-01",
+    "N-SEC-02",
+    "N-SEC-03",
 )
 
 

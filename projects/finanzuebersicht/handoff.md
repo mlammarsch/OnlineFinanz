@@ -2,6 +2,152 @@
 
 ## Next actions
 
+- **T-083 abgeschlossen (M3-Abnahme und Aufraeumen).** Konflikt-Check: **Ja** (SPEC F-SYN-01..11,
+  F-AUF-04/05/07, F-CON-05, N-SEC-01..03 decken sich mit `plan.md` M3 "`validate.py m3` (+ integration)";
+  positiver F-AUF-07-Zweig, keine SPEC-Aenderung). `scripts/validate.py`: `STAGE_M3` enthaelt jetzt
+  Read-only-Guard und `check_integration` (`uv run pytest -m integration tests/integration -q`, Sammellauf
+  muss mindestens einen Test liefern); `IMPLEMENTED["m1"]` auf `STAGE_M1` gekuerzt, damit die m0-Kette bei
+  m1..m3 nicht doppelt laeuft; alle `subprocess`-Aufrufe mit `errors="replace"`, weil uv/hx unter Windows
+  cp1252-Umlaute ausgeben und der Reader-Thread sonst mit `UnicodeDecodeError` abbrach.
+  `tests/unit/test_requirement_refs.py` um F-SYN-01..11, F-AUF-04/05/07, F-CON-05 und N-SEC-01..03
+  erweitert. Zweigpruefung: genau ein F-AUF-07-Zweig, positiv und vollstaendig (T-075 done, T-079 done,
+  T-077 cancelled; kein Zweig-Task pending oder running). Keine Kategorien-/Ueberweisungsreste (Treffer nur
+  als abgelehnte Zielfelder, CSV-Ignorier-Header oder Buchungstext in M2-Tests), keine Secrets
+  (Scan auf Private-Key-/JWT-/Cloud-Key-Muster ohne Treffer, nur Test-Fingerprints), keine schreibenden
+  FinTS-Aufrufe (Guard: 57 Dateien, 14 verbotene Namen). Evidenz: `python scripts/validate.py m3` Exit 0
+  (m0 7/7; m1 lint, types 57 Dateien, unit 1089 passed/1 skipped, smoke 1 passed; m2 Roundtrip
+  `erster_lauf=5 zweiter_lauf=0 bestand=5`; m3 Read-only-Guard und Integration `17 gesammelt; 17 passed,
+  1 deselected`), `uv run pytest -m integration tests/integration -q` = 17 passed/1 deselected,
+  `uv run pytest tests/unit/test_requirement_refs.py -q` = 1 passed, `ruff check` und
+  `ruff format --check` der geaenderten Dateien gruen. **Owner-Live-Test** steht aus: `FINTS_PRODUCT_ID`
+  setzen, Protokoll `docs/live-test-fints.md` gegen die echte Bank ausfuehren, ING-90-Tage-Code und
+  HKCDB2/HICDB2 belegen. **Risiko ruff format:** `uv run ruff format --check backend tests scripts` meldet
+  29 Dateien (M3-Sync-/FinTS-Dateien plus zwei M2-Testdateien); T-083 hat bewusst nur die eigenen Dateien
+  formatiert und den Rest in `improve.md` dokumentiert, weil `validate.py m3` keinen Formatcheck verlangt.
+  **M4-Anschlusspunkte:** `SyncService` als Fassade fuer die REST-Schicht (`start_sync`, `submit_tan`,
+  `poll_app_approval`, `cancel`, Job-Status) und SSE `/api/events` ueber den vorhandenen Hook
+  `SyncRegistry.add_listener`/`SyncEvent` (D12). Keine Commits, kein Push.
+
+- **T-080 abgeschlossen (M3, N-SEC-02 Leckagetests Sync-Pfad).** Konflikt-Check: Ja (N-SEC-01..03,
+  F-SYN-04/05/07/10 konsistent; F-SYN-05 "unbekannte Codes zeigen Originaltext" bleibt erfuellt, weil nur
+  labelbare Geheimnisse im Originaltext maskiert werden). Neu: `tests/unit/test_sync_secrets.py` (9 Tests:
+  Erfolg, falsche PIN, falsche TAN, Bankfehler-Fremdtext, Abbruch, Timeout, Bankzugang mit gespeicherter PIN,
+  Registry-Dialogdaten). Geprueft werden je Szenario JSON-Logs, ImportRun/ImportRunError, DB-Spaltendump und
+  rohe DB-/WAL-Datei, Exception-Strings/`repr`, SyncResult/SyncJob/Handoff; zusaetzlich gelangen die
+  Dialogmarker in keine Datei. `log_filter.py` um passphrase, otp, jwt, csrf/xsrf, Pluralformen und
+  mehrzeilige Container erweitert (bis 32 Zeilen, danach wird der Rest maskiert), Testfaelle in
+  `test_log_filter.py`. Echter Leak behoben: Unbekannte Bankcodes gaben den rohen Originaltext in
+  `ImportRun.message`/`ImportRunError` aus; `resolve_error` und `sync_persist._failure_outcome` maskieren
+  jetzt labelbare Geheimnisse. Evidenz: `uv run pytest tests/unit/test_sync_secrets.py -q` 9 passed,
+  `tests/unit/test_log_filter.py` 235 passed, gesamte Unit-Suite 1089 passed/1 skipped,
+  `ruff check backend tests scripts` und `mypy backend` gruen. Offen/Risiko: unmarkierte Geheimniswerte in
+  Bank-Fremdtext bleiben unerkannt; deutsche Umlaut-Plurale wie "Passwörter" erfasst der ASCII-Wortregex
+  nicht. Keine echten Zugangsdaten, kein Bankzugriff, keine Commits.
+
+- **T-082 abgeschlossen (M3, Owner-Live-Test-Doku).** Konflikt-Check: Ja (Doku deckt F-SYN-01..08/10,
+  F-AUF-05/07 und N-SEC-01..03; SPEC und plan.md unveraendert). Neu: `docs/live-test-fints.md` mit
+  Voraussetzungen (FINTS_PRODUCT_ID, Fernet-Schluesseldatei per Umgebungsvariable, Bank-Endpunkt
+  `Bank.fints_url`, PIN-Option `store_pin`), Vorbereitung, Testfaellen (Erstsync, TAN, App-Freigabe,
+  Batch, Abbruch, Timeout, ING-90-Tage, falsche PIN nur einmal, PIN-Option, beobachtbare 9800/9010),
+  Erwartungsergebnissen, Nachweisen, Sicherheitsregeln, offenen Owner-Eingaben und F-AUF-07-Stand.
+  `tests/unit/test_live_test_doc.py` prueft Existenz, Pflichtabschnitte, Szenarien, Pflichtbegriffe und
+  das Fehlen langer Hex-Tokens. Evidenz: 6 Task-Tests und `ruff check backend tests scripts` gruen.
+  **Owner-Aufgabe Live-Test:** Protokoll ausfuehren, sobald der Sync ueber die Oberflaeche oder eine
+  bereitgestellte Bedienung startbar ist; dabei Produkt-ID, echte Bank-Endpunkte, ING-90-Tage-Code und
+  weitere Fehlercodes mit Beleg erfassen. Offen/Risiko: `FINUE_KEY_FILE` aus SPEC N-OPS-07 ist noch
+  nicht verdrahtet, aktuell liest `Settings.key_file` die Variable `KEY_FILE` (Umbenennung im M10-Task);
+  der ING-90-Tage-Code ist weiterhin der unbelegte Platzhalter `ING90`; HKCDB2/HICDB2 fehlen, Banken
+  mit ausschliesslich Version 2 liefern F-AUF-05. Keine echten Zugangsdaten verwendet, kein Bankzugriff,
+  keine Produktionslogik, keine Commits.
+- **T-078 abgeschlossen (M3, TAN-Pause/Resume/Abbruch/Timeout).** Konflikt-Check: Ja (F-SYN-04/07/10,
+  N-SEC-02/03 sind mit dem Generator-/Registry-Pfad konsistent; SPEC unveraendert). `sync_service.py` fuehrt den
+  Lauf als resumierbaren Generator: `NeedTANResponse` pausiert ueber den bestehenden Adapterpfad
+  (`pause_dialog`/`deconstruct`), der `TanHandoff` liegt nur im Registry-/Service-RAM, und der Job wechselt auf
+  `AWAITING_TAN`. `submit_tan` setzt per `from_data`/`resume_dialog`/`send_tan` fort, `poll_app_approval` fragt
+  App-Freigaben wiederholt ab und zaehlt `approval_polls`; die erste Antwort gewinnt, weitere Aufrufe liefern
+  `SyncTanConflictError`. `cancel` beendet den Dialog und protokolliert das laufende und die restlichen Konten als
+  `abgebrochen`; vollstaendig uebernommene Konten bleiben. Der 5-Minuten-Timeout nutzt die injizierbare
+  Registry-Uhr und setzt `zeitueberschreitung`. Je Konto entsteht genau eine ImportRun-Zeile: waehrend der Pause
+  `wartet_auf_tan`, nach der Freigabe dieselbe Zeile `erfolgreich`/`fehler`/`abgebrochen`/`zeitueberschreitung`.
+  Dazu minimale Erweiterungen in `sync_persist.py` (`persist_waiting_for_tan`, Wiederverwendung der Zeile) und
+  `sync_registry.py` (Challenge-Text/Art in Job und Event). Neue Tests:
+  `tests/unit/test_sync_tan.py` (11 Tests: Erfolg, falsche TAN, App-Polls, Abbruch im Batch, Timeout, parallele
+  Antworten, zwei TANs im Batch, Capture-Test, Sperrfreigabe, Abbruch waehrend laufendem `send_tan` und
+  waehrend laufendem App-Poll). Evidenz:
+  `projects/finanzuebersicht/artifacts/T-078-verify-1795714703.json` (19 Task-Tests, Ruff, Mypy strict gruen;
+  zusaetzlich 1008 Unit-Tests gruen, 1 uebersprungen). Offen/Risiko: Die DB-Session bleibt waehrend der TAN-Pause
+  bis zu fuenf Minuten offen (Improve-Queue); `cancel` waehrend eines laufenden Dialogs setzt weiterhin nur die
+  Abbruchmarke, der laufende Netzaufruf wird nicht unterbrochen. Seit dem Verifier-Fix gibt der Lauf danach aber
+  die Registry-Sperre idempotent frei (`abort`/`expire`/`fail` im Abschluss- und BaseException-Pfad), sodass ein
+  erneuter `start_sync` `reused=False` liefert. Keine Commits.
+
+- **T-075 abgeschlossen (M3, lesender Dauer-/Terminauftragsabruf).** Konflikt-Check: Ja (T-060 positiv/
+  tragfaehig; T-073 abgeschlossen; T-076 fasst `fints_client.py` nicht mehr an). Neu:
+  `backend/finue/services/fints_orders.py` mit den lesenden Segmenten HKCDB1/HICDB1/HICDBS1 und
+  HKCSB1/HICSB1/HICSBS1 (Feldbelegung aus der FinTS-Protokollvorlage `hbci-300.xml`), pain.001-Parser
+  (Empfaenger, IBAN, Zweck, Cent, Waehrung, Ausfuehrungsdatum), Intervall-Klartext und Ableitung der naechsten
+  Dauerauftrags-Ausfuehrung aus Turnus/Ausfuehrungstag (F-AUF-02). `FinTSGateway.fetch_standing_orders` ist auf
+  die echte Funktion verdrahtet; TAN nutzt den bestehenden Pause-/Resume-Pfad und kombiniert bereits gelesene
+  Auftraege mit der Antwort nach der Freigabe. Keine schreibenden Segmente, Read-only-Guard gruen.
+  Fixtures: `tests/fixtures/fints_fake_orders.py` (vorhanden, leer, nicht unterstuetzt, Teilantwort, TAN,
+  unbekannte Version); `tests/fixtures/fints_fake.py` liefert die internen Abrufhelfer fuer T-076.
+  Evidenz: `projects/finanzuebersicht/artifacts/T-075-verify-1795713109.json` (40 Task-Tests, Read-only-Guard,
+  Ruff und Mypy gruen; zusaetzlich 996 Unit-Tests gesamt gruen). Offen: nur Segmentversion 1 umgesetzt; Banken,
+  die ausschliesslich HKCDB2/HICDB2 anbieten, fallen auf `unsupported` zurueck. Loest HKCDB selbst eine TAN aus,
+  liefert die Fortsetzung nur die Dauerauftraege; HKCSB wird im naechsten Sync gelesen. `account=None` fasst
+  mehrere Konten ohne Kontozuordnung zusammen; die Sync-Orchestrierung uebergibt ein Einzelkonto. Keine Commits.
+  Naechster Schritt: T-079 (Persistenz) nach T-078 (TAN-Pause im Sync).
+
+- **T-076 abgeschlossen (M3, Sync-Orchestrierung Batch/Einzel).** Konflikt-Check: Ja (F-SYN-01/02/05/06/07/11,
+  F-AUF-05 und F-SYN-10 sind mit `sync_persist`, `sync_retry`, `sync_registry` und dem FinTS-Gateway konsistent;
+  SPEC unveraendert). Neu: `backend/finue/services/sync_service.py` mit `SyncService.start_sync`, `SyncResult` und
+  `AccountSyncResult`. Batch waehlt alle aktiven FinTS-Konten und nutzt genau einen Dialog; Einzel-Sync uebergibt
+  Konten-IDs. Doppelstart liefert denselben Registry-Job (`SyncJob.wait_for_abort` ergaenzt, Event.wait statt
+  blockierendem sleep). Je Konto: `compute_fetch_range`, FinTS-Abruf, `persist_account_sync`; Fehler werden ueber
+  `persist_sync_failure` mit gemeinsamem `job_id` protokolliert. 9800 wird trotz Adapter-Einstufung als
+  `PinWrongError` wiederholt: `_fetch_with_retry` wandelt nur dann in `FinTSBankError` um, wenn das Mapping den Code
+  als wiederholbar fuehrt; echte PIN-Codes bleiben hart. `TanRequired` wird bewusst nicht behandelt (T-078).
+  Evidenz: `projects/finanzuebersicht/artifacts/T-076-verify-1795711273.json` (8 Task-Tests, Ruff und Mypy gruen;
+  zusaetzlich 978 Unit-Tests gesamt gruen). Offen: T-078 muss die TAN-Pause in derselben Datei ergaenzen; der
+  9800-Shim sollte mit der Adapter-/T-060-Beleglage langfristig in `decisions.md` bereinigt werden. Keine Commits.
+
+- **T-074 Fachfehler behoben (Vormerkung mit gleichem Fingerprint verdeckte gebuchte Zeile).** Konflikt-Check: Ja
+  (F-DUP-02 Multimengen-Regel und F-DUP-04 "Vormerkungen nehmen nicht am Fingerprint-Abgleich teil" sind mit dem
+  Statusfilter im Sync-Pfad konsistent; SPEC unveraendert). Ursache: `replace_pending` legt die Vormerkungen der
+  Lieferung vor `reconcile_multiset` an; ohne Statusfilter zaehlten sie in `n_db` und die gebuchte Zeile mit
+  identischem Fingerprint wurde uebersprungen. Fix: `duplicate.reconcile_multiset` hat den Keyword-Parameter
+  `include_pending_in_existing` (Standard `True`); `sync_persist.persist_account_sync` setzt `False`, und
+  `sync_persist._load_existing_counts` (Verdachtszaehlung) filtert `status == 'gebucht'`. Der `occurrence_index`
+  bleibt ueber alle Zeilen berechnet, damit der Unique-Constraint haelt. Der Datei-Import bleibt beim Standard
+  `True`, damit eine Datei mit Vormerkungen beim Re-Import weiterhin 0 neue Buchungen erzeugt (F-DUP-02);
+  Beleg: `python scripts/validate.py roundtrip` = `ROUNDTRIP_OK erster_lauf=5 zweiter_lauf=0 bestand=5`.
+  Regressionstest `test_gebuchte_zeile_neben_vormerkung_gleichen_fingerprints_wird_angelegt` (vor Fix rot:
+  `new_count == 0`), plus zwei Tests in `test_duplicate_multiset.py` (Ausschluss + Import-Standard).
+  Evidenz: 56 Tests in den vier Zieldateien, 970 Unit-Tests gesamt, ruff/mypy gruen. Offen und nicht durch T-074
+  verursacht: `ruff format --check` meldet weiterhin Formatdrift an vorbestehenden Stellen in `sync_persist.py`
+  und `test_sync_persist.py` (Improve-Queue). Keine Commits.
+- **T-060 abgeschlossen (M3, F-AUF-07 tragfaehig).** Konflikt-Check: Ja (SPEC F-AUF-07 verlangt die Pruefung in
+  der eingesetzten Version; D2 = python-fints, N-SEC-01/D11 = cryptography; keine SPEC-Aenderung noetig).
+  Ergebnis: python-fints 5.0.1 hat **keine eingebaute** HKCDB-/HKCSB-Unterstuetzung (0 Treffer im gesamten Paket),
+  die lesende Erweiterung ist aber **tragfaehig** - eigene `FinTS3Segment`-Unterklassen, BPD-Versionswahl ueber
+  `_find_highest_supported_command` (`HICDBS`/`HICSBS`) und Antwortauswertung ueber `_fetch_with_touchdowns`.
+  Abhaengigkeiten exakt gepinnt: `fints==5.0.1`, `cryptography==50.0.2` in `pyproject.toml` und `uv.lock`.
+  `tests/unit/test_fints_capabilities.py` (17 Tests, offline) belegt Signaturen/Existenz von `FinTS3PinTanClient`,
+  `NeedTANResponse`, `pause_dialog`/`resume_dialog`/`deconstruct`/`from_data`, `get_sepa_accounts`, `get_balance`,
+  `get_transactions_xml`, `get_transactions(include_pending=False)`, `init_tan_response` als Attribut (kein
+  Methodenname, gesetzt in `dialog.py:90`), Fehlercodes (9340/9910/9930/9931/9942 -> `FinTSClientPINError`, 3938 ->
+  `FinTSClientTemporaryAuthError`, 9010 -> `FinTSClientError`), fehlendes HKCDB/HKCSB und die Erweiterbarkeit.
+  Evidenz: `uv run pytest tests/unit/test_fints_capabilities.py -q` = 17 passed; `uv run ruff check backend tests
+  scripts` = All checks passed; `uv run mypy backend` = Success (41 Dateien). Zweigentscheidung positiv:
+  T-075/T-079 bleiben aktiv, T-077 per `hx.py task-set` auf `cancelled`. Details und Quellen:
+  `decisions.md` (F-AUF-07-Eintrag), Skill-Referenz `references/fints.md` aktualisiert. Keine Commits.
+  Naechster Schritt: Welle 1 des M3-Plans ist damit frei; T-061, T-062, T-063, T-064 und T-065 koennen parallel
+  starten (T-060 als Abhaengigkeit erfuellt).
+- **M3-Taskplan angelegt (G-004, T-060 bis T-083).** Der erste Task T-060 prueft F-AUF-07 und pinnt die
+  Abhaengigkeiten. Positives Ergebnis aktiviert T-075/T-079 fuer den lesenden Auftragsabruf; negatives Ergebnis
+  aktiviert nur T-077 nach Owner-Freigabe fuer die SPEC-Zurueckstellung. Builder laufen mit DeepSeek V4.1 Flash,
+  Effort max.; medium/high Tasks werden mit Claude Sonnet 5.5, Effort medium, verifiziert. Naechster Schritt:
+  T-060 auf `develop-m3` claimen. Die 24 Task-Dateien liegen unter `projects/finanzuebersicht/tasks/`.
 - **M2-Dokumentation nach Merge geprueft.** `docs/export-format.md` beschreibt Schema, Versionierung, Roundtrip und
   jetzt auch Re-Import-/Wiederherstellungssemantik. Einen falschen F-DUP-Verweis bei `merged` (F-DUP-04 statt F-DUP-05)
   korrigiert. M2-Dokumentation ist damit vollstaendig; offene Owner-CSV-Beispiele und der bekannte `ruff format`-Drift
@@ -70,9 +216,9 @@
 
 ## Open questions (Owner-Eingaben, SPEC Abschnitt 7)
 
-- FinTS-Produkt-ID (Live-Test FinTS, M3).
+- FinTS-Produkt-ID (Live-Test FinTS, M3): Protokoll in `docs/live-test-fints.md`, Ausfuehrung durch den Owner.
 - Anonymisierte CSV-Beispiele N26, Easybank, PayPal, Finanzblick-Export in `data/samples/` (M2, M4).
 - Bank-Icons bzw. Websites je Bank (M7).
 - SMB-Ziel fuer Backups (Live-Test Backup, `docs/live-test-backup.md`, M8).
 - Docker-Hub-Repository und `docker login` (M10).
-- Bank-Endpunkte (nur ING als Owner-Vorgabe, unbelegt) und Fehlercodes: Quelle oder Live-Test noetig.
+- Bank-Endpunkte (nur ING als Owner-Vorgabe, unbelegt) und Fehlercodes (u. a. echter ING-90-Tage-Code): Quelle oder Beleg aus `docs/live-test-fints.md`.

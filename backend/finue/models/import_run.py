@@ -45,6 +45,9 @@ class ImportRun(Base, VersionedMixin, TimestampMixin):
 
     Die Zeilen werden beim Sync bzw. Import angelegt und während des Laufs
     aktualisiert; jeder Einzel-Fehler hängt als ImportRunError am Lauf.
+    `job_id` gruppiert die Läufe eines Batch-Anstosses (F-SYN-07): mehrere
+    Konten desselben Batch teilen sich eine Kennung, Einzel-Sync und
+    Datei-Import lassen sie NULL.
     """
 
     __tablename__ = "import_run"
@@ -56,6 +59,10 @@ class ImportRun(Base, VersionedMixin, TimestampMixin):
         ForeignKey("account.id", ondelete="CASCADE"),
         nullable=False,
     )
+
+    # Gruppenkennung eines Batch-Laufs (F-SYN-07): mehrere ImportRun-Zeilen
+    # desselben Batch teilen diese ID. NULL bei Einzel-Sync und Datei-Import.
+    job_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
 
     # Art des Laufs: sync (FinTS), csv oder json (Datei-Import)
     kind: Mapped[str] = mapped_column(

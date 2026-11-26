@@ -20,6 +20,8 @@ dependencies = [
     "pydantic>=2",
     "pydantic-settings",
     "tzdata",
+    "fints==5.0.1",
+    "cryptography==50.0.2",
 ]
 
 [dependency-groups]

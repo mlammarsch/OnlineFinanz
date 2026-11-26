@@ -179,6 +179,7 @@ def check_hx_status() -> Result:
         capture_output=True,
         text=True,
         encoding="utf-8",
+        errors="replace",
     )
     return proc.returncode == 0, f"hx.py status Exit {proc.returncode}"
 
@@ -186,7 +187,9 @@ def check_hx_status() -> Result:
 def run_external(cmd: list[str]) -> Result:
     """Externe Pruefung ausfuehren (ruff, mypy, pytest)."""
     try:
-        proc = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, encoding="utf-8")
+        # errors="replace": uv/pytest geben unter Windows teils cp1252 aus (Umlaute),
+        # sonst bricht der Reader-Thread mit UnicodeDecodeError ab.
+        proc = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace")
         if proc.returncode == 0:
             # Erfolg: kurze Summary aus stdout extrahieren
             lines = proc.stdout.strip().split("\n") if proc.stdout.strip() else []
@@ -220,6 +223,43 @@ def check_unit() -> Result:
 def check_smoke() -> Result:
     """pytest: Smoke-Tests (Integration)."""
     return run_external(["uv", "run", "pytest", "-m", "smoke", "tests/integration", "-q"])
+
+
+def check_fints_readonly() -> Result:
+    """Read-only-Guard: keine schreibenden FinTS-Operationen in backend/ (D2)."""
+    return run_external([sys.executable, "scripts/check_fints_readonly.py"])
+
+
+def _run_pytest(cmd: list[str]) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace")
+
+
+def check_integration() -> Result:
+    """pytest: Integrationstests des M3-Sync-Pfads, mindestens ein gesammelter Test.
+
+    Referenziert F-SYN-01..11 (Sync-Orchestrierung, TAN, Fehler-Mapping,
+    Protokoll, Sperre), F-AUF-04/05 (Auftragsabruf und Rueckfall) und
+    F-CON-05 (Sync aendert keine Nutzerfelder).
+    """
+    plan = ["uv", "run", "pytest", "-m", "integration", "tests/integration"]
+    try:
+        collected = _run_pytest([*plan, "--collect-only", "-q"])
+        if collected.returncode != 0:
+            detail = (collected.stderr.strip() or collected.stdout.strip()).splitlines()
+            return False, f"Sammellauf Exit {collected.returncode}: {detail[-1] if detail else 'keine Ausgabe'}"
+        count = sum(1 for line in collected.stdout.splitlines() if "::" in line)
+        if count < 1:
+            return False, "keine Integrations-Tests gesammelt"
+
+        proc = _run_pytest([*plan, "-q"])
+    except Exception as exc:  # Pruefung darf nie still abbrechen
+        return False, f"Fehler beim Ausfuehren: {exc!r}"
+
+    lines = [line for line in proc.stdout.strip().splitlines() if line.strip()]
+    summary = lines[-1] if lines else "keine Ausgabe"
+    if proc.returncode != 0:
+        return False, f"Exit {proc.returncode}: {summary}"
+    return True, f"{count} gesammelt; {summary}"
 
 
 # Eingebettetes Pruefprogramm fuer den Import-Roundtrip. Es laeuft im
@@ -313,6 +353,7 @@ def check_roundtrip_import() -> Result:
             capture_output=True,
             text=True,
             encoding="utf-8",
+            errors="replace",
             input=ROUNDTRIP_SCRIPT,
         )
     except Exception as exc:  # Pruefung darf nie still abbrechen
@@ -361,11 +402,29 @@ ROUNDTRIP_CHECK: tuple[str, Callable[[], Result]] = (
 
 STAGE_M2: list[tuple[str, Callable[[], Result]]] = [ROUNDTRIP_CHECK]
 
+# M3-Pruefungen: Read-only-Guard und Integrationstests des Sync-Pfads. lint,
+# types, unit und smoke liefert die m1-Stufe, die run_stage kumulativ vor m3
+# ausfuehrt; STAGE_M3 wiederholt sie deshalb nicht.
+READONLY_CHECK: tuple[str, Callable[[], Result]] = (
+    "FinTS Read-only-Guard (keine schreibenden Operationen)",
+    check_fints_readonly,
+)
+
+INTEGRATION_CHECK: tuple[str, Callable[[], Result]] = (
+    "integration (pytest, mind. 1 gesammelter Test)",
+    check_integration,
+)
+
+STAGE_M3: list[tuple[str, Callable[[], Result]]] = [READONLY_CHECK, INTEGRATION_CHECK]
+
 # Umgesetzte Stufen. Neue Stufen mit dem jeweiligen Milestone hier eintragen.
+# Die m<n>-Kette haengt run_stage selbst an; die Eintraege enthalten daher nur
+# die Stufe selbst, sonst laufen m0/m1-Checks doppelt.
 IMPLEMENTED: dict[str, list[tuple[str, Callable[[], Result]]]] = {
     "m0": STAGE_M0,
-    "m1": STAGE_M0 + STAGE_M1,
+    "m1": STAGE_M1,
     "m2": STAGE_M2,
+    "m3": STAGE_M3,
     "roundtrip": [ROUNDTRIP_CHECK],
 }
 

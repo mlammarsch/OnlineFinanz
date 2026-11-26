@@ -1,0 +1,17 @@
+{
+  "task": "T-081",
+  "ts": "2026-11-26T18:09:35Z",
+  "ok": true,
+  "results": [
+    {
+      "cmd": "uv run pytest -m integration tests/integration/test_sync_flow.py -q",
+      "exit": 0,
+      "out": ".............                                                            [100%]\n13 passed in 2.67s\n"
+    },
+    {
+      "cmd": "uv run ruff check backend tests scripts",
+      "exit": 0,
+      "out": "All checks passed!\n"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "task": "T-079",
+  "ts": "2026-11-26T17:52:55Z",
+  "ok": true,
+  "results": [
+    {
+      "cmd": "uv run pytest tests/unit/test_standing_orders.py -q",
+      "exit": 0,
+      "out": "........                                                                 [100%]\n8 passed in 1.52s\n"
+    },
+    {
+      "cmd": "uv run pytest -m integration tests/integration/test_sync_orders.py -q",
+      "exit": 0,
+      "out": "....                                                                     [100%]\n4 passed in 1.63s\n"
+    },
+    {
+      "cmd": "uv run ruff check backend tests scripts",
+      "exit": 0,
+      "out": "All checks passed!\n"
+    },
+    {
+      "cmd": "uv run mypy backend",
+      "exit": 0,
+      "out": "Success: no issues found in 57 source files\n"
+    }
+  ]
+}

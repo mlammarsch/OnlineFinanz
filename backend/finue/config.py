@@ -27,6 +27,13 @@ class Settings(BaseSettings):
     log_level: str = Field(default="INFO", description="Logging-Level")
     tz: str = Field(default="Europe/Berlin", description="Zeitzone")
     key_file: Path = Field(default=Path("./key"), description="Pfad zur Schlüsseldatei (nur Pfad, keine Secrets)")
+    fints_product_id: str | None = Field(
+        default=None,
+        description=(
+            "FinTS-Produkt-ID aus FINTS_PRODUCT_ID. Kein Standardwert: ohne gesetzte "
+            "Produkt-ID ist kein Bankzugriff erlaubt."
+        ),
+    )
     scheduler_required: bool = Field(
         default=False,
         description="Zeitplaner muss laufen, damit /api/health/ready bereit meldet (ab M8)",

@@ -1,10 +1,10 @@
 # Status finanzuebersicht
 
-_generated 2026-11-26T13:46:43Z_
+_generated 2026-11-26T18:32:55Z_
 
-Tasks: pending=0, running=0, done=57, failed=0, blocked=0, cancelled=2
+Tasks: pending=0, running=0, done=80, failed=0, blocked=0, cancelled=3
 
-Verified complete: 57/59; retry rate 0.05; learnings 45; events 242
+Verified complete: 80/83; retry rate 0.06; learnings 71; events 363
 
 ## now
 
@@ -21,7 +21,8 @@ Verified complete: 57/59; retry rate 0.05; learnings 45; events 242
 ## improve
 
 - [ ] hx.py: --verify mit erwartetem Exit-Code (z. B. expect-fail) unterstuetzen
-- [ ] Log-Filter: passphrase, otp, jwt, csrf, Plurale und mehrzeilige Container ergaenzen
+- [ ] Log-Filter: deutsche Plural-/Umlautformen (z. B. "Passwörter") erfasst der ASCII-Wortregex nicht; bei Bedarf Unicode-Wortgrenzen oder explizite Formen ergaenzen.
+- [ ] Bankfehler-Fremdtext (F-SYN-05/N-SEC-02): `resolve_error` maskiert nur labelbare Geheimnisse im Originaltext. Unmarkierte Geheimniswerte bleiben unerkannt; falls der Owner F-SYN-05 enger auslegt, fuer unbekannte Codes nur Code plus festen Klartext protokollieren.
 - [ ] engine.py: make_url statt str.replace, StaticPool fuer :memory:, Tests fuer FK-Erzwingung und mehrere Connections; Naming-Convention uq/ix auf column_0_N_* pruefen
 - [ ] backend/finue/models/__init__.py: Sammelimport aller Modellmodule ergaenzen (duplicate, standing_order, audit, bank, ...), sonst fehlen Tabellen bei Alembic-Autogenerate (Base.metadata unvollstaendig ohne expliziten Import) - vor T-027/T-028 beachten
 - [ ] Constraint-Namensduplikation pruefen: ck_<table>_ck_<table>_<name> entsteht bei CheckConstraint mit bereits vollem Namen (betrifft import_run.py und security.py) - Naming-Convention in db/base.py bzw. Aufrufstellen vereinheitlichen vor Alembic-Autogenerate (T-028)
@@ -34,9 +35,17 @@ Verified complete: 57/59; retry rate 0.05; learnings 45; events 242
 - [ ] test_smoke.py: expliziten Assert ergaenzen dass die Alembic-Logzeile (logger startswith alembic, Running upgrade) im JSON-Eintrag erscheint - staerkerer direkter Beweis fuer den T-033-Logging-Fix statt nur indirekter Ableitung
 - [ ] Nach Alembic-Autogenerate die neue Migrationsdatei immer mit 'uv run ruff format' formatieren (Post-Generate-Schritt vor dem Commit), damit generierte Dateien den lint-Block von scripts/validate.py nicht rot machen.
 - [ ] scripts/validate.py: Regel ergaenzen, dass jeder '# type: ignore[...]' eine nachgestellte Begruendung tragen muss, sonst Stufe lint rot (verhindert undokumentierte/pauschale ignores, siehe T-041).
-- [ ] scripts/validate.py: IMPLEMENTED['m1'] auf STAGE_M1 kuerzen (run_stage haengt die m0-Kette bereits selbst an), verhindert doppelte Check-Ausgabe bei jeder kuenftigen mN-Stufe
 - [ ] Vor ImportRun-Tasks Statuswerte aus SPEC und Modell als expliziten Vorab-Check aufnehmen; keine Implementierung bei Vokabular-Konflikt.
 - [ ] scripts/validate.py: check_roundtrip_import bildet die Fixture-Konten (1/2) beim Import bewusst auf ein Zielkonto ab; fuer M4 den Mehrkonto-Roundtrip (Kontozuordnung, Gruppen) als eigenen Check ergaenzen. Ausserdem deckt der Check nur JSON v1 ab; CSV-Roundtrip mit Vorlage folgt mit dem CSV-Export (M4).
 - [ ] scripts/validate.py: den eingebetteten ROUNDTRIP_SCRIPT-String bei wachsendem Umfang in ein eigenes, mit uv ausgefuehrtes Pruefskript unter scripts/ auslagern (bleibt testbar, vermeidet grosse String-Literale in validate.py).
 - [ ] scripts/validate.py: check_lint um 'uv run ruff format --check backend tests scripts' ergaenzen, damit Formatdrift nicht erst spaeter auffaellt.
+- [ ] ruff format: T-083 hat wegen "nur notwendige Abnahmefehler" nicht massenformatiert; `uv run ruff format --check backend tests scripts` meldet 29 Dateien, u. a. die M3-Sync-/FinTS-Dateien (sync_registry.py, sync_service.py, fints_fake*.py, test_sync_*.py, test_bank_access.py, test_fints_*.py, test_pin_crypto.py, test_standing_orders.py) sowie die zwei M2-Dateien test_import_execute.py und test_import_restore_flags.py. Vor dem naechsten Commit gezielt formatieren und den Formatcheck in validate.py aufnehmen.
+- [ ] Owner-Live-Test FinTS (M3) steht aus: `FINTS_PRODUCT_ID` setzen und das Protokoll in `docs/live-test-fints.md` gegen die echte Bank ausfuehren; dabei ING-90-Tage-Code, 9800/9010 und HKCDB2/HICDB2 belegen. Ohne diesen Lauf bleiben F-SYN-05/06 und F-AUF-04/05/07 nur mit Mocks/Fakes belegt.
+- [ ] tests/unit/test_fints_capabilities.py ist an python-fints 5.0.1 gebunden: bei jedem Pin-Sprung laufen lassen und den F-AUF-07-Eintrag in decisions.md samt Quellzeilen aktualisieren. Der Test prueft auch das Ergebnis-Kennzeichen, damit Doku und Code nicht auseinanderlaufen.
+- [ ] T-075: python-fints hat keinen oeffentlichen generischen Kommando-Weg; die lesende HKCDB/HKCSB-Erweiterung nutzt geschuetzte Helfer (`_find_highest_supported_command`, `_fetch_with_touchdowns`). Eine duenne, getestete Kapsel bauen und die Capability-Tests als Waechter beim Pin-Upgrade nutzen.
+- [ ] Bestandszaehlung fuer F-DUP-02 ist an drei Stellen dupliziert (duplicate._load_existing_state, sync_persist._load_existing_counts, import_preview._load_existing_counts); ein gemeinsamer Helfer mit Statusparameter und ein Paritaetstest (Vorschau-Status == reconcile-Ergebnis fuer dieselbe Lieferung) verhindert kuenftige Drift.
+- [ ] sync_service/9800: SPEC F-SYN-06 fuehrt 9800 als wiederholbar, der Adapter meldet es laut T-060 als PinWrongError. Der dokumentierte Shim in `_fetch_with_retry` loest das zur Laufzeit; langfristig Adapter-Einstufung, Fake-Skript `consors_9800` und T-060-Beleglage in `decisions.md` mit SPEC F-SYN-05/06 in Uebereinstimmung bringen.
+- [ ] T-075: die HKCDB/HKCSB-Erweiterung unterstuetzt nur Segmentversion 1. Vor dem Owner-Live-Test HKCDB2/HICDB2 (DauerDetails4 mit optionaler Ausfuehrungszeit) aus `hbci-300.xml` ergaenzen, sonst fallen Banken, die nur Version 2 anbieten, auf `unsupported` zurueck. Dabei `_find_highest_supported_command(HKCDB1, HKCDB2)` und einen gemischten Versionstest ergaenzen.
+- [ ] T-075: loest HKCDB selbst eine TAN aus, wird HKCSB nach der Freigabe nicht mehr im selben Aufruf gelesen. Ein Resume-Hook oder ein automatischer Folgeabruf sollte beide Auftragsarten in einem Sync liefern; aktuell holt der naechste Sync HKCSB nach.
+- [ ] SyncService haelt die DB-Session waehrend einer TAN-Pause bis zu 5 Minuten offen; vor dem API-Betrieb Session an der Pause schliessen und nach Resume neu oeffnen, damit keine Verbindung blockiert.
 

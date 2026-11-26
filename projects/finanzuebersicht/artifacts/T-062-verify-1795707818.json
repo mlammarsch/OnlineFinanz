@@ -1,0 +1,22 @@
+{
+  "task": "T-062",
+  "ts": "2026-11-26T15:43:38Z",
+  "ok": true,
+  "results": [
+    {
+      "cmd": "uv run pytest tests/unit/test_pin_crypto.py -q",
+      "exit": 0,
+      "out": "..............s...                                                       [100%]\n17 passed, 1 skipped in 1.23s\n"
+    },
+    {
+      "cmd": "uv run ruff check backend tests scripts",
+      "exit": 0,
+      "out": "All checks passed!\n"
+    },
+    {
+      "cmd": "uv run mypy backend",
+      "exit": 0,
+      "out": "Success: no issues found in 46 source files\n"
+    }
+  ]
+}

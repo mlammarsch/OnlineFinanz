@@ -34,6 +34,8 @@ SENSITIVE_KEYWORDS = frozenset(
         "tan",
         "password",
         "passwort",
+        "passwoerter",
+        "passphrase",
         "passwd",
         "pwd",
         "pass",
@@ -46,6 +48,12 @@ SENSITIVE_KEYWORDS = frozenset(
         "sessionid",
         "sid",
         "apikey",
+        "otp",
+        "jwt",
+        "csrf",
+        "xsrf",
+        "credential",
+        "credentials",
     }
 )
 
@@ -58,9 +66,14 @@ _COMPOUNDS = (
     "secretkey",
     "privatekey",
     "accesskey",
+    "csrftoken",
+    "xsrftoken",
     "passwd",
     "pwd",
 )
+
+#: Obergrenze fuer mehrzeilige Container; danach wird der Rest maskiert.
+_MAX_CONTAINER_LINES = 32
 
 # Schlüssel, deren Wert bis zum Zeilenende reicht (Schema plus Parameter)
 _LINE_VALUE_KEYS = frozenset({"authorization", "cookie"})
@@ -87,20 +100,39 @@ def _key_parts(key: str) -> tuple[str, ...]:
     return tuple(part.lower() for part in _PART_RE.findall(key))
 
 
+def _is_sensitive_part(part: str) -> bool:
+    """Prüfe ein Wortteil samt einfacher Pluralformen.
+
+    Erkannt werden das Schlüsselwort selbst (``token``), die Pluralform mit
+    ``s`` (``tokens``, ``cookies``, ``passphrases``) und die Form mit ``es``
+    (``addresses`` bleibt unverändert, weil ``address`` kein Schlüsselwort ist).
+    """
+    if part in SENSITIVE_KEYWORDS:
+        return True
+    if part.endswith("s") and part[:-1] in SENSITIVE_KEYWORDS:
+        return True
+    if part.endswith("es") and part[:-2] in SENSITIVE_KEYWORDS:
+        return True
+    return False
+
+
 @lru_cache(maxsize=4096)
 def _is_sensitive_key(key: str) -> bool:
     """Prüfe, ob ein Schlüsselname ein Geheimnis bezeichnet.
 
     Sensibel ist ein Schlüssel, wenn einer seiner Wortteile in der Liste steht
-    (``UserPassword``, ``X-Api-Key``, ``secretKey``) oder die ohne Trenner
-    zusammengesetzte Form eine bekannte Zusammensetzung enthält
+    (``UserPassword``, ``X-Api-Key``, ``secretKey``), wenn die Pluralform eines
+    Wortteils dort steht (``tokens``, ``passwords``, ``otps``) oder die ohne
+    Trenner zusammengesetzte Form eine bekannte Zusammensetzung enthält
     (``accesstoken``). ``monkey``, ``spin`` oder ``sidebar`` sind es nicht.
     """
     parts = _key_parts(key)
-    if any(part in SENSITIVE_KEYWORDS for part in parts):
+    if any(_is_sensitive_part(part) for part in parts):
         return True
     joined = "".join(parts)
-    return any(compound in joined for compound in _COMPOUNDS)
+    if any(compound in joined for compound in _COMPOUNDS):
+        return True
+    return _is_sensitive_part(key.lower())
 
 
 class _Scanner:
@@ -157,36 +189,49 @@ class _Scanner:
         return i
 
     def container_end(self, start: int) -> int:
-        """Ende eines Containers ab ``[``, ``(`` oder ``{`` (ganze Zeile als Grenze).
+        """Ende eines Containers ab ``[``, ``(`` oder ``{``.
 
-        Zählt die Klammertiefe, überspringt Strings in ``'``/``"`` samt
+        Zählt die Klammertiefe über mehrere Zeilen (mehrzeilige Dicts, Listen
+        und Tupel in Logs), überspringt Strings in ``'``/``"`` samt
         Backslash-Escapes und gibt den Index hinter der passenden schließenden
-        Klammer zurück. Fehlt sie, ist die Tiefe über 16 oder ein String
-        unbalanciert, wird bis zum Zeilenende maskiert. Ein Durchlauf, linear.
+        Klammer zurück. Fehlt sie oder ist der Container länger als 32 Zeilen,
+        wird bis zum Textende maskiert; ist die Tiefe über 16 oder ein String
+        unbalanciert, bis zum Zeilenende der öffnenden Zeile. Ein Durchlauf,
+        linear; der Aufrufer setzt ``consumed`` hinter das Ergebnis, daher wird
+        jeder Zeichenbereich höchstens einmal besucht.
         """
-        text = self.text
-        limit = self.line_end(start)
+        text, n = self.text, self.n
+        first_line_end = self.line_end(start)
         depth = 0
+        newlines = 0
         i = start
-        while i < limit:
+        while i < n:
             char = text[i]
-            if char in _OPENERS:
+            if char in "\r\n":
+                newlines += 1
+                if newlines > _MAX_CONTAINER_LINES:
+                    # Zu lang: sicherheitshalber den Rest maskieren
+                    # (N-SEC-02), statt Zeilen dahinter offenzulegen.
+                    return n
+            elif char in _OPENERS:
                 depth += 1
                 if depth > _MAX_DEPTH:
-                    return limit
+                    return first_line_end
             elif char in _CLOSERS:
                 depth -= 1
                 if depth == 0:
                     return i + 1
             elif char in _QUOTES:
                 j = i + 1
-                while j < limit and text[j] != char:
+                while j < n and text[j] != char:
                     j += 2 if text[j] == "\\" else 1
-                if j >= limit:
-                    return limit
+                if j >= n:
+                    return first_line_end
                 i = j
             i += 1
-        return limit
+        # Kein Abschluss gefunden, aber auch keine Sicherheitsgrenze erreicht:
+        # sicherheitshalber den Rest maskieren (N-SEC-02).
+        return n
 
     def plain_end(self, start: int) -> int:
         """Ende eines Werts ohne Anführungszeichen am Anfang."""

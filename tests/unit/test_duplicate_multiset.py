@@ -42,6 +42,7 @@ def make_incoming(
     counterparty_iban: str | None = "DE89370400440532013000",
     purpose: str | None = "SEPA Ueberweisung",
     origin: str = "fints",
+    status: str = "gebucht",
 ) -> TransactionData:
     """Erzeugt eine eingehende Buchung mit F-DUP-01-Standardfeldern."""
     return TransactionData(
@@ -53,6 +54,7 @@ def make_incoming(
         counterparty_iban=counterparty_iban,
         purpose=purpose,
         origin=origin,
+        status=status,
     )
 
 
@@ -287,3 +289,56 @@ class TestReconcileMultiset:
             assert inserted.purpose == incoming.purpose
             assert inserted.origin == "csv"
             assert inserted.merged is False
+
+    def test_vormerkung_verdeckt_keine_gebuchte_zeile_wenn_ausgeschlossen(self, factory: sessionmaker[Session]) -> None:
+        """F-DUP-04: Eine ausgeschlossene Vormerkung blockiert keine Buchung."""
+        incoming = make_incoming()
+        with factory() as session:
+            account = create_account(session)
+            fingerprint = expected_fingerprint(account.id, incoming)
+            session.add(
+                Transaction(
+                    account_id=account.id,
+                    status="vorgemerkt",
+                    booking_date=incoming.booking_date,
+                    amount_cents=incoming.amount_cents,
+                    currency=incoming.currency,
+                    origin="fints",
+                    fingerprint=fingerprint,
+                    occurrence_index=0,
+                )
+            )
+            session.commit()
+
+            result = reconcile_multiset(
+                account.id,
+                [incoming],
+                session,
+                include_pending_in_existing=False,
+            )
+
+            assert result.inserted_count == 1
+            assert result.skipped_count == 0
+            # Der Index bleibt ueber alle Zeilen belegt: Die Vormerkung haelt 0.
+            assert result.to_insert[0].occurrence_index == 1
+
+            session.commit()
+            stored = stored_transactions(session, account.id)
+            assert len(stored) == 2
+            assert sorted(item.occurrence_index for item in stored) == [0, 1]
+
+    def test_vormerkung_zaehlt_beim_import_weiterhin_als_bestand(self, factory: sessionmaker[Session]) -> None:
+        """F-DUP-02: Der Standard zaehlt Vormerkungen, damit ein Re-Import idempotent bleibt."""
+        pending = make_incoming(status="vorgemerkt")
+        with factory() as session:
+            account = create_account(session)
+            first = reconcile_multiset(account.id, [pending], session)
+            session.commit()
+            assert first.inserted_count == 1
+
+            second = reconcile_multiset(account.id, [pending], session)
+            assert second.inserted_count == 0
+            assert second.skipped_count == 1
+
+            session.commit()
+            assert len(stored_transactions(session, account.id)) == 1
