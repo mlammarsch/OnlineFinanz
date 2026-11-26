@@ -92,9 +92,7 @@ def test_parse_pain_transfer_reads_complete_message() -> None:
 
 def test_parse_pain_transfer_keeps_partial_fields() -> None:
     """F-AUF-05: fehlende Felder werden nicht erfunden und brechen nicht ab."""
-    parsed = parse_pain_transfer(
-        fake.pain_message(counterparty=None, iban=None, amount=None)
-    )
+    parsed = parse_pain_transfer(fake.pain_message(counterparty=None, iban=None, amount=None))
 
     assert parsed.counterparty is None
     assert parsed.counterparty_iban is None
@@ -224,9 +222,7 @@ def test_partial_response_keeps_parseable_orders(
 ) -> None:
     """F-AUF-05: Teilantwort liefert die lesbaren Auftraege ohne Abbruch."""
     client = _fake_client("orders_partial")
-    fetch = fetch_order_segments(
-        client, fake.FAKE_ORDER_ACCOUNT, "dauerauftrag"
-    )
+    fetch = fetch_order_segments(client, fake.FAKE_ORDER_ACCOUNT, "dauerauftrag")
 
     assert fetch.supported
     assert fetch.tan is None
@@ -253,15 +249,9 @@ def test_orders_result_states() -> None:
     """F-AUF-05: available/empty/unsupported folgen der Definition."""
     order = orders_from_segments([fake.dauer_segment()], "dauerauftrag")
 
-    assert build_orders_result(order, any_supported=True) == OrdersResult(
-        status="available", orders=order
-    )
-    assert build_orders_result((), any_supported=True) == OrdersResult(
-        status="empty"
-    )
-    assert build_orders_result((), any_supported=False) == OrdersResult(
-        status="unsupported"
-    )
+    assert build_orders_result(order, any_supported=True) == OrdersResult(status="available", orders=order)
+    assert build_orders_result((), any_supported=True) == OrdersResult(status="empty")
+    assert build_orders_result((), any_supported=False) == OrdersResult(status="unsupported")
     # Ein Auftrag bleibt auch dann available, wenn ein Teilabruf als
     # nicht unterstuetzt gemeldet wurde.
     assert build_orders_result(order, any_supported=False).status == "available"
@@ -271,12 +261,8 @@ def test_fetch_sends_only_read_segments() -> None:
     """F-AUF-07, D2: es werden genau HKCDB und HKCSB gesendet."""
     client = _fake_client("orders_present")
 
-    dauer = fetch_order_segments(
-        client, fake.FAKE_ORDER_ACCOUNT, "dauerauftrag"
-    )
-    termin = fetch_order_segments(
-        client, fake.FAKE_ORDER_ACCOUNT, "terminauftrag"
-    )
+    dauer = fetch_order_segments(client, fake.FAKE_ORDER_ACCOUNT, "dauerauftrag")
+    termin = fetch_order_segments(client, fake.FAKE_ORDER_ACCOUNT, "terminauftrag")
 
     assert dauer.supported and termin.supported
     assert client.request_log == ["HKCDB", "HKCSB"]
@@ -284,9 +270,7 @@ def test_fetch_sends_only_read_segments() -> None:
     assert client.requests["dauerauftrag"].header.version == 1
     assert client.requests["terminauftrag"].header.type == "HKCSB"
     assert client.requests["terminauftrag"].header.version == 1
-    descriptors = list(
-        client.requests["dauerauftrag"].supported_sepa_pain_messages.sepa_descriptors
-    )
+    descriptors = list(client.requests["dauerauftrag"].supported_sepa_pain_messages.sepa_descriptors)
     assert descriptors == [fake.FAKE_PAIN_DESCRIPTOR]
 
 
@@ -294,12 +278,8 @@ def test_unsupported_bank_sends_no_request() -> None:
     """F-AUF-05: ohne HKCDB/HKCSB bleibt der Abruf ohne Anfrage."""
     client = _fake_client("orders_unsupported")
 
-    dauer = fetch_order_segments(
-        client, fake.FAKE_ORDER_ACCOUNT, "dauerauftrag"
-    )
-    termin = fetch_order_segments(
-        client, fake.FAKE_ORDER_ACCOUNT, "terminauftrag"
-    )
+    dauer = fetch_order_segments(client, fake.FAKE_ORDER_ACCOUNT, "dauerauftrag")
+    termin = fetch_order_segments(client, fake.FAKE_ORDER_ACCOUNT, "terminauftrag")
 
     assert not dauer.supported
     assert not termin.supported
@@ -313,9 +293,7 @@ def test_unknown_response_version_is_ignored_with_warning(
 ) -> None:
     """F-AUF-05: unbekannte Antwortversion bricht den Abruf nicht."""
     client = _fake_client("orders_unknown_version")
-    fetch = fetch_order_segments(
-        client, fake.FAKE_ORDER_ACCOUNT, "dauerauftrag"
-    )
+    fetch = fetch_order_segments(client, fake.FAKE_ORDER_ACCOUNT, "dauerauftrag")
 
     assert fetch.supported
     assert orders_from_segments(fetch.segments, "dauerauftrag") == ()
@@ -325,9 +303,7 @@ def test_unknown_response_version_is_ignored_with_warning(
 def test_tan_required_is_returned_without_segments() -> None:
     """F-SYN-04, D3: TAN-Aufforderung wird unveraendert weitergereicht."""
     client = _fake_client("orders_tan_dauer")
-    fetch = fetch_order_segments(
-        client, fake.FAKE_ORDER_ACCOUNT, "dauerauftrag"
-    )
+    fetch = fetch_order_segments(client, fake.FAKE_ORDER_ACCOUNT, "dauerauftrag")
 
     assert fetch.supported
     assert fetch.tan is not None

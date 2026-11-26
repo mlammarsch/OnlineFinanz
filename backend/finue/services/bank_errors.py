@@ -61,8 +61,7 @@ ErrorSource = Literal["eigen", "default", "unbekannt"]
 _CODE_MAX_LENGTH: Final[int] = 20
 _BLZ_MAX_LENGTH: Final[int] = 8
 _UNKNOWN_RECOMMENDATION: Final[str] = (
-    "Bitte den Code im Fehler-Mapping ergaenzen oder den Originaltext der Bank "
-    "pruefen."
+    "Bitte den Code im Fehler-Mapping ergaenzen oder den Originaltext der Bank pruefen."
 )
 _UNSET: Final[object] = object()
 
@@ -87,10 +86,7 @@ class ResolvedError:
     source: ErrorSource
 
     def __repr__(self) -> str:
-        return (
-            f"ResolvedError(code={self.code!r}, source={self.source!r}, "
-            f"retryable={self.retryable!r})"
-        )
+        return f"ResolvedError(code={self.code!r}, source={self.source!r}, retryable={self.retryable!r})"
 
 
 class BankErrorScopeConflict(ValueError):

@@ -405,6 +405,7 @@ def test_every_script_stays_read_only(script_name: str) -> None:
 
 def test_no_network_and_only_invented_data(monkeypatch: pytest.MonkeyPatch) -> None:
     """D8, N-SEC-05: kein Netzwerk und ausschliesslich erfundene Testdaten."""
+
     def _no_network(*args: object, **kwargs: object) -> None:
         raise AssertionError("Der Fake darf keine Netzwerkverbindung oeffnen")
 

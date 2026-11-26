@@ -2,6 +2,26 @@
 
 ## Next actions
 
+- **T-084 abgeschlossen (M4 Welle 1, validate.py-Geruest).** Konflikt-Check: Ja (plan.md M4 "validate.py aendern
+  T-084"; keine SPEC-Aenderung, keine Fachlogik). `scripts/validate.py`: `STAGE_M4` leer in `IMPLEMENTED`
+  registriert (kumulativ, `validate.py m4` faehrt m0..m4), `check_lint` prueft jetzt zusaetzlich
+  `uv run ruff format --check backend tests scripts` und eine neue Regel `check_type_ignore_reasons`
+  (jedes `# type: ignore[...]` unter `backend/` braucht eine nachgestellte Begruendung, sonst lint rot);
+  `unjustified_type_ignore_lines` als testbarer Helfer. Die 29 driftenden Dateien mit `uv run ruff format`
+  formatiert, alle **AST-identisch zu HEAD** (`ast.dump`-Vergleich, 29/29; nur `validate.py` weicht bewusst ab).
+  Die vier bestehenden ignores in `fints_client.py`, `fints_orders.py` und `sync_service.py` um die Begruendung
+  "python-fints liefert keine Typstubs (D2)" ergaenzt. Der eingebettete `ROUNDTRIP_SCRIPT` nach
+  `scripts/roundtrip_check.py` ausgelagert (Aufruf `uv run python scripts/roundtrip_check.py`), Ausgabe und
+  Pruefumfang unveraendert: `ROUNDTRIP_OK erster_lauf=5 zweiter_lauf=0 bestand=5`; `validate.py` bleibt reine
+  Standardbibliothek (per AST-Test belegt). Neu: `tests/unit/test_validate_stage_m4.py` (5 Tests: m4-Registrierung,
+  type-ignore-Regel positiv/negativ, Roundtrip-Skript verdrahtet, nur Standardbibliothek). Evidenz:
+  `python scripts/validate.py m4` Exit 0 (m0 7/7; m1 lint "All checks passed!; 131 files already formatted; alle
+  type: ignore begruendet", types 57 Dateien, unit 1094 passed/1 skipped, smoke 1 passed; m2 Roundtrip; m3
+  Read-only-Guard und Integration 17 passed), `python scripts/validate.py roundtrip` Exit 0,
+  `uv run ruff format --check backend tests scripts` = 131 files already formatted. Improve-Eintraege
+  Formatcheck, ruff-format-Drift, type-ignore-Regel und ROUNDTRIP_SCRIPT-Auslagerung als erledigt markiert.
+  Naechster Schritt: T-085 und T-086 (Welle 2) parallel. Keine Commits, kein Push.
+
 - **M4-Taskplan angelegt (G-005, T-084 bis T-107, 24 Tasks, Branch `m4/develop`).** Wellen, Befunde und
   Abgrenzung in `plan.md` Abschnitt "M4 Taskplan". Abnahme T-107: `validate.py m4` mit roundtrip (erweitert), perf
   (N-PERF-01, 100.000 Buchungen), concurrency und API-E2E (T-106: echter Uvicorn-Prozess, Fake-Bank, SSE, ein

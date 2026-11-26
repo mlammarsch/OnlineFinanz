@@ -91,9 +91,7 @@ def _stored(factory: sessionmaker[Session], account_id: int) -> list[StandingOrd
     with factory() as session:
         return list(
             session.scalars(
-                select(StandingOrder)
-                .where(StandingOrder.account_id == account_id)
-                .order_by(StandingOrder.id)
+                select(StandingOrder).where(StandingOrder.account_id == account_id).order_by(StandingOrder.id)
             ).all()
         )
 
@@ -108,16 +106,12 @@ def test_replace_replaces_existing_stock_f_auf_04(
     second_seen = datetime(2026, 11, 26, 17, 0, tzinfo=UTC)
 
     with factory() as session:
-        old = replace_standing_orders(
-            session, account_id, (_dauerauftrag(), _terminauftrag()), first_seen
-        )
+        old = replace_standing_orders(session, account_id, (_dauerauftrag(), _terminauftrag()), first_seen)
         session.commit()
         assert len(old) == 2
 
     with factory() as session:
-        new = replace_standing_orders(
-            session, account_id, (_terminauftrag(),), second_seen
-        )
+        new = replace_standing_orders(session, account_id, (_terminauftrag(),), second_seen)
         session.commit()
         assert len(new) == 1
 
@@ -176,12 +170,15 @@ def test_replace_empty_deletes_stock_f_auf_04_f_auf_05(
         session.commit()
 
     with factory() as session:
-        assert replace_standing_orders(
-            session,
-            account_id,
-            (),
-            datetime(2026, 11, 26, 17, 0, tzinfo=UTC),
-        ) == ()
+        assert (
+            replace_standing_orders(
+                session,
+                account_id,
+                (),
+                datetime(2026, 11, 26, 17, 0, tzinfo=UTC),
+            )
+            == ()
+        )
         session.commit()
 
     assert _stored(factory, account_id) == []
@@ -273,8 +270,6 @@ def test_unknown_account_raises_lookup_error(factory: sessionmaker[Session]) -> 
 
     with factory() as session:
         with pytest.raises(LookupError):
-            replace_standing_orders(
-                session, 9999, (), datetime(2026, 11, 26, 10, 15, tzinfo=UTC)
-            )
+            replace_standing_orders(session, 9999, (), datetime(2026, 11, 26, 10, 15, tzinfo=UTC))
         with pytest.raises(LookupError):
             get_orders_state(session, 9999)

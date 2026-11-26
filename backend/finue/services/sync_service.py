@@ -59,7 +59,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import Any, Final, Literal, TypeVar, cast
 
-from fints.models import SEPAAccount  # type: ignore[import-untyped]
+from fints.models import SEPAAccount  # type: ignore[import-untyped]  # python-fints liefert keine Typstubs (D2)
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -130,9 +130,7 @@ SyncOverallStatus = Literal[
     "zeitueberschreitung",
 ]
 
-_ACCOUNT_STATUSES: Final[frozenset[str]] = frozenset(
-    {"erfolgreich", "fehler", "abgebrochen", "zeitueberschreitung"}
-)
+_ACCOUNT_STATUSES: Final[frozenset[str]] = frozenset({"erfolgreich", "fehler", "abgebrochen", "zeitueberschreitung"})
 
 _ResultT = TypeVar("_ResultT")
 
@@ -371,9 +369,7 @@ class SyncService:
         """
         checked_access_id = _checked_id(bank_access_id, "bank_access_id")
         requested_ids = _checked_account_ids(account_ids)
-        job, created = self._registry.try_start(
-            checked_access_id, requested_ids if requested_ids is not None else ()
-        )
+        job, created = self._registry.try_start(checked_access_id, requested_ids if requested_ids is not None else ())
         if not created:
             # F-SYN-11: Der zweite Anstoss fuehrt nichts aus und liefert den
             # laufenden Job. Die Sperre bleibt beim Erststarter.
@@ -530,9 +526,7 @@ class SyncService:
 
             accounts = _select_accounts(session, context.bank_access_id, context.requested_ids)
             if not accounts:
-                raise SyncConfigurationError(
-                    "Der Bankzugang hat keine aktiven FinTS-Konten fuer den Sync."
-                )
+                raise SyncConfigurationError("Der Bankzugang hat keine aktiven FinTS-Konten fuer den Sync.")
             context.account_ids = tuple(account.id for account in accounts)
             job.account_ids = context.account_ids
 
@@ -541,9 +535,7 @@ class SyncService:
             holder = _GatewayHolder(self, access, pin)
 
             try:
-                sepa_accounts = yield from self._step(
-                    context, holder, None, lambda gateway: gateway.get_accounts()
-                )
+                sepa_accounts = yield from self._step(context, holder, None, lambda gateway: gateway.get_accounts())
             except (SyncCancelledError, TanTimeoutError):
                 raise
             except Exception as exc:
@@ -640,11 +632,7 @@ class SyncService:
             if attempts > 1:
                 holder.restart()
             try:
-                return (
-                    yield from self._fetch_account(
-                        context, holder, account, sepa_account, fetch_range
-                    )
-                ), attempts
+                return (yield from self._fetch_account(context, holder, account, sepa_account, fetch_range)), attempts
             except (SyncCancelledError, TanTimeoutError):
                 raise
             except PinWrongError as exc:
@@ -654,10 +642,7 @@ class SyncService:
             except FinTSBankError as exc:
                 error = exc
 
-            if (
-                attempts > self._max_retries
-                or not resolve_error(session, error.code, blz, "").retryable
-            ):
+            if attempts > self._max_retries or not resolve_error(session, error.code, blz, "").retryable:
                 raise error
             _retry_sleep(context.job, self._sleep)(self._wait_seconds)
             if context.job.abort_requested:
@@ -767,11 +752,7 @@ class SyncService:
         account: Account,
         data: SyncAccountData,
     ) -> ImportRun:
-        waiting = (
-            session.get(ImportRun, context.waiting_run_id)
-            if context.waiting_run_id is not None
-            else None
-        )
+        waiting = session.get(ImportRun, context.waiting_run_id) if context.waiting_run_id is not None else None
         if data.orders is not None:
             # F-AUF-04/F-AUF-05: Der Auftragsbestand wird vor dem Commit von
             # persist_account_sync ersetzt und damit in derselben
@@ -809,11 +790,7 @@ class SyncService:
         *,
         attempts: int,
     ) -> None:
-        waiting = (
-            session.get(ImportRun, context.waiting_run_id)
-            if context.waiting_run_id is not None
-            else None
-        )
+        waiting = session.get(ImportRun, context.waiting_run_id) if context.waiting_run_id is not None else None
         run = persist_sync_failure(
             session,
             account.id,

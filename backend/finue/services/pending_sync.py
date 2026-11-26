@@ -267,10 +267,7 @@ def transfer_flags(
     # Eine Buchung darf hoechstens eine Vormerkung aufnehmen. Beanspruchen
     # mehrere Vormerkungen dieselbe Buchung, ist die Zuordnung mehrdeutig.
     claims = Counter(
-        candidate.id
-        for candidates in matches_by_pending.values()
-        if len(candidates) == 1
-        for candidate in candidates
+        candidate.id for candidates in matches_by_pending.values() if len(candidates) == 1 for candidate in candidates
     )
 
     transferred: list[TransferMatch] = []
@@ -422,10 +419,7 @@ def _next_occurrence_indices(
         .group_by(Transaction.fingerprint)
     ).all()
     highest = {fingerprint: max_index for fingerprint, max_index in rows}
-    return {
-        fingerprint: (highest[fingerprint] if fingerprint in highest else -1) + 1
-        for fingerprint in fingerprints
-    }
+    return {fingerprint: (highest[fingerprint] if fingerprint in highest else -1) + 1 for fingerprint in fingerprints}
 
 
 def _store_removed(session: Session, account_id: int, removed: tuple[PendingSnapshot, ...]) -> None:

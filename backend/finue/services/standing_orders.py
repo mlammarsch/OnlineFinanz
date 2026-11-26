@@ -50,9 +50,7 @@ __all__ = [
 ]
 
 #: Fester Anzeigetext ohne Auftragsdaten (F-AUF-05).
-ORDERS_UNAVAILABLE_MESSAGE: Final[str] = (
-    "Keine Auftragsdaten von der Bank verfuegbar"
-)
+ORDERS_UNAVAILABLE_MESSAGE: Final[str] = "Keine Auftragsdaten von der Bank verfuegbar"
 
 #: Anzeigezustand des Auftragsbereichs eines FinTS-Kontos (F-AUF-05).
 OrdersStateStatus = Literal["available", "unavailable"]
@@ -118,16 +116,12 @@ def replace_standing_orders(
     if fetched_at.tzinfo is None or fetched_at.utcoffset() is None:
         raise ValueError("fetched_at muss zeitzonenbehaftet (aware) sein")
 
-    existing = session.scalars(
-        select(StandingOrder).where(StandingOrder.account_id == account_id)
-    ).all()
+    existing = session.scalars(select(StandingOrder).where(StandingOrder.account_id == account_id)).all()
     for row in existing:
         session.delete(row)
     session.flush()
 
-    inserted = tuple(
-        _from_fetched(account_id, order, fetched_at) for order in orders
-    )
+    inserted = tuple(_from_fetched(account_id, order, fetched_at) for order in orders)
     session.add_all(inserted)
     session.flush()
     return inserted

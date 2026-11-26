@@ -1,10 +1,10 @@
 # Status finanzuebersicht
 
-_generated 2026-11-26T19:03:28Z_
+_generated 2026-11-26T19:21:17Z_
 
-Tasks: pending=24, running=0, done=80, failed=0, blocked=0, cancelled=3
+Tasks: pending=23, running=0, done=81, failed=0, blocked=0, cancelled=3
 
-Verified complete: 80/107; retry rate 0.05; learnings 71; events 387
+Verified complete: 81/107; retry rate 0.05; learnings 71; events 389
 
 ## now
 
@@ -12,12 +12,11 @@ Verified complete: 80/107; retry rate 0.05; learnings 71; events 387
 
 ## next
 
-- [ ] T-084 M4: validate.py Stufe m4, Formatcheck, type-ignore-Regel und Roundtrip-Skript auslagern
+- [ ] T-085 M4: Migration 0003 Schema-Ergaenzungen (Herkunft Kennzeichen, Bank-Icon/Version, Exportprofile, Indizes)
+- [ ] T-086 M4: API-Grundgeruest (Router, Fehlerformat, 409, Paginierung, Batch-Umschlag, EventBus, Auth-Naht, Vertragstest)
 
 ## blocked
 
-- [ ] T-085 M4: Migration 0003 Schema-Ergaenzungen (Herkunft Kennzeichen, Bank-Icon/Version, Exportprofile, Indizes): waiting on T-084
-- [ ] T-086 M4: API-Grundgeruest (Router, Fehlerformat, 409, Paginierung, Batch-Umschlag, EventBus, Auth-Naht, Vertragstest): waiting on T-084
 - [ ] T-087 M4: Suchspalte pflegen (search_text bei Import, Sync, Vormerkung) und Backfill-Migration 0004: waiting on T-085
 - [ ] T-088 M4: Konten und Gruppen - Service und API (F-KTO-01..04, F-KTO-05b, F-KTO-06): waiting on T-085,T-086
 - [ ] T-089 M4: Konto loeschen mit vollstaendiger Bereinigung (F-KTO-07): waiting on T-088
@@ -56,12 +55,9 @@ Verified complete: 80/107; retry rate 0.05; learnings 71; events 387
 - [ ] tests/unit/helpers_migration.py, test_migration_0001.py, test_alembic_config.py bauen Alembic-Config noch ohne configure_logger=False - aktuell folgenlos, da neue Logging-Tests ihren Root-Handler-Zustand selbst sichern, aber bei kuenftigen Logger-abhaengigen Tests potenzielle Testreihenfolge-Kopplung. Bei Gelegenheit vereinheitlichen.
 - [ ] test_smoke.py: expliziten Assert ergaenzen dass die Alembic-Logzeile (logger startswith alembic, Running upgrade) im JSON-Eintrag erscheint - staerkerer direkter Beweis fuer den T-033-Logging-Fix statt nur indirekter Ableitung
 - [ ] Nach Alembic-Autogenerate die neue Migrationsdatei immer mit 'uv run ruff format' formatieren (Post-Generate-Schritt vor dem Commit), damit generierte Dateien den lint-Block von scripts/validate.py nicht rot machen.
-- [ ] scripts/validate.py: Regel ergaenzen, dass jeder '# type: ignore[...]' eine nachgestellte Begruendung tragen muss, sonst Stufe lint rot (verhindert undokumentierte/pauschale ignores, siehe T-041).
 - [ ] Vor ImportRun-Tasks Statuswerte aus SPEC und Modell als expliziten Vorab-Check aufnehmen; keine Implementierung bei Vokabular-Konflikt.
 - [ ] scripts/validate.py: check_roundtrip_import bildet die Fixture-Konten (1/2) beim Import bewusst auf ein Zielkonto ab; fuer M4 den Mehrkonto-Roundtrip (Kontozuordnung, Gruppen) als eigenen Check ergaenzen. Ausserdem deckt der Check nur JSON v1 ab; CSV-Roundtrip mit Vorlage folgt mit dem CSV-Export (M4).
-- [ ] scripts/validate.py: den eingebetteten ROUNDTRIP_SCRIPT-String bei wachsendem Umfang in ein eigenes, mit uv ausgefuehrtes Pruefskript unter scripts/ auslagern (bleibt testbar, vermeidet grosse String-Literale in validate.py).
-- [ ] scripts/validate.py: check_lint um 'uv run ruff format --check backend tests scripts' ergaenzen, damit Formatdrift nicht erst spaeter auffaellt.
-- [ ] ruff format: T-083 hat wegen "nur notwendige Abnahmefehler" nicht massenformatiert; `uv run ruff format --check backend tests scripts` meldet 29 Dateien, u. a. die M3-Sync-/FinTS-Dateien (sync_registry.py, sync_service.py, fints_fake*.py, test_sync_*.py, test_bank_access.py, test_fints_*.py, test_pin_crypto.py, test_standing_orders.py) sowie die zwei M2-Dateien test_import_execute.py und test_import_restore_flags.py. Vor dem naechsten Commit gezielt formatieren und den Formatcheck in validate.py aufnehmen.
+- [ ] scripts/validate.py: check_lint/run_external geben bei Fehlschlag nur die letzte Ausgabezeile aus; bei Formatdrift nennt der Check dadurch nicht die betroffenen Dateien. Bei Bedarf ruff-Ausgabe mehrzeilig durchreichen (T-084).
 - [ ] Owner-Live-Test FinTS (M3) steht aus: `FINTS_PRODUCT_ID` setzen und das Protokoll in `docs/live-test-fints.md` gegen die echte Bank ausfuehren; dabei ING-90-Tage-Code, 9800/9010 und HKCDB2/HICDB2 belegen. Ohne diesen Lauf bleiben F-SYN-05/06 und F-AUF-04/05/07 nur mit Mocks/Fakes belegt.
 - [ ] tests/unit/test_fints_capabilities.py ist an python-fints 5.0.1 gebunden: bei jedem Pin-Sprung laufen lassen und den F-AUF-07-Eintrag in decisions.md samt Quellzeilen aktualisieren. Der Test prueft auch das Ergebnis-Kennzeichen, damit Doku und Code nicht auseinanderlaufen.
 - [ ] T-075: python-fints hat keinen oeffentlichen generischen Kommando-Weg; die lesende HKCDB/HKCSB-Erweiterung nutzt geschuetzte Helfer (`_find_highest_supported_command`, `_fetch_with_touchdowns`). Eine duenne, getestete Kapsel bauen und die Capability-Tests als Waechter beim Pin-Upgrade nutzen.

@@ -914,15 +914,11 @@ class FakeFinTS3PinTanClient:
         """Liefert den laufenden Dialog; der Fake braucht keinen Netzaufbau."""
         return contextlib.nullcontext(self)
 
-    def _find_highest_supported_command(
-        self, *segment_classes: Any, **kwargs: Any
-    ) -> Any:
+    def _find_highest_supported_command(self, *segment_classes: Any, **kwargs: Any) -> Any:
         """Meldet HKCDB/HKCSB als nicht unterstuetzt oder unterstuetzt."""
         del kwargs
         if self._script.orders_state == "unsupported":
-            raise FinTSUnsupportedOperation(
-                f"{segment_classes[0].TYPE} nicht unterstuetzt"
-            )
+            raise FinTSUnsupportedOperation(f"{segment_classes[0].TYPE} nicht unterstuetzt")
         return segment_classes[0]
 
     def _fetch_with_touchdowns(
@@ -937,11 +933,7 @@ class FakeFinTS3PinTanClient:
         del dialog, args, kwargs
         request = segment_factory(None)
         kind = "dauerauftrag" if request.header.type == "HKCDB" else "terminauftrag"
-        segments = [
-            self._order_segment(order)
-            for order in self._script.orders
-            if order.kind == kind
-        ]
+        segments = [self._order_segment(order) for order in self._script.orders if order.kind == kind]
         return response_processor(segments)
 
     def _order_segment(self, order: FakeStandingOrder) -> Any:
@@ -951,9 +943,7 @@ class FakeFinTS3PinTanClient:
             execution = order.next_execution or date(2026, 1, 1)
             unit, interval = _interval_parts(order.interval)
             details = StandingOrderDetails3(
-                first_execution_date=VirtualDate(
-                    execution.year, execution.month, execution.day
-                ),
+                first_execution_date=VirtualDate(execution.year, execution.month, execution.day),
                 time_unit=unit,
                 interval=interval,
                 execution_day=execution.day,
@@ -1023,9 +1013,7 @@ class FakeFinTS3PinTanClient:
         if index >= len(outcomes):
             if operation == "get_transactions":
                 return []
-            raise AssertionError(
-                f"Skript {self._script.name!r} hat keine Antwort mehr fuer {operation}"
-            )
+            raise AssertionError(f"Skript {self._script.name!r} hat keine Antwort mehr fuer {operation}")
         setattr(self, index_attr, index + 1)
         return self._resolve(outcomes[index])
 
@@ -1067,10 +1055,7 @@ class FakeFinTS3PinTanClient:
         )
 
     def __repr__(self) -> str:
-        return (
-            f"{type(self).__name__}(script={self._script.name!r}, "
-            f"calls={len(self._calls)})"
-        )
+        return f"{type(self).__name__}(script={self._script.name!r}, calls={len(self._calls)})"
 
 
 def _script_from_data(data: bytes) -> FakeScript:

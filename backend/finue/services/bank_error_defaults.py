@@ -48,9 +48,7 @@ UNVERIFIED_DEFAULT_CODES: Final[frozenset[str]] = frozenset({ING_LOGIN_EXPIRED_C
 
 _PIN_CODES: Final[tuple[str, ...]] = ("9340", "9910", "9930", "9931", "9942")
 _PIN_MESSAGE: Final[str] = "PIN nicht akzeptiert."
-_PIN_RECOMMENDATION: Final[str] = (
-    "PIN pruefen; nach wiederholten Fehlversuchen droht die Sperre des Zugangs."
-)
+_PIN_RECOMMENDATION: Final[str] = "PIN pruefen; nach wiederholten Fehlversuchen droht die Sperre des Zugangs."
 _RETRY_MESSAGE_9800: Final[str] = "Dialog abgebrochen."
 _RETRY_MESSAGE_9010: Final[str] = "Verarbeitung nicht moeglich."
 
@@ -76,10 +74,7 @@ DEFAULT_BANK_ERRORS: Final[tuple[DefaultBankError, ...]] = (
     DefaultBankError(
         code="9800",
         message=_RETRY_MESSAGE_9800,
-        recommendation=(
-            "Automatisch erneut versuchen (hoechstens 2 Versuche mit neuem "
-            "Dialog und Wartezeit)."
-        ),
+        recommendation=("Automatisch erneut versuchen (hoechstens 2 Versuche mit neuem Dialog und Wartezeit)."),
         retryable=True,
         source="SPEC F-SYN-05/06",
         verified=True,
@@ -87,10 +82,7 @@ DEFAULT_BANK_ERRORS: Final[tuple[DefaultBankError, ...]] = (
     DefaultBankError(
         code="9010",
         message=_RETRY_MESSAGE_9010,
-        recommendation=(
-            "Wie bei 9800 automatisch erneut versuchen; danach spaeter erneut "
-            "anfragen."
-        ),
+        recommendation=("Wie bei 9800 automatisch erneut versuchen; danach spaeter erneut anfragen."),
         retryable=True,
         source="SPEC F-SYN-05/06",
         verified=True,
@@ -109,9 +101,7 @@ DEFAULT_BANK_ERRORS: Final[tuple[DefaultBankError, ...]] = (
     DefaultBankError(
         code="3938",
         message="Zugang gesperrt.",
-        recommendation=(
-            "Bank kontaktieren bzw. den Zugang im Online-Banking entsperren."
-        ),
+        recommendation=("Bank kontaktieren bzw. den Zugang im Online-Banking entsperren."),
         retryable=False,
         source="T-060 (python-fints 5.0.1)",
         verified=True,
@@ -126,9 +116,7 @@ DEFAULT_BANK_ERRORS: Final[tuple[DefaultBankError, ...]] = (
     ),
 )
 
-DEFAULT_BANK_ERROR_CODES: Final[tuple[str, ...]] = tuple(
-    entry.code for entry in DEFAULT_BANK_ERRORS
-)
+DEFAULT_BANK_ERROR_CODES: Final[tuple[str, ...]] = tuple(entry.code for entry in DEFAULT_BANK_ERRORS)
 
 
 def seed_defaults(session: Session) -> int:
@@ -165,11 +153,7 @@ def reset_to_defaults(session: Session) -> int:
         Anzahl der nach dem Reset vorhandenen, neu angelegten
         Standardeintraege.
     """
-    defaults = list(
-        session.scalars(
-            select(BankErrorMapping).where(BankErrorMapping.is_default.is_(True))
-        )
-    )
+    defaults = list(session.scalars(select(BankErrorMapping).where(BankErrorMapping.is_default.is_(True))))
     for entry in defaults:
         session.delete(entry)
     session.flush()

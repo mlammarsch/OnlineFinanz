@@ -385,3 +385,5 @@
 {"ts": "2026-11-26T19:02:25Z", "kind": "task.add", "task": "T-105", "goal": "G-005"}
 {"ts": "2026-11-26T19:02:25Z", "kind": "task.add", "task": "T-106", "goal": "G-005"}
 {"ts": "2026-11-26T19:02:25Z", "kind": "task.add", "task": "T-107", "goal": "G-005"}
+{"ts": "2026-11-26T19:10:07Z", "kind": "task.claim", "task": "T-084", "worker": "builder-deepseek"}
+{"ts": "2026-11-26T19:21:17Z", "kind": "task.verify", "task": "T-084", "ok": true, "status": "done", "attempts": 1}

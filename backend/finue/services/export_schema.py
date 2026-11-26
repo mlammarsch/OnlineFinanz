@@ -229,10 +229,6 @@ def _validate_flag(flag: bool, at: datetime | None, origin: str | None, label: s
     """Erzwingt Zeitpunkt und Herkunft genau dann, wenn ein Kennzeichen gesetzt ist."""
     if flag:
         if at is None or origin is None:
-            raise ValueError(
-                f"'{label}' ist gesetzt, dann muessen '{label}_at' und '{label}_origin' gesetzt sein"
-            )
+            raise ValueError(f"'{label}' ist gesetzt, dann muessen '{label}_at' und '{label}_origin' gesetzt sein")
     elif at is not None or origin is not None:
-        raise ValueError(
-            f"'{label}' ist nicht gesetzt, dann muessen '{label}_at' und '{label}_origin' null sein"
-        )
+        raise ValueError(f"'{label}' ist nicht gesetzt, dann muessen '{label}_at' und '{label}_origin' null sein")

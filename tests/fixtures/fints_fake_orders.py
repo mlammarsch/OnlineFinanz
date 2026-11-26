@@ -204,9 +204,7 @@ def _orders_tan_required() -> OrdersScript:
         supported={"dauerauftrag": True, "terminauftrag": True},
         outcomes={
             "dauerauftrag": OrderOutcome(segments=(dauer_segment(),)),
-            "terminauftrag": OrderOutcome(
-                segments=(termin_segment(),), tan_required=True
-            ),
+            "terminauftrag": OrderOutcome(segments=(termin_segment(),), tan_required=True),
         },
     )
 
@@ -215,9 +213,7 @@ def _orders_tan_dauer() -> OrdersScript:
     return OrdersScript(
         supported={"dauerauftrag": True, "terminauftrag": True},
         outcomes={
-            "dauerauftrag": OrderOutcome(
-                segments=(dauer_segment(),), tan_required=True
-            ),
+            "dauerauftrag": OrderOutcome(segments=(dauer_segment(),), tan_required=True),
             "terminauftrag": OrderOutcome(segments=(termin_segment(),)),
         },
     )
@@ -343,9 +339,7 @@ class FakeOrdersFactory:
             self.restore_states.append(kwargs["from_data"])
             if self.client is not None:
                 return self.client
-        client = FakeOrdersClient(
-            script=SCRIPT_FACTORIES[self._script_name](), **kwargs
-        )
+        client = FakeOrdersClient(script=SCRIPT_FACTORIES[self._script_name](), **kwargs)
         self.init_kwargs.append(dict(kwargs))
         self.client = client
         return client

@@ -134,9 +134,7 @@ class SharedClientFactory:
     def __call__(self, **kwargs: Any) -> Any:
         self.created += 1
         if self.client is None:
-            self.client = self._client_type(
-                script=self._script, **self._client_kwargs, **kwargs
-            )
+            self.client = self._client_type(script=self._script, **self._client_kwargs, **kwargs)
         return self.client
 
 
@@ -418,10 +416,7 @@ def test_domain_errors_mapping_and_repr_are_secret_free_n_sec_02(tmp_path: Path)
             assert marker not in text, f"{marker} in Fehlerdarstellung: {text}"
 
     environment = _make_environment(tmp_path)
-    original = (
-        f"7777: Fremdtext der Bank; pin={PIN_MARKER} tan={TAN_MARKER} "
-        f"passphrase={PASSPHRASE_MARKER}"
-    )
+    original = f"7777: Fremdtext der Bank; pin={PIN_MARKER} tan={TAN_MARKER} passphrase={PASSPHRASE_MARKER}"
     with environment.factory() as session:
         resolved = resolve_error(session, "7777", None, original)
 
@@ -446,9 +441,7 @@ def test_success_keeps_markers_out_of_logs_db_and_result_f_syn_07_n_sec_02(
     service = _service(environment, factory)
     account = environment.accounts[0]
 
-    result = service.start_sync(
-        environment.access.id, account_ids=[account.id], supplied_pin=PIN_MARKER
-    )
+    result = service.start_sync(environment.access.id, account_ids=[account.id], supplied_pin=PIN_MARKER)
     _probe_log()
 
     assert result.status == "erfolgreich"
@@ -469,9 +462,7 @@ def test_success_keeps_markers_out_of_logs_db_and_result_f_syn_07_n_sec_02(
     _assert_surfaces_clean(surfaces)
 
     with environment.factory() as session:
-        run = session.scalars(
-            select(ImportRun).where(ImportRun.kind == "sync")
-        ).one()
+        run = session.scalars(select(ImportRun).where(ImportRun.kind == "sync")).one()
         assert run.status == "erfolgreich"
         assert "Sync abgeschlossen" in (run.message or "")
 
@@ -499,9 +490,7 @@ def test_wrong_pin_keeps_bank_text_markers_out_of_every_surface_n_sec_02(
     service = _service(environment, factory)
     account = environment.accounts[0]
 
-    result = service.start_sync(
-        environment.access.id, account_ids=[account.id], supplied_pin=PIN_MARKER
-    )
+    result = service.start_sync(environment.access.id, account_ids=[account.id], supplied_pin=PIN_MARKER)
     _probe_log()
 
     assert result.status == "fehler"
@@ -520,9 +509,7 @@ def test_wrong_pin_keeps_bank_text_markers_out_of_every_surface_n_sec_02(
     _assert_surfaces_clean(surfaces)
 
     with environment.factory() as session:
-        run = session.scalars(
-            select(ImportRun).where(ImportRun.kind == "sync")
-        ).one()
+        run = session.scalars(select(ImportRun).where(ImportRun.kind == "sync")).one()
         assert "PIN nicht akzeptiert" in (run.message or "")
         assert run.errors[0].code == "9942"
 
@@ -543,9 +530,7 @@ def test_wrong_tan_is_reported_without_tan_or_bank_markers_n_sec_02(
     service = _service(environment, factory)
     account = environment.accounts[0]
 
-    paused = service.start_sync(
-        environment.access.id, account_ids=[account.id], supplied_pin=PIN_MARKER
-    )
+    paused = service.start_sync(environment.access.id, account_ids=[account.id], supplied_pin=PIN_MARKER)
     assert paused.status == "wartet_auf_tan"
     result = service.submit_tan(paused.job_id, TAN_MARKER)
     _probe_log()
@@ -566,9 +551,7 @@ def test_wrong_tan_is_reported_without_tan_or_bank_markers_n_sec_02(
     _assert_surfaces_clean(surfaces)
 
     with environment.factory() as session:
-        run = session.scalars(
-            select(ImportRun).where(ImportRun.kind == "sync")
-        ).one()
+        run = session.scalars(select(ImportRun).where(ImportRun.kind == "sync")).one()
         assert "PIN nicht akzeptiert" in (run.message or "")
         assert run.errors[0].code == "9942"
 
@@ -581,10 +564,7 @@ def test_bank_error_foreign_text_is_masked_before_persistence_f_syn_05_n_sec_02(
 
     configure_logging("DEBUG")
     environment = _make_environment(tmp_path)
-    foreign = (
-        f"7777: Fremdtext der Bank; pin={PIN_MARKER} tan={TAN_MARKER} "
-        f"passphrase={PASSPHRASE_MARKER}"
-    )
+    foreign = f"7777: Fremdtext der Bank; pin={PIN_MARKER} tan={TAN_MARKER} passphrase={PASSPHRASE_MARKER}"
     script = FakeScript(
         name="unknown_bank_error",
         accounts=fake_accounts(),
@@ -594,9 +574,7 @@ def test_bank_error_foreign_text_is_masked_before_persistence_f_syn_05_n_sec_02(
     service = _service(environment, factory)
     account = environment.accounts[0]
 
-    result = service.start_sync(
-        environment.access.id, account_ids=[account.id], supplied_pin=PIN_MARKER
-    )
+    result = service.start_sync(environment.access.id, account_ids=[account.id], supplied_pin=PIN_MARKER)
     _probe_log()
 
     assert result.status == "fehler"
@@ -614,9 +592,7 @@ def test_bank_error_foreign_text_is_masked_before_persistence_f_syn_05_n_sec_02(
     _assert_surfaces_clean(surfaces)
 
     with environment.factory() as session:
-        run = session.scalars(
-            select(ImportRun).where(ImportRun.kind == "sync")
-        ).one()
+        run = session.scalars(select(ImportRun).where(ImportRun.kind == "sync")).one()
         # F-SYN-05: Der Originaltext bleibt erkennbar, die Geheimnisse nicht.
         assert "Fremdtext der Bank" in (run.message or "")
         assert "***" in (run.message or "")
@@ -637,9 +613,7 @@ def test_cancel_keeps_completed_account_and_leaks_no_dialog_state_f_syn_10_n_sec
         balance=(
             fake_balance("100,00"),
             fints_fake.FakeTanFlow(
-                challenges=(
-                    fints_fake.FakeTanChallenge("Bitte TAN fuer Konto 2 eingeben"),
-                ),
+                challenges=(fints_fake.FakeTanChallenge("Bitte TAN fuer Konto 2 eingeben"),),
                 result=fake_balance("200,00"),
             ),
         ),
@@ -667,9 +641,7 @@ def test_cancel_keeps_completed_account_and_leaks_no_dialog_state_f_syn_10_n_sec
     assert by_account[second.id] == "abgebrochen"
 
     out, _records = _json_log_output(capsys)
-    file_markers = b"".join(
-        path.read_bytes() for path in tmp_path.rglob("*") if path.is_file()
-    )
+    file_markers = b"".join(path.read_bytes() for path in tmp_path.rglob("*") if path.is_file())
     surfaces: dict[str, str | bytes] = {
         "JSON-Log": out,
         "ImportRun.message/ImportRunError": _import_run_text(environment.factory),
@@ -697,9 +669,7 @@ def test_timeout_discards_dialog_without_any_secret_f_syn_04_n_sec_03(
     service = _service(environment, factory, registry=registry)
     account = environment.accounts[0]
 
-    paused = service.start_sync(
-        environment.access.id, account_ids=[account.id], supplied_pin=PIN_MARKER
-    )
+    paused = service.start_sync(environment.access.id, account_ids=[account.id], supplied_pin=PIN_MARKER)
     assert paused.status == "wartet_auf_tan"
     assert paused.job.dialog_state is not None
 
@@ -788,9 +758,7 @@ def test_registry_dialog_state_stays_in_memory_only_n_sec_03(
     service = _service(environment, factory, registry=registry)
     account = environment.accounts[0]
 
-    paused = service.start_sync(
-        environment.access.id, account_ids=[account.id], supplied_pin=PIN_MARKER
-    )
+    paused = service.start_sync(environment.access.id, account_ids=[account.id], supplied_pin=PIN_MARKER)
     _probe_log()
 
     assert paused.status == "wartet_auf_tan"
@@ -806,9 +774,7 @@ def test_registry_dialog_state_stays_in_memory_only_n_sec_03(
         assert marker not in str(pickle_error.value)
 
     out, _records = _json_log_output(capsys)
-    file_markers = b"".join(
-        path.read_bytes() for path in tmp_path.rglob("*") if path.is_file()
-    )
+    file_markers = b"".join(path.read_bytes() for path in tmp_path.rglob("*") if path.is_file())
     surfaces: dict[str, str | bytes] = {
         "JSON-Log": out,
         "ImportRun.message/ImportRunError": _import_run_text(environment.factory),

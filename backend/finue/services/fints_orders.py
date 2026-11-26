@@ -1,4 +1,4 @@
-﻿"""Lesender Abruf von Dauer- und Terminauftraegen ueber python-fints (D2).
+"""Lesender Abruf von Dauer- und Terminauftraegen ueber python-fints (D2).
 
 Die Erweiterung ergaenzt python-fints 5.0.1 um die rein lesenden Segmente
 HKCDB (Dauerauftraege anfordern) und HKCSB (Terminauftraege anfordern) sowie
@@ -42,26 +42,26 @@ from typing import Any, Final, Protocol, cast
 
 # python-fints liefert keine Typstubs (D2); die Klassen werden zur Laufzeit
 # verwendet und ueber die Protokolle unten gekapselt.
-from fints.client import NeedTANResponse  # type: ignore[import-untyped]
-from fints.exceptions import FinTSUnsupportedOperation  # type: ignore[import-untyped]
-from fints.fields import (  # type: ignore[import-untyped]
+from fints.client import NeedTANResponse  # type: ignore[import-untyped]  # python-fints liefert keine Typstubs (D2)
+from fints.exceptions import FinTSUnsupportedOperation  # type: ignore[import-untyped]  # python-fints liefert keine Typstubs (D2)
+from fints.fields import (  # type: ignore[import-untyped]  # python-fints liefert keine Typstubs (D2)
     CodeField,
     DataElementField,
     DataElementGroupField,
     DateField,
 )
-from fints.formals import (  # type: ignore[import-untyped]
+from fints.formals import (  # type: ignore[import-untyped]  # python-fints liefert keine Typstubs (D2)
     Amount1,
     DataElementGroup,
     KTI1,
     SupportedSEPAPainMessages1,
 )
-from fints.models import SEPAAccount  # type: ignore[import-untyped]
-from fints.segments.base import (  # type: ignore[import-untyped]
+from fints.models import SEPAAccount  # type: ignore[import-untyped]  # python-fints liefert keine Typstubs (D2)
+from fints.segments.base import (  # type: ignore[import-untyped]  # python-fints liefert keine Typstubs (D2)
     FinTS3Segment,
     ParameterSegment,
 )
-from fints.utils import RepresentableEnum  # type: ignore[import-untyped]
+from fints.utils import RepresentableEnum  # type: ignore[import-untyped]  # python-fints liefert keine Typstubs (D2)
 
 from finue.services.fints_mapping import FinTSMappingError
 from finue.services.fints_types import (
@@ -94,9 +94,7 @@ __all__ = [
 _logger = logging.getLogger(__name__)
 
 #: Standard-Pain-Format, wenn die Bank keinen HISPAS-Parameter liefert.
-DEFAULT_PAIN_DESCRIPTORS: Final[tuple[str, ...]] = (
-    "urn:iso:std:iso:20022:tech:xsd:pain.001.001.03",
-)
+DEFAULT_PAIN_DESCRIPTORS: Final[tuple[str, ...]] = ("urn:iso:std:iso:20022:tech:xsd:pain.001.001.03",)
 
 
 class OrderFetchClient(Protocol):
@@ -340,9 +338,7 @@ def fetch_order_segments(
             return _build_request(command_class, account, kind, descriptors, touchdown)
 
         try:
-            result = client._fetch_with_touchdowns(
-                dialog, segment_factory, _identity, response_type
-            )
+            result = client._fetch_with_touchdowns(dialog, segment_factory, _identity, response_type)
         except FinTSUnsupportedOperation:
             return OrderFetch(kind=kind, supported=False)
 
@@ -487,26 +483,18 @@ def _pain_descriptors(client: OrderFetchClient) -> tuple[str, ...]:
             if isinstance(formats, str):
                 descriptors: tuple[str, ...] = (formats,) if formats.strip() else ()
             else:
-                descriptors = tuple(
-                    str(item) for item in formats if str(item).strip()
-                )
+                descriptors = tuple(str(item) for item in formats if str(item).strip())
             if descriptors:
                 return descriptors
     return DEFAULT_PAIN_DESCRIPTORS
 
 
-def _map_standing_order(
-    segment: object, today: date
-) -> FetchedStandingOrder:
+def _map_standing_order(segment: object, today: date) -> FetchedStandingOrder:
     """Bildet ein HICDB-Segment auf einen Dauerauftrag ab (F-AUF-02)."""
     parsed = parse_pain_transfer(getattr(segment, "sepa_pain_message", None))
     details = getattr(segment, "standing_order_details", None)
-    first_execution = _virtual_date(
-        getattr(details, "first_execution_date", None)
-    )
-    last_execution = _virtual_date(
-        getattr(details, "last_execution_date", None)
-    )
+    first_execution = _virtual_date(getattr(details, "first_execution_date", None))
+    last_execution = _virtual_date(getattr(details, "last_execution_date", None))
     return FetchedStandingOrder(
         kind="dauerauftrag",
         counterparty=parsed.counterparty,
@@ -515,9 +503,7 @@ def _map_standing_order(
         amount_cents=parsed.amount_cents,
         currency=parsed.currency,
         interval=_format_interval(details),
-        next_execution=_next_execution(
-            details, first_execution, last_execution, today
-        ),
+        next_execution=_next_execution(details, first_execution, last_execution, today),
         first_execution=first_execution,
         last_execution=last_execution,
     )

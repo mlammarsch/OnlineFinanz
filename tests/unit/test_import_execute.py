@@ -245,9 +245,7 @@ def count(session: Session, model: type[Any]) -> int:
 class TestExecuteImportMixedRows:
     """F-IMP-06/F-SYN-07: Ein Lauf protokolliert alle drei Zeilenkategorien."""
 
-    def test_gemischte_zeilen_werden_korrekt_gezaehlt_und_neue_angelegt(
-        self, factory: sessionmaker[Session]
-    ) -> None:
+    def test_gemischte_zeilen_werden_korrekt_gezaehlt_und_neue_angelegt(self, factory: sessionmaker[Session]) -> None:
         """Vorhandene Zeile wird uebersprungen, Verdacht und neu werden importiert."""
         with factory() as session:
             account = create_account(session)
@@ -285,9 +283,7 @@ class TestExecuteImportMixedRows:
 class TestExecuteImportRowErrors:
     """F-IMP-06: Eine fehlerhafte Zeile stoppt den restlichen Import nicht."""
 
-    def test_fehlerhafte_zeile_wird_protokolliert_und_rest_importiert(
-        self, factory: sessionmaker[Session]
-    ) -> None:
+    def test_fehlerhafte_zeile_wird_protokolliert_und_rest_importiert(self, factory: sessionmaker[Session]) -> None:
         """Zeile 2 ist unlesbar, Zeilen 1 und 3 werden trotzdem angelegt."""
         with factory() as session:
             account = create_account(session)
@@ -336,9 +332,7 @@ class TestExecuteImportRowErrors:
             assert len(transactions) == 2
             assert {row.amount_cents for row in transactions} == {-1000, -2000}
 
-    def test_alle_zeilen_fehlerhaft_ergibt_status_fehler(
-        self, factory: sessionmaker[Session]
-    ) -> None:
+    def test_alle_zeilen_fehlerhaft_ergibt_status_fehler(self, factory: sessionmaker[Session]) -> None:
         """Sind alle Zeilen fehlerhaft, lautet der Status ``fehler`` (F-SYN-07)."""
         with factory() as session:
             account = create_account(session)
@@ -377,9 +371,7 @@ class TestExecuteImportRowErrors:
 class TestExecuteImportIdempotent:
     """F-DUP-02/F-IMP-06: Derselbe Import legt beim zweiten Mal nichts an."""
 
-    def test_wiederholter_import_erzeugt_null_neue_buchungen(
-        self, factory: sessionmaker[Session]
-    ) -> None:
+    def test_wiederholter_import_erzeugt_null_neue_buchungen(self, factory: sessionmaker[Session]) -> None:
         """Zweiter Lauf meldet new_count=0 und laesst den Bestand unveraendert."""
         with factory() as session:
             account = create_account(session)
@@ -441,9 +433,7 @@ class TestExecuteImportIdempotent:
 class TestExecuteImportOwnJson:
     """F-IMP-04/F-IMP-06: Eigenes JSON laeuft ohne Mapping durch denselben Lauf."""
 
-    def test_eigenes_json_importiert_neue_buchung_mit_notiz(
-        self, factory: sessionmaker[Session]
-    ) -> None:
+    def test_eigenes_json_importiert_neue_buchung_mit_notiz(self, factory: sessionmaker[Session]) -> None:
         """Die Dateinotiz der neuen Buchung bleibt erhalten."""
         with factory() as session:
             account = create_account(session)

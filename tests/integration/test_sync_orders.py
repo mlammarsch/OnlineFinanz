@@ -97,9 +97,7 @@ class SharedClientFactory:
     def __call__(self, **kwargs: Any) -> Any:
         self.created += 1
         if self.client is None:
-            self.client = self._client_type(
-                script=self._script, **self._client_kwargs, **kwargs
-            )
+            self.client = self._client_type(script=self._script, **self._client_kwargs, **kwargs)
         return self.client
 
 
@@ -131,9 +129,7 @@ class BlockingOrdersClient(FakeClient):
             self._started.set()
             if not self._release.wait(5):
                 raise RuntimeError("Testfreigabe fuer den Auftragsabruf fehlt")
-        return super()._fetch_with_touchdowns(
-            dialog, segment_factory, response_processor, *args, **kwargs
-        )
+        return super()._fetch_with_touchdowns(dialog, segment_factory, response_processor, *args, **kwargs)
 
 
 def _settings() -> Settings:
@@ -221,9 +217,7 @@ def _seed_old_order(environment: SyncEnvironment) -> int:
         next_execution=date(2026, 12, 1),
     )
     with environment.factory() as session:
-        rows = replace_standing_orders(
-            session, environment.account.id, (old,), OLD_SEEN
-        )
+        rows = replace_standing_orders(session, environment.account.id, (old,), OLD_SEEN)
         session.commit()
         return rows[0].id
 
@@ -252,9 +246,7 @@ def test_sync_replaces_order_stock_end_to_end_f_auf_04(tmp_path: Path) -> None:
     factory = SharedClientFactory(_script_with_balance(script_orders_present()))
     service = _service(environment, factory)
 
-    result = service.start_sync(
-        environment.access.id, supplied_pin=FAKE_PIN
-    )
+    result = service.start_sync(environment.access.id, supplied_pin=FAKE_PIN)
 
     assert result.status == "erfolgreich"
     assert result.account_results[0].status == "erfolgreich"
@@ -330,6 +322,7 @@ def test_sync_unsupported_orders_stays_successful_f_auf_05(tmp_path: Path) -> No
     ):
         assert forbidden not in calls
 
+
 def test_abort_during_orders_saves_no_orders_for_running_account_f_syn_10(
     tmp_path: Path,
 ) -> None:
@@ -351,9 +344,7 @@ def test_abort_during_orders_saves_no_orders_for_running_account_f_syn_10(
 
     def run_sync() -> None:
         try:
-            results["value"] = service.start_sync(
-                environment.access.id, supplied_pin=FAKE_PIN
-            )
+            results["value"] = service.start_sync(environment.access.id, supplied_pin=FAKE_PIN)
         except BaseException as exc:  # pragma: no cover - Fehler im Thread sichtbar machen
             results["error"] = exc
 
@@ -361,11 +352,7 @@ def test_abort_during_orders_saves_no_orders_for_running_account_f_syn_10(
     thread.start()
     try:
         assert started.wait(5), "Der Auftragsabruf wurde nicht erreicht."
-        job_id = next(
-            event.job_id
-            for event in events
-            if event.status is SyncStatus.RUNNING
-        )
+        job_id = next(event.job_id for event in events if event.status is SyncStatus.RUNNING)
         cancelled = service.cancel(job_id)
         assert cancelled.status == "laeuft"
     finally:

@@ -54,9 +54,7 @@ _CREDIT_INDICATORS: Final[frozenset[str]] = frozenset({"CRDT", "C"})
 _DEBIT_INDICATORS: Final[frozenset[str]] = frozenset({"DBIT", "D"})
 
 # Werte, die "keine Referenz geliefert" bedeuten.
-_EMPTY_REFERENCES: Final[frozenset[str]] = frozenset(
-    {"", "NOTPROVIDED", "NONREF", "N/A", "NA"}
-)
+_EMPTY_REFERENCES: Final[frozenset[str]] = frozenset({"", "NOTPROVIDED", "NONREF", "N/A", "NA"})
 
 # Statuswerte, die python-fints/mt940 fuer Vormerkungen verwenden koennen.
 _PENDING_MARKERS: Final[frozenset[str]] = frozenset({"PDNG", "PENDING"})
@@ -125,8 +123,7 @@ def map_mt940_transactions(
     if status not in {"gebucht", "vorgemerkt"}:
         raise FinTSMappingError("Unbekannter Buchungsstatus")
     return [
-        _map_mt940_transaction(_transaction_data(transaction), default_status=status)
-        for transaction in transactions
+        _map_mt940_transaction(_transaction_data(transaction), default_status=status) for transaction in transactions
     ]
 
 
@@ -163,11 +160,7 @@ def map_balance(
         elif normalized_status in _CREDIT_INDICATORS:
             amount_cents = abs(amount_cents)
 
-    currency = (
-        _currency_of(amount_value)
-        or _currency_of(balance)
-        or _normalized_currency(fallback_currency)
-    )
+    currency = _currency_of(amount_value) or _currency_of(balance) or _normalized_currency(fallback_currency)
     if currency is None:
         raise FinTSMappingError("Saldo ohne Waehrung")
 
@@ -189,10 +182,7 @@ def _map_camt_stream(
     except ET.ParseError as exc:
         raise FinTSMappingError("camt-XML ist nicht lesbar") from exc
     _strip_namespaces(root)
-    return [
-        _map_camt_entry(entry, default_status=default_status)
-        for entry in root.iter("Ntry")
-    ]
+    return [_map_camt_entry(entry, default_status=default_status) for entry in root.iter("Ntry")]
 
 
 def _map_camt_entry(
@@ -214,9 +204,7 @@ def _map_camt_entry(
             indicator = _find_text(detail, "CdtDbtInd")
     if amount_element is None or not (amount_element.text or "").strip():
         raise FinTSMappingError("camt-Buchung ohne Betrag")
-    if indicator is None or indicator.strip().upper() not in (
-        _CREDIT_INDICATORS | _DEBIT_INDICATORS
-    ):
+    if indicator is None or indicator.strip().upper() not in (_CREDIT_INDICATORS | _DEBIT_INDICATORS):
         raise FinTSMappingError("camt-Buchung ohne gueltige Soll/Haben-Kennung")
     normalized_indicator = indicator.strip().upper()
 
@@ -283,9 +271,7 @@ def _camt_party(
 ) -> tuple[str | None, str | None]:
     """Liest Gegenpartei und IBAN der passenden Seite (Dbtr/Cdtr)."""
     for detail in tx_details:
-        name = _find_text(detail, f"RltdPties/{side}/Nm") or _find_text(
-            detail, f"RltdPties/{side}/Pty/Nm"
-        )
+        name = _find_text(detail, f"RltdPties/{side}/Nm") or _find_text(detail, f"RltdPties/{side}/Pty/Nm")
         iban = _find_text(detail, f"RltdPties/{side}Acct/Id/IBAN")
         if name is not None or iban is not None:
             return name, iban
@@ -347,9 +333,7 @@ def _map_mt940_transaction(
         raise FinTSMappingError("MT940-Buchung ohne Betrag")
     amount_cents = _decimal_to_cents(_to_decimal(amount_value))
 
-    currency = _normalized_currency(data.get("currency")) or _currency_of(
-        amount_value
-    )
+    currency = _normalized_currency(data.get("currency")) or _currency_of(amount_value)
     if currency is None:
         raise FinTSMappingError("MT940-Buchung ohne Waehrung")
 

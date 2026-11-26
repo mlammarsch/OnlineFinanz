@@ -86,9 +86,7 @@ class TestRoundtrip:
         pin = "Fantasie-PIN-\u00e4\u00f6\u00fc"
         assert cipher.decrypt_pin(cipher.encrypt_pin(pin)) == pin
 
-    def test_uses_settings_key_file_from_environment(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_uses_settings_key_file_from_environment(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """N-SEC-01: Der Pfad kommt aus Settings.key_file (Umgebungsvariable)."""
         path = tmp_path / "env.key"
         create_dev_key_file(path)
@@ -256,9 +254,7 @@ class TestKeineKlartextPins:
         assert "pin_encrypted" in columns
         assert not {"pin", "pin_plain", "pin_clear"} & columns
 
-    def test_log_filter_masks_pin(
-        self, capsys: pytest.CaptureFixture[str], restore_root_logger: None
-    ) -> None:
+    def test_log_filter_masks_pin(self, capsys: pytest.CaptureFixture[str], restore_root_logger: None) -> None:
         """N-SEC-02: Der Log-Filter maskiert PINs in Nachricht und extra."""
         configure_logging("INFO")
         logger = logging.getLogger("test_pin_crypto")

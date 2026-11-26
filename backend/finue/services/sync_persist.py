@@ -468,8 +468,7 @@ def _count_suspected_new_booked(
         position_by_identity[id(pair.new_transaction)]
         for pair in pairs
         # Vormerkungen nehmen am Verdachtsabgleich nicht teil (F-DUP-04).
-        if pair.existing_transaction.status == _BOOKED
-        and id(pair.new_transaction) in position_by_identity
+        if pair.existing_transaction.status == _BOOKED and id(pair.new_transaction) in position_by_identity
     }
     return len(suspected_positions & new_positions)
 

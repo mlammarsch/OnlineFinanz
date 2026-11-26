@@ -55,12 +55,8 @@ FAKE_PRODUCT_ID = fints_fake.FAKE_PRODUCT_ID
 FAKE_USER_ID = fints_fake.FAKE_USER_ID
 ENDPOINT = "https://example.invalid/fints"
 
-_ORDERS_FIXTURE = (
-    Path(__file__).resolve().parents[1] / "fixtures" / "fints_fake_orders.py"
-)
-_ORDERS_SPEC = importlib.util.spec_from_file_location(
-    "fints_fake_orders", _ORDERS_FIXTURE
-)
+_ORDERS_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "fints_fake_orders.py"
+_ORDERS_SPEC = importlib.util.spec_from_file_location("fints_fake_orders", _ORDERS_FIXTURE)
 if _ORDERS_SPEC is None or _ORDERS_SPEC.loader is None:  # pragma: no cover
     raise RuntimeError("fints_fake_orders.py konnte nicht geladen werden")
 fints_fake_orders = importlib.util.module_from_spec(_ORDERS_SPEC)
@@ -287,9 +283,7 @@ def test_time_range_is_passed_to_the_library() -> None:
             supported_camt_messages: Any = None,
         ) -> Any:
             calls.append((start_date, end_date))
-            return super().get_transactions_xml(
-                account, start_date, end_date, supported_camt_messages
-            )
+            return super().get_transactions_xml(account, start_date, end_date, supported_camt_messages)
 
     gateway, _factory = _gateway("camt_only", client_type=RecordingFake)
     start = date(2026, 1, 1)
@@ -507,11 +501,7 @@ def test_only_read_only_operations_are_used() -> None:
         gateway.get_transactions(account)
 
     assert factory.client is not None
-    bank_operations = {
-        operation
-        for operation in factory.client.method_log
-        if operation.startswith("get_")
-    }
+    bank_operations = {operation for operation in factory.client.method_log if operation.startswith("get_")}
     assert bank_operations <= READ_ONLY_OPERATIONS
     assert not bank_operations & fints_fake.WRITE_OPERATIONS
 

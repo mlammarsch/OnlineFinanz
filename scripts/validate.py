@@ -4,7 +4,7 @@
 Aufruf: python scripts/validate.py [--list] <stufe>
 Exit 0 nur, wenn alle Pruefungen der Stufe bestehen. Nicht umgesetzte Stufen enden mit Exit 1
 ("Stufe nicht implementiert"), nie stillschweigend mit Erfolg. Nur Standardbibliothek.
-Stufen m<n> sind kumulativ: m3 prueft auch m1 und m2.
+Stufen m<n> sind kumulativ: m4 prueft auch m0 bis m3.
 --list <stufe> gibt Pruefungen ohne Ausfuehrung aus (Exit 0).
 """
 
@@ -71,6 +71,11 @@ AGENTS_SECTIONS = [
 ]
 
 Result = tuple[bool, str]
+
+# Jeder '# type: ignore[...]' unter backend/ muss eine nachgestellte Begruendung
+# tragen (T-084, verhindert undokumentierte/pauschale ignores, siehe T-041).
+TYPE_IGNORE_RE = re.compile(r"#\s*type:\s*ignore(?:\[[^\]]*\])?")
+TYPE_IGNORE_REASON_RE = re.compile(r"#\s*type:\s*ignore(?:\[[^\]]*\])?\s+#\s*\S")
 
 
 def read(rel: str) -> str:
@@ -205,9 +210,47 @@ def run_external(cmd: list[str]) -> Result:
         return False, f"Fehler beim Ausfuehren: {exc!r}"
 
 
+def unjustified_type_ignore_lines(text: str) -> list[int]:
+    """Zeilennummern (1-basiert) mit '# type: ignore[...]' ohne Begruendung."""
+    return [
+        lineno
+        for lineno, line in enumerate(text.splitlines(), start=1)
+        if TYPE_IGNORE_RE.search(line) and not TYPE_IGNORE_REASON_RE.search(line)
+    ]
+
+
+def check_type_ignore_reasons() -> Result:
+    """Jeder '# type: ignore[...]' unter backend/ braucht eine nachgestellte Begruendung.
+
+    Referenziert N-DB-01 (typisierter Zugriff) und die T-041-/T-084-Regel, dass
+    ignores nicht pauschal gesetzt werden duerfen.
+    """
+    offenders: list[str] = []
+    for path in sorted((ROOT / "backend").rglob("*.py")):
+        for lineno in unjustified_type_ignore_lines(path.read_text(encoding="utf-8")):
+            offenders.append(f"{path.relative_to(ROOT).as_posix()}:{lineno}")
+    if offenders:
+        return False, "type: ignore ohne Begruendung: " + ", ".join(offenders)
+    return True, "alle type: ignore begruendet"
+
+
 def check_lint() -> Result:
-    """ruff: Code-Stil und Fehler pruefen."""
-    return run_external(["uv", "run", "ruff", "check", "backend", "tests", "scripts"])
+    """ruff check und Formatpruefung (ruff format --check) sowie type-ignore-Regel."""
+    checks = [
+        ["uv", "run", "ruff", "check", "backend", "tests", "scripts"],
+        ["uv", "run", "ruff", "format", "--check", "backend", "tests", "scripts"],
+    ]
+    messages: list[str] = []
+    for cmd in checks:
+        ok, msg = run_external(cmd)
+        if not ok:
+            return False, msg
+        messages.append(msg)
+    ok, msg = check_type_ignore_reasons()
+    if not ok:
+        return False, msg
+    messages.append(msg)
+    return True, "; ".join(messages)
 
 
 def check_types() -> Result:
@@ -262,82 +305,11 @@ def check_integration() -> Result:
     return True, f"{count} gesammelt; {summary}"
 
 
-# Eingebettetes Pruefprogramm fuer den Import-Roundtrip. Es laeuft im
-# Projekt-Interpreter (uv run python), weil scripts/validate.py selbst nur die
-# Standardbibliothek nutzen darf. Die Fixture wird in einer temporaeren,
-# isolierten SQLite-Datei zweimal ueber execute_import importiert (F-EXP-04,
-# F-EXP-06); echte Kontodaten werden nicht verwendet.
-ROUNDTRIP_SCRIPT = """
-import json
-import sys
-import tempfile
-from pathlib import Path
-
-root = Path(sys.argv[1]).resolve()
-sys.path.insert(0, str(root / "backend"))
-
-from sqlalchemy import func, select
-
-import finue.models
-from finue.db.base import Base
-from finue.db.engine import create_db_engine, make_session_factory
-from finue.models.account import Account
-from finue.models.transaction import Transaction
-from finue.services.import_run import execute_import
-
-fixture = root / "tests" / "fixtures" / "export_v1_sample.json"
-if not fixture.is_file():
-    print("ROUNDTRIP_FEHLER: Fixture fehlt: %s" % fixture)
-    raise SystemExit(2)
-
-document = json.loads(fixture.read_text(encoding="utf-8"))
-expected = len(document.get("transactions", []))
-if expected < 1:
-    print("ROUNDTRIP_FEHLER: Fixture enthaelt keine Buchungen")
-    raise SystemExit(2)
-
-with tempfile.TemporaryDirectory(prefix="finue-roundtrip-") as tmp:
-    engine = create_db_engine("sqlite:///" + (Path(tmp) / "roundtrip.db").as_posix())
-    try:
-        Base.metadata.create_all(engine)
-        session_factory = make_session_factory(engine)
-        with session_factory() as session:
-            account = Account(id=1, name="Roundtrip-Pruefung", currency="EUR", source="datei")
-            session.add(account)
-            session.commit()
-
-            first = execute_import(account.id, document, None, "json", session)
-            total_first = session.scalar(select(func.count()).select_from(Transaction)) or 0
-            second = execute_import(account.id, document, None, "json", session)
-            total_second = session.scalar(select(func.count()).select_from(Transaction)) or 0
-    finally:
-        engine.dispose()
-
-fehler = []
-if first.status != "erfolgreich":
-    fehler.append("erster Lauf Status %r" % first.status)
-if first.new_count != expected:
-    fehler.append("erster Lauf new_count=%s, erwartet %s" % (first.new_count, expected))
-if first.failed_count != 0:
-    fehler.append("erster Lauf failed_count=%s" % first.failed_count)
-if total_first != expected:
-    fehler.append("Bestand nach erstem Lauf %s, erwartet %s" % (total_first, expected))
-if second.status != "erfolgreich":
-    fehler.append("zweiter Lauf Status %r" % second.status)
-if second.new_count != 0:
-    fehler.append("zweiter Lauf new_count=%s, erwartet 0" % second.new_count)
-if total_second != total_first:
-    fehler.append("Bestand nach zweitem Lauf %s, erwartet %s" % (total_second, total_first))
-
-if fehler:
-    print("ROUNDTRIP_FEHLER: " + "; ".join(fehler))
-    raise SystemExit(1)
-
-print(
-    "ROUNDTRIP_OK erster_lauf=%s zweiter_lauf=%s bestand=%s"
-    % (first.new_count, second.new_count, total_second)
-)
-"""
+# Das Import-Roundtrip-Pruefprogramm liegt ausgelagert in
+# scripts/roundtrip_check.py (T-084) und laeuft im Projekt-Interpreter
+# (uv run python), damit scripts/validate.py selbst nur die Standardbibliothek
+# nutzt. Der Aufruf unten gibt dessen Ausgabe unveraendert weiter
+# (F-EXP-04, F-EXP-06, F-IMP-04).
 
 
 def check_roundtrip_import() -> Result:
@@ -348,13 +320,12 @@ def check_roundtrip_import() -> Result:
     """
     try:
         proc = subprocess.run(
-            ["uv", "run", "python", "-", str(ROOT)],
+            ["uv", "run", "python", "scripts/roundtrip_check.py"],
             cwd=ROOT,
             capture_output=True,
             text=True,
             encoding="utf-8",
             errors="replace",
-            input=ROUNDTRIP_SCRIPT,
         )
     except Exception as exc:  # Pruefung darf nie still abbrechen
         return False, f"Fehler beim Ausfuehren: {exc!r}"
@@ -417,6 +388,11 @@ INTEGRATION_CHECK: tuple[str, Callable[[], Result]] = (
 
 STAGE_M3: list[tuple[str, Callable[[], Result]]] = [READONLY_CHECK, INTEGRATION_CHECK]
 
+# M4-Pruefungen. Zunaechst ohne eigene Bloecke: Die M4-Abnahme (T-107) fuehrt
+# die erweiterte roundtrip-Pruefung (T-105) sowie die Bloecke perf (T-103),
+# concurrency (T-104) und api-e2e (T-106) ein; die tragen ihre Checks hier ein.
+STAGE_M4: list[tuple[str, Callable[[], Result]]] = []
+
 # Umgesetzte Stufen. Neue Stufen mit dem jeweiligen Milestone hier eintragen.
 # Die m<n>-Kette haengt run_stage selbst an; die Eintraege enthalten daher nur
 # die Stufe selbst, sonst laufen m0/m1-Checks doppelt.
@@ -425,6 +401,7 @@ IMPLEMENTED: dict[str, list[tuple[str, Callable[[], Result]]]] = {
     "m1": STAGE_M1,
     "m2": STAGE_M2,
     "m3": STAGE_M3,
+    "m4": STAGE_M4,
     "roundtrip": [ROUNDTRIP_CHECK],
 }
 

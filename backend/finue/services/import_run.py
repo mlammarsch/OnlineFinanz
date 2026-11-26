@@ -193,9 +193,7 @@ def execute_import(
         # Multimengen-Abgleich die gelieferte Anzahl je Fingerprint kennt
         # (F-DUP-02). Geschrieben werden ausschliesslich die von ihm
         # ermittelten neuen Buchungen (``to_insert``).
-        incoming = [
-            _to_duplicate_data(row.parsed_data, prepared.origin) for row in preview.rows
-        ]
+        incoming = [_to_duplicate_data(row.parsed_data, prepared.origin) for row in preview.rows]
         reconcile_multiset(account_id, incoming, session)
 
         _finish_successful_run(run, preview, prepared.issues, session)
@@ -211,9 +209,7 @@ def _run_kind(kind: str | None) -> str:
         return "csv"
     if kind is None or kind == "json" or kind in _OWN_JSON_KINDS:
         return "json"
-    raise ValueError(
-        f"Unbekannte Import-Art {kind!r}. Erlaubt: csv, json, own_json, eigenes_json."
-    )
+    raise ValueError(f"Unbekannte Import-Art {kind!r}. Erlaubt: csv, json, own_json, eigenes_json.")
 
 
 def _prepare_input(
@@ -541,8 +537,7 @@ def _finish_successful_run(
         # Alle Zeilen waren fehlerhaft: der Lauf hat nichts importiert.
         run.status = "fehler"
         run.message = _short_message(
-            f"Import fehlerhaft: alle {run.failed_count} Zeile(n) waren fehlerhaft. "
-            "Details stehen im Fehlerprotokoll."
+            f"Import fehlerhaft: alle {run.failed_count} Zeile(n) waren fehlerhaft. Details stehen im Fehlerprotokoll."
         )
     elif issues:
         # Mindestens eine Zeile wurde verarbeitet, andere waren fehlerhaft.

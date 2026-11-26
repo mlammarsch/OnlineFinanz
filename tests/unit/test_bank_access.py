@@ -123,9 +123,7 @@ class TestCreateUndLesen:
             assert bank.blz == BLZ
             assert bank.name == "Fantasiebank"
 
-    def test_create_without_stored_pin_keeps_supplied_pin_out_of_db(
-        self, factory: sessionmaker[Session]
-    ) -> None:
+    def test_create_without_stored_pin_keeps_supplied_pin_out_of_db(self, factory: sessionmaker[Session]) -> None:
         """F-SYN-08, N-SEC-01: store_pin=False speichert auch eine uebergebene PIN nicht."""
         with factory() as session:
             access = _create(session, None, store_pin=False, pin=FANTASIE_PIN)
@@ -277,9 +275,7 @@ class TestUpdateUndVersion:
 class TestPinOptionWechsel:
     """F-SYN-08: Wechsel zwischen gespeicherter und je Sync gelieferter PIN."""
 
-    def test_switch_true_to_false_deletes_ciphertext(
-        self, factory: sessionmaker[Session], cipher: PinCipher
-    ) -> None:
+    def test_switch_true_to_false_deletes_ciphertext(self, factory: sessionmaker[Session], cipher: PinCipher) -> None:
         """F-SYN-08: true -> false loescht den Chiffretext."""
         with factory() as session:
             access = _create(session, cipher)
@@ -313,9 +309,7 @@ class TestPinOptionWechsel:
             with pytest.raises(PinRequiredError):
                 resolve_pin(updated, None)
 
-    def test_switch_false_to_true_stores_pin(
-        self, factory: sessionmaker[Session], cipher: PinCipher
-    ) -> None:
+    def test_switch_false_to_true_stores_pin(self, factory: sessionmaker[Session], cipher: PinCipher) -> None:
         """F-SYN-08: false -> true verlangt und speichert die PIN."""
         with factory() as session:
             access = _create(session, None, store_pin=False, pin=None)
@@ -334,9 +328,7 @@ class TestPinOptionWechsel:
             assert _pin_is_stored(updated, FANTASIE_PIN_NEU, cipher)
             assert resolve_pin(updated, None, cipher=cipher) == FANTASIE_PIN_NEU
 
-    def test_switch_false_to_true_without_pin_raises(
-        self, factory: sessionmaker[Session], cipher: PinCipher
-    ) -> None:
+    def test_switch_false_to_true_without_pin_raises(self, factory: sessionmaker[Session], cipher: PinCipher) -> None:
         """F-SYN-08: false -> true ohne PIN laesst den Datensatz unveraendert."""
         with factory() as session:
             access = _create(session, None, store_pin=False, pin=None)
@@ -350,9 +342,7 @@ class TestPinOptionWechsel:
             assert current.store_pin is False
             assert current.version == 1
 
-    def test_true_with_new_pin_reencrypts(
-        self, factory: sessionmaker[Session], cipher: PinCipher
-    ) -> None:
+    def test_true_with_new_pin_reencrypts(self, factory: sessionmaker[Session], cipher: PinCipher) -> None:
         """F-SYN-08: Eine neue PIN bei store_pin=True ersetzt den Chiffretext."""
         with factory() as session:
             access = _create(session, cipher)
@@ -370,9 +360,7 @@ class TestPinOptionWechsel:
             assert updated.pin_encrypted != old_token
             assert _pin_is_stored(updated, FANTASIE_PIN_NEU, cipher)
 
-    def test_false_with_supplied_pin_never_stores(
-        self, factory: sessionmaker[Session], cipher: PinCipher
-    ) -> None:
+    def test_false_with_supplied_pin_never_stores(self, factory: sessionmaker[Session], cipher: PinCipher) -> None:
         """F-SYN-08, N-SEC-01: Bei store_pin=False bleibt ein PIN-Aufruf fluechtig."""
         with factory() as session:
             access = _create(session, None, store_pin=False, pin=None)
@@ -529,9 +517,7 @@ class TestSicherheit:
                 assert FANTASIE_PIN not in str(error)
                 assert FANTASIE_PIN not in repr(error)
 
-    def test_model_and_repr_contain_no_plaintext_pin(
-        self, factory: sessionmaker[Session], cipher: PinCipher
-    ) -> None:
+    def test_model_and_repr_contain_no_plaintext_pin(self, factory: sessionmaker[Session], cipher: PinCipher) -> None:
         """N-SEC-01/02: Kein Klartextfeld und kein PIN in repr."""
         with factory() as session:
             access = _create(session, cipher)

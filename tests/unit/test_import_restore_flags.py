@@ -196,9 +196,7 @@ def count_transactions(session: Session) -> int:
 class TestReimportWithoutRestore:
     """F-IMP-07/F-ABS-06: Der Standard laesst vorhandene Werte unveraendert."""
 
-    def test_standard_reimport_laesst_vorhandene_werte_unveraendert(
-        self, factory: sessionmaker[Session]
-    ) -> None:
+    def test_standard_reimport_laesst_vorhandene_werte_unveraendert(self, factory: sessionmaker[Session]) -> None:
         """Ohne Wiederherstellung bleiben Notiz, Kennzeichen und Version gleich."""
         with factory() as session:
             account = create_account(session)
@@ -245,9 +243,7 @@ class TestReimportWithoutRestore:
 class TestReimportWithRestore:
     """F-IMP-07: Die Wiederherstellung uebernimmt die Dateiwerte."""
 
-    def test_wiederherstellung_ueberschreibt_vorhandene_werte(
-        self, factory: sessionmaker[Session]
-    ) -> None:
+    def test_wiederherstellung_ueberschreibt_vorhandene_werte(self, factory: sessionmaker[Session]) -> None:
         """Notiz, Kennzeichen, Zeitpunkte und externe Referenz kommen aus der Datei."""
         with factory() as session:
             account = create_account(session)
@@ -297,9 +293,7 @@ class TestReimportWithRestore:
             assert stored.version > old_version
             assert count_transactions(session) == 1
 
-    def test_wiederherstellung_kann_kennzeichen_und_notiz_leeren(
-        self, factory: sessionmaker[Session]
-    ) -> None:
+    def test_wiederherstellung_kann_kennzeichen_und_notiz_leeren(self, factory: sessionmaker[Session]) -> None:
         """Dateiwerte False/None setzen vorhandene Kennzeichen und Texte zurueck."""
         with factory() as session:
             account = create_account(session)

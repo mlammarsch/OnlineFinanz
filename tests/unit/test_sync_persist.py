@@ -174,9 +174,7 @@ def account_transactions(session: Session, account_id: int) -> list[Transaction]
     """Liest alle Buchungen eines Kontos stabil sortiert."""
     return list(
         session.scalars(
-            select(Transaction)
-            .where(Transaction.account_id == account_id)
-            .order_by(Transaction.status, Transaction.id)
+            select(Transaction).where(Transaction.account_id == account_id).order_by(Transaction.status, Transaction.id)
         ).all()
     )
 
@@ -184,20 +182,14 @@ def account_transactions(session: Session, account_id: int) -> list[Transaction]
 def account_runs(session: Session, account_id: int) -> list[ImportRun]:
     """Liest alle Import-Laeufe eines Kontos stabil sortiert."""
     return list(
-        session.scalars(
-            select(ImportRun)
-            .where(ImportRun.account_id == account_id)
-            .order_by(ImportRun.id)
-        ).all()
+        session.scalars(select(ImportRun).where(ImportRun.account_id == account_id).order_by(ImportRun.id)).all()
     )
 
 
 class TestPersistAccountSync:
     """Erfolgreiche Persistenz nach F-SYN-03, F-SYN-07 und F-DUP-02."""
 
-    def test_schreibt_saldo_gebuchte_vormerkungen_und_genau_einen_importrun(
-        self, session: Session
-    ) -> None:
+    def test_schreibt_saldo_gebuchte_vormerkungen_und_genau_einen_importrun(self, session: Session) -> None:
         """F-SYN-03/07: Saldo, Buchungen, Vormerkungen und ein ImportRun."""
         account = create_account(session)
         data = make_data(
@@ -287,9 +279,7 @@ class TestPersistAccountSync:
         transactions = account_transactions(session, account.id)
         assert len(transactions) == 2
 
-    def test_wiederholter_sync_mit_identischen_daten_erzeugt_keine_neue_buchung(
-        self, session: Session
-    ) -> None:
+    def test_wiederholter_sync_mit_identischen_daten_erzeugt_keine_neue_buchung(self, session: Session) -> None:
         """F-DUP-02: Der zweite Lauf mit denselben Daten legt nichts neu an."""
         account = create_account(session)
         data = make_data(

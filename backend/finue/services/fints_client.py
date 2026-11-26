@@ -57,17 +57,17 @@ from typing import Any, Final, Generic, NoReturn, Protocol, TypeVar, cast
 
 # python-fints liefert keine Typstubs (D2); die Namen werden zur Laufzeit
 # geprueft und ueber das Protocol gekapselt.
-from fints.client import (  # type: ignore[import-untyped]
+from fints.client import (  # type: ignore[import-untyped]  # python-fints liefert keine Typstubs (D2)
     FinTS3PinTanClient,
     NeedTANResponse,
 )
-from fints.exceptions import (  # type: ignore[import-untyped]
+from fints.exceptions import (  # type: ignore[import-untyped]  # python-fints liefert keine Typstubs (D2)
     FinTSClientPINError,
     FinTSClientTemporaryAuthError,
     FinTSError,
     FinTSUnsupportedOperation,
 )
-from fints.models import SEPAAccount  # type: ignore[import-untyped]
+from fints.models import SEPAAccount  # type: ignore[import-untyped]  # python-fints liefert keine Typstubs (D2)
 
 from finue.config import Settings, get_settings
 from finue.models.bank import Bank
@@ -111,9 +111,7 @@ __all__ = [
 _logger = logging.getLogger(__name__)
 
 #: PIN-Fehlercodes der Banken (T-060, F-SYN-05).
-_PIN_CODES: Final[frozenset[str]] = frozenset(
-    {"9800", "9340", "9910", "9930", "9931", "9942"}
-)
+_PIN_CODES: Final[frozenset[str]] = frozenset({"9800", "9340", "9910", "9930", "9931", "9942"})
 #: Codes fuer einen gesperrten oder voruebergehend gesperrten Zugang.
 _LOCKED_CODES: Final[frozenset[str]] = frozenset({"3938"})
 #: MT940-Statuswerte, die eine Vormerkung kennzeichnen.
@@ -285,9 +283,7 @@ class FinTSGateway:
         self._endpoint = _normalized_text(bank.fints_url)
         self._blz = _normalized_text(bank.blz)
         self._tan_medium = _normalized_text(tan_medium)
-        self._client_factory: ClientFactory = (
-            client_factory if client_factory is not None else _default_client_factory
-        )
+        self._client_factory: ClientFactory = client_factory if client_factory is not None else _default_client_factory
         self._client: FinTSClientProtocol | None = None
         self._ensure_configured()
 
@@ -302,18 +298,14 @@ class FinTSGateway:
             )
         if self._endpoint is None:
             raise MissingEndpointError(
-                "Bank.fints_url fehlt. Ohne konfigurierten FinTS-Endpunkt ist "
-                "kein Bankzugriff erlaubt (N-SEC-05)."
+                "Bank.fints_url fehlt. Ohne konfigurierten FinTS-Endpunkt ist kein Bankzugriff erlaubt (N-SEC-05)."
             )
         if self._blz is None:
             raise MissingBankIdentifierError(
-                "Bank.blz fehlt. Ohne Bankleitzahl kann kein FinTS-Client "
-                "aufgebaut werden."
+                "Bank.blz fehlt. Ohne Bankleitzahl kann kein FinTS-Client aufgebaut werden."
             )
         if self._login_name is None:
-            raise FinTSGatewayConfigError(
-                "login_name fehlt. Ohne Anmeldename ist kein Bankzugriff moeglich."
-            )
+            raise FinTSGatewayConfigError("login_name fehlt. Ohne Anmeldename ist kein Bankzugriff moeglich.")
 
     def _build_client(self, *, from_data: bytes | None = None) -> FinTSClientProtocol:
         """Baut den Bibliotheksclient; der Endpunkt ist immer ``Bank.fints_url``."""
@@ -350,9 +342,7 @@ class FinTSGateway:
     def _require_client(self) -> FinTSClientProtocol:
         client = self._client
         if client is None:
-            raise RuntimeError(
-                "FinTSGateway muss fuer Bankzugriffe mit 'with' geoeffnet werden."
-            )
+            raise RuntimeError("FinTSGateway muss fuer Bankzugriffe mit 'with' geoeffnet werden.")
         return client
 
     # -- Lesende Operationen ------------------------------------------------
@@ -393,9 +383,7 @@ class FinTSGateway:
                 allow_unsupported=True,
             )
         except FinTSUnsupportedOperation:
-            return self._get_transactions_mt940(
-                account, start_date, end_date, required=True
-            )
+            return self._get_transactions_mt940(account, start_date, end_date, required=True)
 
         if isinstance(result, NeedTANResponse):
             self._raise_tan_required(client, result, _map_camt_result)
@@ -405,9 +393,7 @@ class FinTSGateway:
             # camt ist unterstuetzt, lieferte im Zeitraum aber nichts. Ein
             # MT940-Versuch kann trotzdem Daten liefern; fehlt auch HKKAZ,
             # bleibt das gueltige leere camt-Ergebnis bestehen.
-            return self._get_transactions_mt940(
-                account, start_date, end_date, required=False
-            )
+            return self._get_transactions_mt940(account, start_date, end_date, required=False)
         return _map_camt_result(result)
 
     def _get_transactions_mt940(
@@ -431,15 +417,11 @@ class FinTSGateway:
             )
         except FinTSUnsupportedOperation as exc:
             if required:
-                raise FinTSBankError(
-                    "unbekannt", "Die Bank unterstuetzt keinen Umsatzabruf."
-                ) from exc
+                raise FinTSBankError("unbekannt", "Die Bank unterstuetzt keinen Umsatzabruf.") from exc
             return TransactionFetch()
         return self._finish(client, result, _map_mt940_result)
 
-    def fetch_standing_orders(
-        self, account: SEPAAccount | None = None
-    ) -> OrdersResult:
+    def fetch_standing_orders(self, account: SEPAAccount | None = None) -> OrdersResult:
         """Liest aktive Dauer- und Terminauftraege rein lesend (F-AUF-04/07).
 
         Es werden ausschliesslich HKCDB und HKCSB gesendet; schreibende
@@ -460,9 +442,7 @@ class FinTSGateway:
         any_supported = False
         for current in accounts:
             try:
-                dauer = fetch_order_segments(
-                    orders_client, current, "dauerauftrag"
-                )
+                dauer = fetch_order_segments(orders_client, current, "dauerauftrag")
                 if dauer.tan is not None:
                     self._raise_tan_required(
                         client,
@@ -471,13 +451,9 @@ class FinTSGateway:
                     )
                 if dauer.supported:
                     any_supported = True
-                    collected.extend(
-                        orders_from_segments(dauer.segments, "dauerauftrag")
-                    )
+                    collected.extend(orders_from_segments(dauer.segments, "dauerauftrag"))
 
-                termin = fetch_order_segments(
-                    orders_client, current, "terminauftrag"
-                )
+                termin = fetch_order_segments(orders_client, current, "terminauftrag")
                 if termin.tan is not None:
                     self._raise_tan_required(
                         client,
@@ -486,9 +462,7 @@ class FinTSGateway:
                     )
                 if termin.supported:
                     any_supported = True
-                    collected.extend(
-                        orders_from_segments(termin.segments, "terminauftrag")
-                    )
+                    collected.extend(orders_from_segments(termin.segments, "terminauftrag"))
             except FinTSUnsupportedOperation:
                 # Die Erweiterung behandelt fehlende Unterstuetzung bereits als
                 # Zustand; dieser Zweig sichert zusaetzlich einen spaeten
@@ -497,15 +471,11 @@ class FinTSGateway:
             except FinTSError as exc:
                 raise _translate_bank_error(exc) from exc
 
-        return build_orders_result(
-            tuple(collected), any_supported=any_supported
-        )
+        return build_orders_result(tuple(collected), any_supported=any_supported)
 
     # -- TAN-Fortsetzung ----------------------------------------------------
 
-    def resume_tan(
-        self, handoff: TanHandoff[ResultT], tan: str | None = None
-    ) -> ResultT:
+    def resume_tan(self, handoff: TanHandoff[ResultT], tan: str | None = None) -> ResultT:
         """Setzt einen eingefrorenen TAN-Dialog fort (F-SYN-04, D3).
 
         Text-TAN: ``tan`` ist Pflicht. App-Freigabe: ``tan`` wird ignoriert;
@@ -552,9 +522,7 @@ class FinTSGateway:
     ) -> object:
         """Ruft ausschliesslich Operationen der Read-only-Whitelist auf (D2)."""
         if operation not in READ_ONLY_OPERATIONS:
-            raise RuntimeError(
-                f"Operation {operation!r} ist nicht als lesend freigegeben (D2)."
-            )
+            raise RuntimeError(f"Operation {operation!r} ist nicht als lesend freigegeben (D2).")
         client = self._require_client()
         method = getattr(client, operation)
         try:
@@ -623,10 +591,7 @@ class FinTSGateway:
         )
 
     def __repr__(self) -> str:
-        return (
-            f"{type(self).__name__}(blz={self._blz!r}, "
-            f"endpoint={self._endpoint!r})"
-        )
+        return f"{type(self).__name__}(blz={self._blz!r}, endpoint={self._endpoint!r})"
 
 
 def _orders_mapper(
@@ -642,9 +607,7 @@ def _orders_mapper(
 
     def mapper(value: object) -> OrdersResult:
         if not isinstance(value, (list, tuple)):
-            raise FinTSMappingError(
-                "Auftragsabruf lieferte nach TAN keine Segmentliste."
-            )
+            raise FinTSMappingError("Auftragsabruf lieferte nach TAN keine Segmentliste.")
         fetched = orders_from_segments(tuple(value), kind)
         return build_orders_result(already + fetched, any_supported=True)
 
@@ -756,9 +719,7 @@ def _has_pending_marker(data: Mapping[str, object]) -> bool:
     if data.get("pending") is True:
         return True
     status = data.get("status")
-    return (
-        isinstance(status, str) and status.strip().upper() in _PENDING_MARKERS
-    )
+    return isinstance(status, str) and status.strip().upper() in _PENDING_MARKERS
 
 
 def _has_entry_date(data: Mapping[str, object]) -> bool:
@@ -788,9 +749,7 @@ def _to_challenge(response: NeedTANResponse) -> TanChallenge:
     decoupled = bool(getattr(response, "decoupled", False))
     text = getattr(response, "challenge", None)
     challenge_text = (
-        text.strip()
-        if isinstance(text, str) and text.strip()
-        else "Die Bank verlangt eine TAN- oder App-Freigabe."
+        text.strip() if isinstance(text, str) and text.strip() else "Die Bank verlangt eine TAN- oder App-Freigabe."
     )
     return TanChallenge(
         kind="app" if decoupled else "text",

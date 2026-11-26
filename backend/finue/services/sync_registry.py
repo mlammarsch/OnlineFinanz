@@ -60,9 +60,7 @@ class SyncStatus(StrEnum):
     TIMED_OUT = "timed_out"
 
 
-ACTIVE_STATUSES: Final[frozenset[SyncStatus]] = frozenset(
-    {SyncStatus.RUNNING, SyncStatus.AWAITING_TAN}
-)
+ACTIVE_STATUSES: Final[frozenset[SyncStatus]] = frozenset({SyncStatus.RUNNING, SyncStatus.AWAITING_TAN})
 
 
 class SyncRegistryError(RuntimeError):
@@ -126,9 +124,7 @@ class SyncJob:
     challenge: str | None = field(default=None, repr=False, compare=False)
     tan_kind: str | None = field(default=None, repr=False, compare=False)
     dialog_state: object | None = field(default=None, repr=False, compare=False)
-    _abort_event: threading.Event = field(
-        default_factory=threading.Event, init=False, repr=False, compare=False
-    )
+    _abort_event: threading.Event = field(default_factory=threading.Event, init=False, repr=False, compare=False)
 
     @property
     def abort_requested(self) -> bool:
@@ -158,9 +154,7 @@ class SyncJob:
     __str__ = __repr__
 
     def __reduce_ex__(self, _protocol: SupportsIndex) -> str | tuple[Any, ...]:
-        raise TypeError(
-            "SyncJob enthaelt Dialogdaten und darf nicht serialisiert werden."
-        )
+        raise TypeError("SyncJob enthaelt Dialogdaten und darf nicht serialisiert werden.")
 
 
 class SyncRegistry:
@@ -196,9 +190,7 @@ class SyncRegistry:
             if listener in self._listeners:
                 self._listeners.remove(listener)
 
-    def start_or_get(
-        self, bank_access_id: int, account_ids: Iterable[int] = ()
-    ) -> SyncJob:
+    def start_or_get(self, bank_access_id: int, account_ids: Iterable[int] = ()) -> SyncJob:
         """Liefert den laufenden Job des Zugangs oder startet einen neuen.
 
         Die Pruefung und das Einfuegen laufen unter demselben Lock. Damit
@@ -209,9 +201,7 @@ class SyncRegistry:
         job, _created = self.try_start(bank_access_id, account_ids)
         return job
 
-    def try_start(
-        self, bank_access_id: int, account_ids: Iterable[int] = ()
-    ) -> tuple[SyncJob, bool]:
+    def try_start(self, bank_access_id: int, account_ids: Iterable[int] = ()) -> tuple[SyncJob, bool]:
         """Wie :meth:`start_or_get`, meldet aber zusaetzlich ``created``."""
 
         accounts = tuple(dict.fromkeys(account_ids))
@@ -224,9 +214,7 @@ class SyncRegistry:
                 and existing.status is SyncStatus.AWAITING_TAN
                 and self._deadline_reached(existing, now)
             ):
-                events.append(
-                    self._finish_locked(existing, SyncStatus.TIMED_OUT, now)
-                )
+                events.append(self._finish_locked(existing, SyncStatus.TIMED_OUT, now))
                 existing = None
             if existing is not None and existing.status in ACTIVE_STATUSES:
                 job = existing
@@ -289,9 +277,7 @@ class SyncRegistry:
         with self._lock:
             job = self._require_active_locked(job_id)
             if job.status is not SyncStatus.RUNNING:
-                raise SyncRegistryError(
-                    f"Job {job_id} wartet nicht auf einen TAN-Dialog."
-                )
+                raise SyncRegistryError(f"Job {job_id} wartet nicht auf einen TAN-Dialog.")
             previous = job.status
             job.status = SyncStatus.AWAITING_TAN
             job.dialog_state = dialog_state
@@ -387,9 +373,7 @@ class SyncRegistry:
         return self._finish(job_id, SyncStatus.ABORTED)
 
     @contextmanager
-    def run(
-        self, bank_access_id: int, account_ids: Iterable[int] = ()
-    ) -> Iterator[SyncJob]:
+    def run(self, bank_access_id: int, account_ids: Iterable[int] = ()) -> Iterator[SyncJob]:
         """Rahmt einen eigenen Sync-Lauf und gibt die Sperre immer frei.
 
         Der Kontext ist nur fuer den Erststarter gedacht. Laeuft bereits ein
@@ -423,9 +407,7 @@ class SyncRegistry:
         self._emit(event)
         return True
 
-    def _finish_locked(
-        self, job: SyncJob, status: SyncStatus, now: datetime
-    ) -> SyncEvent:
+    def _finish_locked(self, job: SyncJob, status: SyncStatus, now: datetime) -> SyncEvent:
         previous = job.status
         job.status = status
         job.dialog_state = None
@@ -436,9 +418,7 @@ class SyncRegistry:
             del self._active[job.bank_access_id]
         return self._event(job, previous, now)
 
-    def _event(
-        self, job: SyncJob, previous: SyncStatus | None, now: datetime
-    ) -> SyncEvent:
+    def _event(self, job: SyncJob, previous: SyncStatus | None, now: datetime) -> SyncEvent:
         return SyncEvent(
             job_id=job.id,
             bank_access_id=job.bank_access_id,

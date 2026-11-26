@@ -216,8 +216,7 @@ def test_first_tan_answer_wins_f_syn_04() -> None:
     resumed = [
         event
         for event in events
-        if event.previous_status is SyncStatus.AWAITING_TAN
-        and event.status is SyncStatus.RUNNING
+        if event.previous_status is SyncStatus.AWAITING_TAN and event.status is SyncStatus.RUNNING
     ]
     assert len(resumed) == 1
 
@@ -340,9 +339,7 @@ def test_dialog_state_never_reaches_disk_db_or_serializer_n_sec_03(
         patch.setattr(json, "dumps", blocker("json.dumps"))
 
         job = registry.start_or_get(15, (1, 2))
-        registry.mark_awaiting_tan(
-            job.id, {"challenge": secret, "pin": secret, "tan": secret}
-        )
+        registry.mark_awaiting_tan(job.id, {"challenge": secret, "pin": secret, "tan": secret})
         assert registry.answer_tan(job.id) is True
         assert registry.request_abort(job.id) is True
         kept_dialog = job.dialog_state is not None

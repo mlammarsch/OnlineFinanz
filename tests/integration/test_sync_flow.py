@@ -127,9 +127,7 @@ class SharedClientFactory:
     def __call__(self, **kwargs: Any) -> Any:
         self.created += 1
         if self.client is None:
-            self.client = self._client_type(
-                script=self._script, **self._client_kwargs, **kwargs
-            )
+            self.client = self._client_type(script=self._script, **self._client_kwargs, **kwargs)
         return self.client
 
 
@@ -169,9 +167,7 @@ class RecordingClient(FakeClient):
         supported_camt_messages: Any = None,
     ) -> Any:
         self.xml_ranges.append((start_date, end_date))
-        return super().get_transactions_xml(
-            account, start_date, end_date, supported_camt_messages
-        )
+        return super().get_transactions_xml(account, start_date, end_date, supported_camt_messages)
 
 
 class FakeClock:
@@ -269,13 +265,7 @@ def _runs(environment: SyncEnvironment) -> list[ImportRun]:
     """Liest alle Sync-Protokolle stabil sortiert."""
 
     with environment.factory() as session:
-        return list(
-            session.scalars(
-                select(ImportRun)
-                .where(ImportRun.kind == "sync")
-                .order_by(ImportRun.id)
-            ).all()
-        )
+        return list(session.scalars(select(ImportRun).where(ImportRun.kind == "sync").order_by(ImportRun.id)).all())
 
 
 def _account(environment: SyncEnvironment, account_id: int) -> Account:
@@ -372,9 +362,7 @@ def test_single_sync_writes_one_run_without_batch_job_id_f_syn_02(
     service = _service(environment, shared)
     account, untouched = environment.accounts
 
-    result = service.start_sync(
-        environment.access.id, account_ids=[account.id], supplied_pin=FAKE_PIN
-    )
+    result = service.start_sync(environment.access.id, account_ids=[account.id], supplied_pin=FAKE_PIN)
 
     assert result.status == "erfolgreich"
     assert [item.account_id for item in result.account_results] == [account.id]
@@ -395,9 +383,7 @@ def test_ing_90_day_challenge_is_plaintext_f_syn_05(tmp_path: Path) -> None:
     service = _service(environment, shared)
     account = environment.accounts[0]
 
-    paused = service.start_sync(
-        environment.access.id, account_ids=[account.id], supplied_pin=FAKE_PIN
-    )
+    paused = service.start_sync(environment.access.id, account_ids=[account.id], supplied_pin=FAKE_PIN)
 
     assert paused.status == "wartet_auf_tan"
     assert paused.challenge is not None
@@ -442,9 +428,7 @@ def test_retryable_9800_and_9010_retry_with_fresh_dialog_f_syn_06(
     service = _service(environment, shared, sleep=sleep, wait_seconds=0.25)
     account = environment.accounts[0]
 
-    result = service.start_sync(
-        environment.access.id, account_ids=[account.id], supplied_pin=FAKE_PIN
-    )
+    result = service.start_sync(environment.access.id, account_ids=[account.id], supplied_pin=FAKE_PIN)
 
     assert result.status == "erfolgreich"
     assert result.account_results[0].attempts == 3
@@ -479,9 +463,7 @@ def test_concurrent_double_start_returns_same_running_job_f_syn_11(
 
     def run_first() -> None:
         try:
-            first_result["value"] = service.start_sync(
-                environment.access.id, supplied_pin=FAKE_PIN
-            )
+            first_result["value"] = service.start_sync(environment.access.id, supplied_pin=FAKE_PIN)
         except BaseException as exc:  # pragma: no cover - Fehler im Thread sichtbar machen
             first_result["error"] = exc
 
@@ -606,9 +588,7 @@ def test_timeout_after_five_minutes_records_zeitueberschreitung_f_syn_04_f_syn_1
     service = _service(environment, shared, registry=registry)
     account = environment.accounts[0]
 
-    paused = service.start_sync(
-        environment.access.id, account_ids=[account.id], supplied_pin=FAKE_PIN
-    )
+    paused = service.start_sync(environment.access.id, account_ids=[account.id], supplied_pin=FAKE_PIN)
     assert paused.status == "wartet_auf_tan"
     assert paused.job.deadline == start + timedelta(minutes=5)
 
@@ -661,9 +641,7 @@ def test_pending_becomes_booked_and_keeps_note_f_dup_04(tmp_path: Path) -> None:
     service = _service(environment, shared)
     account = environment.accounts[0]
 
-    first = service.start_sync(
-        environment.access.id, account_ids=[account.id], supplied_pin=FAKE_PIN
-    )
+    first = service.start_sync(environment.access.id, account_ids=[account.id], supplied_pin=FAKE_PIN)
     assert first.status == "erfolgreich"
 
     rows = _transactions(environment, account.id)
@@ -679,9 +657,7 @@ def test_pending_becomes_booked_and_keeps_note_f_dup_04(tmp_path: Path) -> None:
         stored_pending.checked_at = CHECKED_AT
         session.commit()
 
-    second = service.start_sync(
-        environment.access.id, account_ids=[account.id], supplied_pin=FAKE_PIN
-    )
+    second = service.start_sync(environment.access.id, account_ids=[account.id], supplied_pin=FAKE_PIN)
     assert second.status == "erfolgreich"
 
     rows = _transactions(environment, account.id)
@@ -747,9 +723,7 @@ def test_fetch_range_uses_14_day_overlap_and_persists_balance_f_syn_03(
     shared = SharedClientFactory(script, client_type=RecordingClient)
     service = _service(environment, shared)
 
-    result = service.start_sync(
-        environment.access.id, account_ids=[account.id], supplied_pin=FAKE_PIN
-    )
+    result = service.start_sync(environment.access.id, account_ids=[account.id], supplied_pin=FAKE_PIN)
 
     assert result.status == "erfolgreich"
     assert shared.client is not None
@@ -789,9 +763,7 @@ def test_second_identical_sync_adds_nothing_and_keeps_user_fields_f_dup_02_f_con
     service = _service(environment, shared)
     account = environment.accounts[0]
 
-    first = service.start_sync(
-        environment.access.id, account_ids=[account.id], supplied_pin=FAKE_PIN
-    )
+    first = service.start_sync(environment.access.id, account_ids=[account.id], supplied_pin=FAKE_PIN)
     assert first.status == "erfolgreich"
 
     rows = _transactions(environment, account.id)
@@ -810,9 +782,7 @@ def test_second_identical_sync_adds_nothing_and_keeps_user_fields_f_dup_02_f_con
         session.commit()
         version_before = row.version
 
-    second = service.start_sync(
-        environment.access.id, account_ids=[account.id], supplied_pin=FAKE_PIN
-    )
+    second = service.start_sync(environment.access.id, account_ids=[account.id], supplied_pin=FAKE_PIN)
     assert second.status == "erfolgreich"
 
     runs = _runs(environment)
@@ -849,9 +819,7 @@ def test_orders_unsupported_keeps_sync_successful_f_auf_05(tmp_path: Path) -> No
     service = _service(environment, shared)
     account = environment.accounts[0]
 
-    result = service.start_sync(
-        environment.access.id, account_ids=[account.id], supplied_pin=FAKE_PIN
-    )
+    result = service.start_sync(environment.access.id, account_ids=[account.id], supplied_pin=FAKE_PIN)
 
     assert result.status == "erfolgreich"
     assert result.account_results[0].status == "erfolgreich"
@@ -876,9 +844,7 @@ def test_sync_uses_only_read_operations_f_auf_03_d8(tmp_path: Path) -> None:
     service = _service(environment, shared)
     account = environment.accounts[0]
 
-    result = service.start_sync(
-        environment.access.id, account_ids=[account.id], supplied_pin=FAKE_PIN
-    )
+    result = service.start_sync(environment.access.id, account_ids=[account.id], supplied_pin=FAKE_PIN)
 
     assert result.status == "erfolgreich"
     client = shared.client

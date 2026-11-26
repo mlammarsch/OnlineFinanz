@@ -117,9 +117,7 @@ class SharedClientFactory:
     def __call__(self, **kwargs: Any) -> Any:
         self.created += 1
         if self.client is None:
-            self.client = self._client_type(
-                script=self._script, **self._client_kwargs, **kwargs
-            )
+            self.client = self._client_type(script=self._script, **self._client_kwargs, **kwargs)
         return self.client
 
 
@@ -248,11 +246,7 @@ def _service(
 
 def _runs(factory: sessionmaker[Session]) -> list[ImportRun]:
     with factory() as session:
-        return list(
-            session.scalars(
-                select(ImportRun).where(ImportRun.kind == "sync").order_by(ImportRun.id)
-            ).all()
-        )
+        return list(session.scalars(select(ImportRun).where(ImportRun.kind == "sync").order_by(ImportRun.id)).all())
 
 
 def _two_tan_script() -> FakeScript:
@@ -287,9 +281,7 @@ def test_tan_success_pauses_and_resumes_with_waiting_import_run_f_syn_04_f_syn_0
     service = _service(environment, factory, registry=registry)
     account = environment.accounts[0]
 
-    paused = service.start_sync(
-        environment.access.id, account_ids=[account.id], supplied_pin=FAKE_PIN
-    )
+    paused = service.start_sync(environment.access.id, account_ids=[account.id], supplied_pin=FAKE_PIN)
 
     assert paused.status == "wartet_auf_tan"
     assert paused.challenge is not None
@@ -348,9 +340,7 @@ def test_wrong_tan_fails_with_plaintext_without_secret_f_syn_04_n_sec_02(
     service = _service(environment, factory)
     account = environment.accounts[0]
 
-    paused = service.start_sync(
-        environment.access.id, account_ids=[account.id], supplied_pin=FAKE_PIN
-    )
+    paused = service.start_sync(environment.access.id, account_ids=[account.id], supplied_pin=FAKE_PIN)
     result = service.submit_tan(paused.job_id, "000000")
 
     assert result.status == "fehler"
@@ -375,9 +365,7 @@ def test_app_approval_polls_progress_until_success_f_syn_04(tmp_path: Path) -> N
     service = _service(environment, factory)
     account = environment.accounts[0]
 
-    paused = service.start_sync(
-        environment.access.id, account_ids=[account.id], supplied_pin=FAKE_PIN
-    )
+    paused = service.start_sync(environment.access.id, account_ids=[account.id], supplied_pin=FAKE_PIN)
     assert paused.status == "wartet_auf_tan"
     assert paused.challenge is not None
     assert paused.challenge.kind == "app"
@@ -466,9 +454,7 @@ def test_timeout_after_five_minutes_discards_dialog_and_marks_zeitueberschreitun
     service = _service(environment, factory, registry=registry)
     account = environment.accounts[0]
 
-    paused = service.start_sync(
-        environment.access.id, account_ids=[account.id], supplied_pin=FAKE_PIN
-    )
+    paused = service.start_sync(environment.access.id, account_ids=[account.id], supplied_pin=FAKE_PIN)
     assert paused.job.deadline == start + timedelta(minutes=5)
     assert paused.job.dialog_state is not None
 
@@ -505,9 +491,7 @@ def test_parallel_tan_answers_only_first_wins_f_syn_04(tmp_path: Path) -> None:
     service = _service(environment, factory)
     account = environment.accounts[0]
 
-    paused = service.start_sync(
-        environment.access.id, account_ids=[account.id], supplied_pin=FAKE_PIN
-    )
+    paused = service.start_sync(environment.access.id, account_ids=[account.id], supplied_pin=FAKE_PIN)
     barrier = threading.Barrier(2)
     results: list[Any] = []
     conflicts: list[SyncTanConflictError] = []
@@ -594,9 +578,7 @@ def test_tan_and_dialog_state_never_reach_logs_db_errors_or_repr_n_sec_02_n_sec_
     secret = "TAN-CAPTURE-987654"
 
     with caplog.at_level(logging.DEBUG):
-        paused = service.start_sync(
-            environment.access.id, account_ids=[account.id], supplied_pin=FAKE_PIN
-        )
+        paused = service.start_sync(environment.access.id, account_ids=[account.id], supplied_pin=FAKE_PIN)
         assert paused.job.dialog_state is not None
         assert "dialog_state" not in repr(paused.job)
         completed = service.submit_tan(paused.job_id, secret)
@@ -627,9 +609,7 @@ def test_finished_registry_releases_lock_and_discards_dialog_after_terminal_outc
     service = _service(environment, factory)
     account = environment.accounts[0]
 
-    paused = service.start_sync(
-        environment.access.id, account_ids=[account.id], supplied_pin=FAKE_PIN
-    )
+    paused = service.start_sync(environment.access.id, account_ids=[account.id], supplied_pin=FAKE_PIN)
     service.submit_tan(paused.job_id, TAN_TEXT)
 
     with pytest.raises(SyncJobNotFoundError):
@@ -656,9 +636,7 @@ def test_cancel_during_running_send_tan_releases_registry_and_allows_restart_f_s
     service = _service(environment, factory)
     account = environment.accounts[0]
 
-    paused = service.start_sync(
-        environment.access.id, account_ids=[account.id], supplied_pin=FAKE_PIN
-    )
+    paused = service.start_sync(environment.access.id, account_ids=[account.id], supplied_pin=FAKE_PIN)
     assert paused.status == "wartet_auf_tan"
 
     results: list[Any] = []
@@ -685,9 +663,7 @@ def test_cancel_during_running_send_tan_releases_registry_and_allows_restart_f_s
     assert service.registry.is_active(environment.access.id) is False
     assert service.registry.get(paused.job_id) is None
 
-    restarted = service.start_sync(
-        environment.access.id, account_ids=[account.id], supplied_pin=FAKE_PIN
-    )
+    restarted = service.start_sync(environment.access.id, account_ids=[account.id], supplied_pin=FAKE_PIN)
     assert restarted.reused is False
     assert restarted.job_id != paused.job_id
 
@@ -708,9 +684,7 @@ def test_cancel_during_running_app_poll_releases_registry_lock_f_syn_04_f_syn_10
     service = _service(environment, factory)
     account = environment.accounts[0]
 
-    paused = service.start_sync(
-        environment.access.id, account_ids=[account.id], supplied_pin=FAKE_PIN
-    )
+    paused = service.start_sync(environment.access.id, account_ids=[account.id], supplied_pin=FAKE_PIN)
     assert paused.status == "wartet_auf_tan"
     assert paused.challenge is not None
     assert paused.challenge.kind == "app"

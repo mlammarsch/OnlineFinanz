@@ -1,4 +1,4 @@
-﻿"""Tests fuer die Abbildung von camt- und MT940-Umsaetzen auf Buchungsdaten.
+"""Tests fuer die Abbildung von camt- und MT940-Umsaetzen auf Buchungsdaten.
 
 Referenziert F-SYN-03 (Saldo, gebuchte und vorgemerkte Umsaetze),
 F-DUP-01 (identischer Fingerprint fuer dieselbe Buchung), F-DUP-04
@@ -172,9 +172,7 @@ class TestCamtVorgemerkt:
 
     def test_fehlendes_sts_nutzt_die_stream_vorgabe(self) -> None:
         document = _minimal_camt(
-            '<Amt Ccy="EUR">1.00</Amt>'
-            "<CdtDbtInd>CRDT</CdtDbtInd>"
-            "<BookgDt><Dt>2026-02-01</Dt></BookgDt>"
+            '<Amt Ccy="EUR">1.00</Amt><CdtDbtInd>CRDT</CdtDbtInd><BookgDt><Dt>2026-02-01</Dt></BookgDt>'
         )
         assert map_camt_transactions([document])[0].status == "gebucht"
         assert map_camt_transactions([], [document])[0].status == "vorgemerkt"
@@ -193,27 +191,18 @@ class TestCamtFehler:
             map_camt_transactions([b"<kein-xml"])
 
     def test_fehlender_betrag_wirft_mapping_fehler(self) -> None:
-        document = _minimal_camt(
-            "<CdtDbtInd>CRDT</CdtDbtInd>"
-            "<BookgDt><Dt>2026-02-01</Dt></BookgDt>"
-        )
+        document = _minimal_camt("<CdtDbtInd>CRDT</CdtDbtInd><BookgDt><Dt>2026-02-01</Dt></BookgDt>")
         with pytest.raises(FinTSMappingError):
             map_camt_transactions([document])
 
     def test_fehlende_waehrung_wirft_mapping_fehler(self) -> None:
-        document = _minimal_camt(
-            "<Amt>1.00</Amt>"
-            "<CdtDbtInd>CRDT</CdtDbtInd>"
-            "<BookgDt><Dt>2026-02-01</Dt></BookgDt>"
-        )
+        document = _minimal_camt("<Amt>1.00</Amt><CdtDbtInd>CRDT</CdtDbtInd><BookgDt><Dt>2026-02-01</Dt></BookgDt>")
         with pytest.raises(FinTSMappingError):
             map_camt_transactions([document])
 
     def test_mehr_als_zwei_nachkommastellen_werden_abgelehnt(self) -> None:
         document = _minimal_camt(
-            '<Amt Ccy="EUR">1.005</Amt>'
-            "<CdtDbtInd>CRDT</CdtDbtInd>"
-            "<BookgDt><Dt>2026-02-01</Dt></BookgDt>"
+            '<Amt Ccy="EUR">1.005</Amt><CdtDbtInd>CRDT</CdtDbtInd><BookgDt><Dt>2026-02-01</Dt></BookgDt>'
         )
         with pytest.raises(FinTSMappingError):
             map_camt_transactions([document])
@@ -314,9 +303,7 @@ class TestMt940Vorgemerkt:
         return data
 
     def test_status_argument_markiert_alle_als_vorgemerkt(self) -> None:
-        transactions = map_mt940_transactions(
-            [self._data(), self._data()], status="vorgemerkt"
-        )
+        transactions = map_mt940_transactions([self._data(), self._data()], status="vorgemerkt")
         assert [t.status for t in transactions] == ["vorgemerkt", "vorgemerkt"]
 
     def test_explizites_pending_kennzeichen_gewinnt(self) -> None:
@@ -344,9 +331,7 @@ class TestMt940Fehler:
 
     def test_fehlender_betrag_wirft_mapping_fehler(self) -> None:
         with pytest.raises(FinTSMappingError):
-            map_mt940_transactions(
-                [{"currency": "EUR", "date": date(2026, 1, 2)}]
-            )
+            map_mt940_transactions([{"currency": "EUR", "date": date(2026, 1, 2)}])
 
     def test_float_betraege_werden_abgelehnt(self) -> None:
         with pytest.raises(FinTSMappingError):
@@ -362,15 +347,11 @@ class TestMt940Fehler:
 
     def test_fehlende_waehrung_wirft_mapping_fehler(self) -> None:
         with pytest.raises(FinTSMappingError):
-            map_mt940_transactions(
-                [{"amount": Decimal("1.00"), "date": date(2026, 1, 2)}]
-            )
+            map_mt940_transactions([{"amount": Decimal("1.00"), "date": date(2026, 1, 2)}])
 
     def test_fehlendes_datum_wirft_mapping_fehler(self) -> None:
         with pytest.raises(FinTSMappingError):
-            map_mt940_transactions(
-                [{"amount": Decimal("1.00"), "currency": "EUR"}]
-            )
+            map_mt940_transactions([{"amount": Decimal("1.00"), "currency": "EUR"}])
 
     def test_mehr_als_zwei_nachkommastellen_werden_abgelehnt(self) -> None:
         with pytest.raises(FinTSMappingError):
@@ -399,13 +380,8 @@ class TestParitaetCamtMt940:
             assert camt_transaction.booking_date == mt940_transaction.booking_date
             assert camt_transaction.value_date == mt940_transaction.value_date
             assert camt_transaction.counterparty == mt940_transaction.counterparty
-            assert (
-                camt_transaction.counterparty_iban
-                == mt940_transaction.counterparty_iban
-            )
-            assert normalize_field(camt_transaction.purpose) == normalize_field(
-                mt940_transaction.purpose
-            )
+            assert camt_transaction.counterparty_iban == mt940_transaction.counterparty_iban
+            assert normalize_field(camt_transaction.purpose) == normalize_field(mt940_transaction.purpose)
 
     def test_externe_referenz_und_status_gehen_nicht_in_den_fingerprint_ein(self) -> None:
         camt = map_camt_transactions([_camt_booked()])[0]
@@ -417,18 +393,14 @@ class TestBalance:
     """Saldo-Abbildung auf ``BalanceResult`` (F-SYN-03, N-DB-02)."""
 
     def test_haben_saldo_positiv_in_cent(self) -> None:
-        result = map_balance(
-            Balance("C", "1234,56", date(2026, 1, 6), currency="EUR")
-        )
+        result = map_balance(Balance("C", "1234,56", date(2026, 1, 6), currency="EUR"))
         assert result.amount_cents == 123456
         assert isinstance(result.amount_cents, int)
         assert result.currency == "EUR"
         assert result.as_of == date(2026, 1, 6)
 
     def test_soll_saldo_negativ_in_cent(self) -> None:
-        result = map_balance(
-            Balance("D", "12,34", date(2026, 1, 6), currency="EUR")
-        )
+        result = map_balance(Balance("D", "12,34", date(2026, 1, 6), currency="EUR"))
         assert result.amount_cents == -1234
 
     def test_grosse_betraege_bleiben_exakt(self) -> None:
@@ -466,6 +438,4 @@ class TestBalance:
 
     def test_mehr_als_zwei_nachkommastellen_werden_abgelehnt(self) -> None:
         with pytest.raises(FinTSMappingError):
-            map_balance(
-                SimpleNamespace(amount=Decimal("1.005"), status="C")
-            )
+            map_balance(SimpleNamespace(amount=Decimal("1.005"), status="C"))
