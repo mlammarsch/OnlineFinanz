@@ -303,3 +303,6 @@
 - T-085/T-086 unveraendert. Naechste freie Tasks nach T-086: T-111; nach T-087: T-108.
 - T-097/T-098 nur Beobachtung, Schnitt in plan.md vorbereitet.
 - Details und Risiken: plan.md Abschnitt "M4-Entlastung".
+
+- **T-085 verifiziert (verifier, unabhaengig): PASS.** Selbst ausgefuehrt: Zielttests 49 passed, `tests/unit` 1149 passed/1 skipped (4 Laeufe), ruff check/format, mypy backend gruen; `hx.py task-done` 0 (Evidenz `artifacts/T-085-verify-1795722769.json`). Mutationstest: ohne `PRAGMA foreign_keys=OFF` schlaegt `test_migration_0003_preserves_existing_data_from_0002` fehl (Kindzeile `duplicate_decision` ginge verloren), der Test ist also wirksam. Downgrade = NotImplementedError entspricht SPEC N-DB-03 und 0002. CHECK-Werte identisch mit `FlagOrigin`. Abweichung `bank.version` statt `version_id` ist in decisions.md begruendet. `test_events.py::test_warteschlange_verwirft_aeltere_bei_ueberlauf`: deterministisch (eigener Bus, kein globaler Zustand, kein Zufalls-/xdist-Plugin), in 4 Gesamtlaeufen plus Kombinationslauf gruen; der einmalige Rotlauf stammt vermutlich vom gleichzeitig im selben Arbeitsbaum bearbeiteten T-086 (Parallelstand). Kein Code geaendert, kein T-086-Befund. Naechster Schritt: T-087, T-088, T-095, T-097, T-100 entsperrt.
+
