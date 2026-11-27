@@ -43,11 +43,15 @@ class CurrentUser:
     """Angemeldeter Nutzer.
 
     In M4 ist immer der Owner angemeldet (``authenticated`` bleibt ``False``);
-    M10 fuellt die Sitzung und setzt ``authenticated`` (N-SEC-04).
+    M10 fuellt die Sitzung und setzt ``authenticated`` (N-SEC-04). ``session_id``
+    ist die Naht fuer die Sitzungsuebersicht (F-CON-06): die Route
+    ``GET /api/sessions`` kennzeichnet damit die laufende Sitzung. In M4 bleibt
+    der Wert ``None``, weil es noch keine Anmeldung gibt.
     """
 
     name: str = "owner"
     authenticated: bool = False
+    session_id: int | None = None
 
 
 def get_services(request: Request) -> AppServices:

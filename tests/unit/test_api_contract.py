@@ -200,6 +200,17 @@ CONTRACT: dict[str, RouteContract] = {
         reason="Auftragsbestand aller FinTS-Konten, paginiert (F-AUF-04/05)",
         is_list=True,
     ),
+    "/api/sessions": RouteContract(
+        frozenset({"GET"}),
+        kind="lesen",
+        reason="Aktive Sitzungen mit Geraet/Browser und letztem Zugriff, paginiert (F-CON-06)",
+        is_list=True,
+    ),
+    "/api/sessions/{session_id}": RouteContract(
+        frozenset({"DELETE"}),
+        kind="aktion",
+        reason="Einzelne Sitzung abmelden, idempotent (F-CON-06)",
+    ),
 }
 
 

@@ -2,6 +2,25 @@
 
 ## Next actions
 
+- **T-102 umgesetzt (M4 Welle 3, Sitzungsuebersicht und Abmelden einzelner Sitzungen, F-CON-06, Risiko low).**
+  Konflikt-Check: Ja (nur Sitzungen; keine Sync-/SSE-/Import-/Export-Aenderung ausser der Router-Verdrahtung;
+  keine N-SEC-04-Anmeldung, Anlage bleibt M10). Neu: `backend/finue/services/sessions.py`
+  (`describe_device` verkuerzt den User-Agent zu `Browser auf System`, unbekannt -> `Unbekanntes Geraet`;
+  `list_active_sessions` liefert nur `expires_at > jetzt`, nach `last_seen_at` absteigend;
+  `revoke_session` loescht die Zeile und meldet `bool`), `backend/finue/api/sessions.py`
+  (`GET /api/sessions` paginiert mit `{items, next_cursor}` und `limit`; `DELETE /api/sessions/{id}` idempotent 204).
+  Naht fuer M10: `CurrentUser.session_id` ergaenzt (in M4 `None`, daher `current` ueberall `false`).
+  `token_hash` verlaesst das Backend nie (DTOs ohne Hash, keine Logausgabe, N-SEC-02). Vertragstabelle,
+  `docs/api.md` (Abschnitt Sitzungen inkl. Beispiel), `decisions.md` (Loeschen statt `revoked_at`, idempotentes
+  DELETE, verkuerzter Geraetetext) und `improve.md` (UtcDateTime-Casts, Index auf `expires_at`) ergaenzt.
+  Evidenz: `uv run pytest tests/unit/test_sessions_api.py -q` = 24 passed; `tests/unit -q` = 1429 passed/1 skipped;
+  `uv run ruff check backend tests scripts` = All checks passed; `uv run ruff format --check backend tests scripts`
+  = 185 files already formatted; `uv run mypy backend` = Success (89 Dateien). Risiko low: Abschluss nach gruenem
+  Verifikationsplan ohne separaten Verifier, `task-done` direkt nach dem Commit. **Offen:** Fremde uncommittete
+  Welle-Arbeit (`backend/finue/services/export.py` aus T-097) bleibt unangetastet; die vorbestehenden
+  Task-/Status-Aenderungen (T-092/T-093/T-100/T-108/T-112, status.md/queues.md/events.jsonl) wurden nicht
+  mitcommittet. Kein Push.
+
 - **T-093 umgesetzt (M4 Welle 5, Buchungsliste mit Vormerkungen, Tagessalden, Gruppenansicht und
   Keyset-Paginierung, F-BUC-01..06, Risiko medium).** Konflikt-Check: Ja (nur Buchungsliste; keine
   Kennzeichen-/Notiz-Editierung, keine Export-/Sync-REST-Aenderung; `api/transactions.py` bleibt T-094/T-108).

@@ -30,6 +30,7 @@ from finue.api import (
     imports,
     reconciliation,
     search,
+    sessions,
     standing_orders,
     transaction_list,
 )
@@ -68,6 +69,8 @@ def build_protected_router() -> APIRouter:
     protected.include_router(import_templates.router)
     # Termin- und Dauerauftraege, rein lesend (T-100, F-AUF-02/04/05).
     protected.include_router(standing_orders.router)
+    # Sitzungsuebersicht und Abmelden einzelner Sitzungen (T-102, F-CON-06).
+    protected.include_router(sessions.router)
     return protected
 
 

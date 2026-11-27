@@ -560,6 +560,49 @@ Service-Container (`app.state.services`); die SSE-Route `/api/events` liefert
 ihn in T-101 aus. Der Datei-Import meldet `import.finished` (IDs `account` und
 `run`) und `transaction.changed` (ID `account`).
 
+## Sitzungen (F-CON-06)
+
+Die Fachlogik liegt in `backend/finue/services/sessions.py`, der Router
+`backend/finue/api/sessions.py` uebersetzt nur HTTP. Beide Routen haengen an der
+Auth-Naht. Die **Anlage** einer Sitzung gehoert zur Anmeldung (N-SEC-04, M10);
+bis dahin werden Sitzungszeilen in Tests direkt erzeugt.
+
+| Methode | Pfad | Zweck |
+|---|---|---|
+| GET | `/api/sessions` | Aktive Sitzungen mit Geraet/Browser und letztem Zugriff, paginiert (F-CON-06) |
+| DELETE | `/api/sessions/{id}` | Einzelne Sitzung abmelden, idempotent (F-CON-06) |
+
+```json
+{
+  "items": [
+    {
+      "id": 2,
+      "device": "Firefox auf Windows",
+      "last_seen_at": "2026-05-01T09:15:00Z",
+      "expires_at": "2026-05-01T21:15:00Z",
+      "current": false
+    }
+  ],
+  "next_cursor": null
+}
+```
+
+- "Aktiv" heisst: `expires_at` liegt nach dem aktuellen Zeitpunkt (N-SEC-04);
+  abgelaufene Sitzungen erscheinen nicht. Die Liste ist nach `last_seen_at`
+  absteigend sortiert (zuletzt genutzte zuerst) und paginiert wie alle Listen
+  (SPEC F-MCP-11).
+- `device` ist der aus dem User-Agent vereinfachte Text `Browser auf System`
+  (F-CON-06); ein fehlender oder unbekannter User-Agent ergibt
+  `"Unbekanntes Geraet"`.
+- `current` kennzeichnet die Sitzung der laufenden Anfrage. Sobald eine
+  Anmeldung existiert (N-SEC-04, M10), traegt sie `true`; in M4 (keine
+  Anmeldung) ist das Kennzeichen ueberall `false`.
+- `DELETE /api/sessions/{id}` entfernt die Sitzung und ist **idempotent**: ein
+  unbekanntes oder bereits abgemeldetes `id` antwortet ebenfalls `204 No
+  Content`.
+- `token_hash` verlaesst das Backend nie: die DTOs tragen nur ID, Geraetetext
+  und Zeitpunkte; es wird nichts protokolliert (N-SEC-02).
+
 ## Vertragstest
 
 `tests/unit/test_api_contract.py` ist die Guardrail: jede schreibende Route
