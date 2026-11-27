@@ -15,8 +15,9 @@
   DELETE, verkuerzter Geraetetext) und `improve.md` (UtcDateTime-Casts, Index auf `expires_at`) ergaenzt.
   Evidenz: `uv run pytest tests/unit/test_sessions_api.py -q` = 24 passed; `tests/unit -q` = 1429 passed/1 skipped;
   `uv run ruff check backend tests scripts` = All checks passed; `uv run ruff format --check backend tests scripts`
-  = 185 files already formatted; `uv run mypy backend` = Success (89 Dateien). Risiko low: Abschluss nach gruenem
-  Verifikationsplan ohne separaten Verifier, `task-done` direkt nach dem Commit. **Offen:** Fremde uncommittete
+  = 185 files already formatted; `uv run mypy backend` = Success (89 Dateien). Risiko low: nach gruenem
+  Verifikationsplan ohne separaten Verifier abgeschlossen (`python hx.py task-done finanzuebersicht T-102`,
+  Evidenz `artifacts/T-102-verify-1795787785.json`). **Offen:** Fremde uncommittete
   Welle-Arbeit (`backend/finue/services/export.py` aus T-097) bleibt unangetastet; die vorbestehenden
   Task-/Status-Aenderungen (T-092/T-093/T-100/T-108/T-112, status.md/queues.md/events.jsonl) wurden nicht
   mitcommittet. Kein Push.
