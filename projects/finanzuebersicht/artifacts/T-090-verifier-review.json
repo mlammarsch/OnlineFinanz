@@ -1,0 +1,18 @@
+﻿{
+  "task": "T-090",
+  "role": "verifier (Claude Sonnet 5.5, medium)",
+  "ts": "2026-11-27T12:55:00Z",
+  "verdict": "PASS nach Minimalfix",
+  "base": "40c698b (T-090 cf58871 + Wiring ef80658)",
+  "fix_commit": "c2fcfd4 auf Branch m4/t090-verify-fix",
+  "defect": "PUT/DELETE /api/{accounts,banks}/{id}/icon mit version=0 -> ValueError -> HTTP 500; jetzt Query(ge=1) -> 422; Regressionstest test_icon_version_unter_eins_liefert_422",
+  "results": [
+    {"cmd": "uv run pytest tests/unit/test_icons.py tests/unit/test_banks_api.py tests/unit/test_api_contract.py -q", "exit": 0, "out": "48 passed (vor Fix)"},
+    {"cmd": "uv run pytest tests/unit -q", "exit": 0, "out": "1340 passed, 1 skipped (nach Fix)"},
+    {"cmd": "uv run ruff check backend tests scripts", "exit": 0, "out": "All checks passed!"},
+    {"cmd": "uv run ruff format --check backend tests scripts", "exit": 0, "out": "169 files already formatted"},
+    {"cmd": "uv run mypy backend", "exit": 0, "out": "Success: no issues found in 78 source files"}
+  ],
+  "probes": "BLZ-Format, http/ftp/javascript-URL, Endpunkt nur https, version 0/fehlend, JPEG/WebP/GIF/BMP/SVG/gekuerzt, 512 KB+1 -> 413, 17-MP-Bild -> 422, 128x85 PNG, ETag + If-None-Match 304, Version-409, Loeschen mit Zugang 409, unbekannte ID 404",
+  "residual": "Body wird vor der 512-KB-Pruefung vollstaendig gelesen (kein globales Body-Limit); Doppel-BLZ erlaubt (kein Unique in Spec)."
+}
