@@ -304,3 +304,16 @@ def test_konto_icon_ereignis(client: TestClient) -> None:
     types = [getattr(event, "type", None) for event in events]
     assert types.count("account.changed") == 2
     assert getattr(events[0], "get")("account") == account_id
+
+
+def test_icon_version_unter_eins_liefert_422(client: TestClient) -> None:
+    """F-CON-02/F-KTO-11: eine ungueltige Version (0) ist ein Eingabefehler, kein 500."""
+
+    bank = client.post("/api/banks", json={"blz": "12345678", "name": "Testbank"}).json()
+    for method in ("put", "delete"):
+        response = getattr(client, method)(
+            f"/api/banks/{bank['id']}/icon",
+            params={"version": 0},
+            **({"content": _image_bytes("PNG")} if method == "put" else {}),
+        )
+        assert response.status_code == 422

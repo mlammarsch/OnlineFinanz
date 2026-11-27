@@ -18,7 +18,9 @@ als 413 ``payload_too_large`` gemeldet; ein unzulaessiger Inhalt als 422
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Request, Response, status
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Query, Request, Response, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -35,6 +37,9 @@ from finue.services.icons import IconError, IconTooLarge
 __all__ = ["router"]
 
 router = APIRouter(prefix="/api", tags=["icons"], dependencies=[Depends(require_user)])
+
+#: Erwartete Version aus der Query (F-CON-02); Werte unter 1 sind ein Eingabefehler (422).
+ExpectedVersion = Annotated[int, Query(ge=1)]
 
 
 # ------------------------------------------------------------------- DTO
@@ -135,7 +140,7 @@ def get_account_icon(
 @router.put("/accounts/{account_id}/icon", response_model=IconResponse)
 async def upload_account_icon(
     account_id: int,
-    version: int,
+    version: ExpectedVersion,
     request: Request,
     session: Session = Depends(get_session),
     event_bus: EventBus = Depends(get_event_bus),
@@ -159,7 +164,7 @@ async def upload_account_icon(
 @router.delete("/accounts/{account_id}/icon", status_code=status.HTTP_204_NO_CONTENT)
 def clear_account_icon(
     account_id: int,
-    version: int,
+    version: ExpectedVersion,
     session: Session = Depends(get_session),
     event_bus: EventBus = Depends(get_event_bus),
 ) -> Response:
@@ -199,7 +204,7 @@ def get_bank_icon(
 @router.put("/banks/{bank_id}/icon", response_model=IconResponse)
 async def upload_bank_icon(
     bank_id: int,
-    version: int,
+    version: ExpectedVersion,
     request: Request,
     session: Session = Depends(get_session),
     event_bus: EventBus = Depends(get_event_bus),
@@ -223,7 +228,7 @@ async def upload_bank_icon(
 @router.delete("/banks/{bank_id}/icon", status_code=status.HTTP_204_NO_CONTENT)
 def clear_bank_icon(
     bank_id: int,
-    version: int,
+    version: ExpectedVersion,
     session: Session = Depends(get_session),
     event_bus: EventBus = Depends(get_event_bus),
 ) -> Response:
