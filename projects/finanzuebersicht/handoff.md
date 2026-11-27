@@ -2,6 +2,26 @@
 
 ## Next actions
 
+- **T-103 Verifierbefund behoben (M4, F-DUP-02, Risiko medium) -- T-103 bleibt offen.**
+  Befund der unabhaengigen Pruefung: `scripts/perf_data.py` startete den
+  Multiset-Vorkommensindex je (Konto, Fingerprint) bei **1** (`counters.get(counter_key, 1)`),
+  waehrend die Produktionslogik bei **0** beginnt (`services/duplicate.py`
+  `next_indices.get(fingerprint, 0)`, `demo.py` `counters.get(key, start=0)`).
+  Fix: `occurrence_index = counters.get(counter_key, 0)` plus Kommentarhinweis auf
+  die 0-Basis. Neuer fokussierter Test `tests/unit/test_perf_data.py` (3 Tests):
+  fester Seed/Reproduzierbarkeit, 0-Basis und lueckenlose Multiset-Folge je
+  (Konto, Fingerprint) sowie ein erzwungener Gleich-Fingerprint-Fall, der einen
+  Startwert 1 zuverlaessig aufdeckt. Der Test arbeitet nur auf `_iter_rows` mit
+  kleiner Anzahl; er erzeugt keinen 100.000er-Bestand und beruehrt weder die
+  Performancebudgets noch die Generatorsemantik. Evidenz: `tests/unit/test_perf_data.py`
+  + `test_migration_0005.py` = 6 passed; Mutationstest (Index zurueck auf 1) = 2 von 3
+  Tests rot; `python scripts/validate.py perf` Exit 0 (8 Messwerte alle < 500 ms, Suche
+  ~185-193 ms, Gruppe ~191 ms); Migrationstests 0005/0001/alembic_config = 8 passed;
+  `uv run pytest tests/unit -q` = 1497 passed/1 skipped; `ruff check`/`ruff format
+  --check` (201 Dateien)/`mypy backend` (96 Dateien) gruen. Commit `750948a` (nur die
+  zwei T-103-Dateien). **Offen:** unabhaengige Wiederholungspruefung durch `verifier`;
+  kein `task-done`, kein Push.
+
 - **T-112 Fehlerpfade behoben (M4, F-SYN-04/F-SYN-10, Risiko medium) -- T-112 bleibt offen.**
   Befund der unabhaengigen Pruefung: (1) `SyncService.start_claimed_sync` fing
   `SyncCancelledError`/`TanTimeoutError` vor der ersten TAN-Pause nicht ab, sodass ein
