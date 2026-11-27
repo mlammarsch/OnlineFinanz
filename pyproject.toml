@@ -22,6 +22,7 @@ dependencies = [
     "tzdata",
     "fints==5.0.1",
     "cryptography==50.0.2",
+    "pillow==13.0.0",
 ]
 
 [dependency-groups]
