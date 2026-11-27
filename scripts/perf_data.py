@@ -223,6 +223,7 @@ def _iter_rows(
     account_index_count = len(account_ids)
     # Vorkommens-Index je (Konto, Fingerprint) als Multiset (F-DUP-02): gleiche
     # Fingerprints koennen vorkommen und werden ueber den Index eindeutig.
+    # 0-basiert wie die Produktionslogik (services/duplicate.py, demo.py).
     counters: dict[tuple[int, str], int] = {}
 
     for index in range(count):
@@ -260,7 +261,7 @@ def _iter_rows(
             purpose,
         )
         counter_key = (account_id, fingerprint)
-        occurrence_index = counters.get(counter_key, 1)
+        occurrence_index = counters.get(counter_key, 0)
         counters[counter_key] = occurrence_index + 1
         checked = index % 7 == 0
         reconciled = index % 11 == 0
