@@ -60,6 +60,7 @@ from typing import Any, Final
 
 from sqlalchemy import case, or_, select
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.exc import StaleDataError
 
 from finue.models.import_template import ImportTemplate
 
@@ -69,6 +70,7 @@ __all__ = [
     "N26_TEMPLATE_NAME",
     "PAYPAL_PRE_FILTER",
     "PAYPAL_TEMPLATE_NAME",
+    "TemplateVersionConflict",
     "create_template",
     "delete_template",
     "get_template",
@@ -78,6 +80,20 @@ __all__ = [
     "template_pre_filter",
     "update_template",
 ]
+
+
+class TemplateVersionConflict(RuntimeError):
+    """Die erwartete Vorlagenversion passt nicht zum gespeicherten Stand (F-CON-02).
+
+    Die API-Schicht uebersetzt den Fehler in HTTP 409 mit dem aktuellen Stand.
+    """
+
+    def __init__(self, template_id: int, expected_version: int, current_version: int) -> None:
+        super().__init__(f"Vorlage {template_id}: erwartete Version {expected_version}, aktuell {current_version}.")
+        self.template_id = template_id
+        self.expected_version = expected_version
+        self.current_version = current_version
+
 
 #: Anzeigenamen der mitgelieferten Standardvorlagen (F-IMP-05).
 N26_TEMPLATE_NAME: Final = "N26 CSV"
@@ -278,6 +294,7 @@ def update_template(
     encoding: object = _UNSET,
     date_format: object = _UNSET,
     decimal_separator: object = _UNSET,
+    expected_version: int | None = None,
 ) -> ImportTemplate:
     """Aendert eine Vorlage und committet die Aenderung (F-IMP-05).
 
@@ -286,13 +303,23 @@ def update_template(
     setzt ein explizites ``None`` den Wert auf NULL; die Felder werden daher
     ueber ein internes Sentinel von "nicht uebergeben" unterschieden.
 
+    Args:
+        expected_version: Optimistische Sperre (F-CON-02). Ist der Wert gesetzt
+            und passt nicht zur gespeicherten Version, wird die Aenderung ohne
+            Wirkung abgelehnt.
+
     Raises:
         LookupError: Wenn die Vorlage nicht existiert.
+        TemplateVersionConflict: ``expected_version`` ist veraltet (F-CON-02).
         ValueError: Bei ungueltigen Werten.
     """
     template = get_template(session, template_id)
     if template is None:
         raise LookupError(f"Import-Vorlage {template_id} nicht gefunden.")
+
+    checked_version = _checked_expected_version(expected_version)
+    if checked_version is not None and template.version != checked_version:
+        raise TemplateVersionConflict(template_id, checked_version, template.version)
 
     if name is not None:
         template.name = _checked_name(name)
@@ -311,18 +338,44 @@ def update_template(
     if decimal_separator is not _UNSET:
         template.decimal_separator = _optional_text(decimal_separator, "decimal_separator")
 
-    session.commit()
+    try:
+        session.commit()
+    except StaleDataError as exc:
+        session.rollback()
+        current = session.get(ImportTemplate, template_id)
+        current_version = current.version if current is not None else -1
+        raise TemplateVersionConflict(template_id, checked_version or -1, current_version) from exc
+
     session.refresh(template)
     return template
 
 
-def delete_template(session: Session, template_id: int) -> bool:
-    """Loescht eine Vorlage; ``False``, wenn sie nicht existiert."""
+def delete_template(session: Session, template_id: int, *, expected_version: int | None = None) -> bool:
+    """Loescht eine Vorlage; ``False``, wenn sie nicht existiert (F-IMP-05).
+
+    Args:
+        expected_version: Optimistische Sperre (F-CON-02); bei Abweichung wird
+            nichts geloescht.
+
+    Raises:
+        TemplateVersionConflict: ``expected_version`` ist veraltet (F-CON-02).
+    """
     template = get_template(session, template_id)
     if template is None:
         return False
+
+    checked_version = _checked_expected_version(expected_version)
+    if checked_version is not None and template.version != checked_version:
+        raise TemplateVersionConflict(template_id, checked_version, template.version)
+
     session.delete(template)
-    session.commit()
+    try:
+        session.commit()
+    except StaleDataError as exc:
+        session.rollback()
+        current = session.get(ImportTemplate, template_id)
+        current_version = current.version if current is not None else -1
+        raise TemplateVersionConflict(template_id, checked_version or -1, current_version) from exc
     return True
 
 
@@ -442,6 +495,15 @@ def _checked_template_id(value: object) -> int:
     """Prueft eine Vorlagen-ID."""
     if isinstance(value, bool) or not isinstance(value, int) or value < 1:
         raise ValueError("template_id muss eine positive Ganzzahl sein.")
+    return value
+
+
+def _checked_expected_version(value: int | None) -> int | None:
+    """Prueft eine optionale erwartete Version (F-CON-02)."""
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+        raise ValueError("expected_version muss eine positive Ganzzahl oder None sein.")
     return value
 
 

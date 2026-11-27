@@ -65,6 +65,14 @@ class Settings(BaseSettings):
         ge=1,
         description="Hoechste Groesse einer hochgeladenen Datei in Bytes (Import, M4)",
     )
+    api_import_upload_ttl_seconds: int = Field(
+        default=300,
+        ge=1,
+        description=(
+            "Lebensdauer eines zwischengespeicherten Import-Uploads in Sekunden (F-IMP-01, M4). "
+            "Der Upload liegt nur im Arbeitsspeicher."
+        ),
+    )
     export_max_rows: int = Field(
         default=100_000,
         ge=1,

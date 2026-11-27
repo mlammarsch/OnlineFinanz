@@ -70,6 +70,7 @@
 - [ ] Agent Manager: parallele Builder im GLEICHEN Arbeitsbaum kollidieren (gemeinsamer Git-Index, hx task-claim ohne Task-ID -> Fehlclaim auf niedrigste prio, Register-Dateien). Je Task einen eigenen Worktree nutzen; task-claim um optionale Task-ID ergaenzen.
 - [ ] T-093: Der Tagessaldo einer Folgeseite kommt aus einem SQL-Aggregat ueber die juengeren Buchungen; bei sehr vielen Buchungen am selben Tag sind das wenige, aber unbeschraenkt breite Aggregatabfragen. Im Perf-Block T-103 (100.000 Buchungen) das Tagessaldo-Aggregat je Seite messen und bei Bedarf einen zusammengefassten Tagesindex erwaegen.
 - [ ] Schema v1 (docs/schemas/export-v1.schema.json) verlangt occurrence_index minimum 1, der Bestand fuehrt ihn 0-basiert (duplicate import/Demo). Mit dem Owner klaeren: Import/Modell auf 1-basiert ziehen (Migration) oder Schema-Minimum auf 0 senken (Formatversion beruehren); bis dahin normalisiert der Export still auf 1-basiert (verlustfrei, da Re-Import neu vergibt).
+- [ ] T-100: Der Import-Upload (Token) wird nach einem Lauf nicht freigegeben; der Token bleibt bis TTL/Capacity im RAM (`services/import_uploads.py`). Ein `store.discard(token)` nach erfolgreichem `execute` mit 410-Hinweis waere aufzuraeumen, kollidiert aber mit dem beabsichtigten Fall "Re-Import ueber denselben Token = 0 neu". Entweder Einmal-Token je Lauf einfuehren oder das bewusste Verhalten in `docs/api.md` festhalten.
 
 ## recurring
 

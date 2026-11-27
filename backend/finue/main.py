@@ -27,6 +27,7 @@ from finue.db.engine import create_db_engine, make_session_factory
 from finue.db.migrate import upgrade_to_head
 from finue.logging_setup import configure_logging
 from finue.services.events import EventBus
+from finue.services.import_uploads import UploadStore
 from finue.services.sync_registry import SyncRegistry
 from finue.timeutil import utc_now
 
@@ -44,8 +45,9 @@ def create_app(settings: Settings | None = None, *, clock: Callable[[], datetime
     Der Lifespan richtet das JSON-Logging ein (N-OPS-05, N-SEC-02 maskiert
     Geheimnisse), erzeugt die SQLAlchemy-Engine, migriert das Schema auf ``head``
     (N-DB-03) und hinterlegt den Service-Container in ``app.state`` (D12):
-    Engine/Session-Factory, Ereignisbus (F-CON-04), Sync-Registry als Singleton
-    und die Uhr. Beim Herunterfahren wird die Engine geschlossen.
+    Engine/Session-Factory, Ereignisbus (F-CON-04), Sync-Registry als Singleton,
+    den Upload-Zwischenspeicher des Datei-Imports und die Uhr. Beim
+    Herunterfahren wird die Engine geschlossen.
 
     Args:
         settings: Optionale Konfiguration; ohne Angabe die Projekt-Defaults.
@@ -70,11 +72,16 @@ def create_app(settings: Settings | None = None, *, clock: Callable[[], datetime
         session_factory = make_session_factory(engine)
         event_bus = EventBus(clock=resolved_clock)
         sync_registry = SyncRegistry(clock=resolved_clock)
+        upload_store = UploadStore(
+            clock=resolved_clock,
+            ttl_seconds=resolved.api_import_upload_ttl_seconds,
+        )
         services = AppServices(
             settings=resolved,
             session_factory=session_factory,
             event_bus=event_bus,
             sync_registry=sync_registry,
+            upload_store=upload_store,
             clock=resolved_clock,
         )
 
@@ -83,6 +90,7 @@ def create_app(settings: Settings | None = None, *, clock: Callable[[], datetime
         app.state.services = services
         app.state.event_bus = event_bus
         app.state.sync_registry = sync_registry
+        app.state.upload_store = upload_store
         app.state.clock = resolved_clock
         # Der Zeitplaner kommt erst in M8; bis dahin ist er nicht gestartet.
         app.state.scheduler_running = False

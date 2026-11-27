@@ -20,7 +20,19 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from finue.api import accounts, banks, export, groups, icons, reconciliation, search, transaction_list
+from finue.api import (
+    accounts,
+    banks,
+    export,
+    groups,
+    icons,
+    import_templates,
+    imports,
+    reconciliation,
+    search,
+    standing_orders,
+    transaction_list,
+)
 from finue.api.health import router as health_router
 
 __all__ = ["build_protected_router", "build_router"]
@@ -51,6 +63,11 @@ def build_protected_router() -> APIRouter:
     protected.include_router(export.router)
     # Buchungsliste je Konto und Gruppe mit Vormerkungen und Tagessalden (T-093, F-BUC-01..06).
     protected.include_router(transaction_list.router)
+    # Import-Assistent: Formaterkennung, Vorschau, Lauf und Vorlagen-CRUD (T-100, F-IMP-01..08).
+    protected.include_router(imports.router)
+    protected.include_router(import_templates.router)
+    # Termin- und Dauerauftraege, rein lesend (T-100, F-AUF-02/04/05).
+    protected.include_router(standing_orders.router)
     return protected
 
 

@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from finue.api.container import AppServices
 from finue.api.errors import UnauthorizedError
 from finue.services.events import EventBus
+from finue.services.import_uploads import UploadStore
 from finue.services.sync_registry import SyncRegistry
 
 __all__ = [
@@ -32,6 +33,7 @@ __all__ = [
     "get_services",
     "get_session",
     "get_sync_registry",
+    "get_upload_store",
     "require_user",
 ]
 
@@ -87,6 +89,12 @@ def get_sync_registry(request: Request) -> SyncRegistry:
     """Liefert die Sync-Registry (Singleton je App) aus dem Container (D12)."""
 
     return get_services(request).sync_registry
+
+
+def get_upload_store(request: Request) -> UploadStore:
+    """Liefert den Zwischenspeicher fuer Import-Uploads aus dem Container (F-IMP-01)."""
+
+    return get_services(request).upload_store
 
 
 def get_clock(request: Request) -> Callable[[], datetime]:

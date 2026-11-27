@@ -157,6 +157,49 @@ CONTRACT: dict[str, RouteContract] = {
         kind="aktion",
         reason="Export als Datei/Zwischenablage-Text ohne Aenderung des Datenbestands (F-EXP-01/02/04/05)",
     ),
+    "/api/import/detect": RouteContract(
+        frozenset({"POST"}),
+        kind="aktion",
+        reason="Upload zwischenspeichern und Formaterkennung CSV/JSON/eigenes Format (F-IMP-01/02/04)",
+    ),
+    "/api/import/preview": RouteContract(
+        frozenset({"POST"}),
+        kind="aktion",
+        reason="Import-Vorschau je Zeile neu/vorhanden/Verdacht ohne Schreibzugriff (F-IMP-03/06/07)",
+    ),
+    "/api/import/execute": RouteContract(
+        frozenset({"POST"}),
+        kind="aktion",
+        reason="Datei-Import als Import-Lauf mit Protokoll, Herkunft import (F-IMP-06, F-SYN-07)",
+    ),
+    "/api/import-runs": RouteContract(
+        frozenset({"GET"}),
+        kind="lesen",
+        reason="Sync- und Datei-Laeufe mit Fehlerzeilen, paginiert (F-SYN-07, F-IMP-06)",
+        is_list=True,
+    ),
+    "/api/import-templates": RouteContract(
+        frozenset({"GET", "POST"}),
+        kind="anlegen",
+        reason="Import-Vorlagen auflisten/vorschlagen; Vorlage anlegen (F-IMP-05)",
+        is_list=True,
+    ),
+    "/api/import-templates/{template_id}": RouteContract(
+        frozenset({"GET", "PATCH", "DELETE"}),
+        kind="version",
+        reason="Import-Vorlage ansehen/pflegen/loeschen mit Versionspruefung (F-IMP-05, F-CON-02)",
+    ),
+    "/api/accounts/{account_id}/standing-orders": RouteContract(
+        frozenset({"GET"}),
+        kind="lesen",
+        reason="Auftragsbestand eines Kontos, Stand mit Zeitstempel oder Hinweis (F-AUF-02/04/05)",
+    ),
+    "/api/standing-orders": RouteContract(
+        frozenset({"GET"}),
+        kind="lesen",
+        reason="Auftragsbestand aller FinTS-Konten, paginiert (F-AUF-04/05)",
+        is_list=True,
+    ),
 }
 
 

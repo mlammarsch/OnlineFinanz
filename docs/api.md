@@ -481,6 +481,64 @@ Minimum/Maximum der exportierten Buchungen (F-EXP-02). Eine Buchungsmenge ueber
 `docs/schemas/export-v1.schema.json` (F-EXP-04); der Vorkommen-Index wird darin
 1-basiert ausgegeben (der Bestand fuehrt ihn 0-basiert, F-DUP-02).
 
+## Datei-Import und Auftraege (F-IMP-01..08, F-AUF-02/04/05)
+
+Der Import-Assistent nutzt die M2-Services (`services/import_detect.py` fuer die
+Erkennung, `import_preview.build_preview`, `import_run.execute_import`,
+`import_templates`); die Router `backend/finue/api/imports.py` und
+`backend/finue/api/import_templates.py` uebersetzen nur HTTP.
+
+| Methode | Pfad | Zweck |
+|---|---|---|
+| POST | `/api/import/detect` | Datei hochladen, Format erkennen (CSV/fremdes JSON/eigenes Format), Vorschlaege (F-IMP-01/02/04) |
+| POST | `/api/import/preview` | Vorschau je Zeile (neu/vorhanden/Verdachtsdublette) ohne Schreiben (F-IMP-03/06/07) |
+| POST | `/api/import/execute` | Import als Lauf mit Protokoll, Herkunft `import` (F-IMP-06) |
+| GET | `/api/import-runs` | Sync- und Datei-Laeufe mit Fehlerzeilen, `?account_id=` und `?kind=sync|csv|json` (F-SYN-07) |
+| GET | `/api/import-templates` | Vorlagen auflisten; `?account_id=` schlaegt konto-spezifisch vor (F-IMP-05) |
+| POST | `/api/import-templates` | Vorlage anlegen (F-IMP-05) |
+| GET/PATCH/DELETE | `/api/import-templates/{id}` | Vorlage ansehen/pflegen/loeschen, Aenderung mit `version` (F-IMP-05, F-CON-02) |
+| GET | `/api/accounts/{id}/standing-orders` | Auftragsbereich eines Kontos (F-AUF-02/04/05) |
+| GET | `/api/standing-orders` | Auftragsbereiche aller FinTS-Konten, paginiert (F-AUF-04/05) |
+
+### Ablauf
+
+`POST /api/import/detect` nimmt die **rohe Datei** als Anfragekoerper und
+Korrekturwerte als Query (`encoding`, `delimiter`, `decimal_separator`,
+`date_format`, `has_header`, `skip_rows`). Die Antwort enthaelt `kind`
+(`csv`/`json`/`own_json`), den `csv`-Vorschlag und einen `token`. Die Bytes
+liegen danach nur im Arbeitsspeicher unter diesem `token` (TTL
+`api_import_upload_ttl_seconds`); Vorschau und Lauf beziehen sie ueber `token`
+statt eines erneuten Uploads.
+
+```json
+{ "token": "<token>", "account_id": 1, "mapping": {"Datum": "booking_date", "...": "..."} }
+```
+
+- `mapping` ist fuer CSV und fremdes JSON Pflicht (F-IMP-03), entfaellt beim
+  eigenen Format (F-IMP-04). `template_id` ersetzt `mapping` und `kind` durch
+  eine Vorlage; `format` ueberschreibt Kodierung/Trennzeichen/Kopfzeile.
+- Eigenes JSON wird ohne Mapping importiert und behaelt Notizen und Kennzeichen
+  (F-IMP-07).
+- `restore_flags_for_existing` stellt geprueft/abgestimmt vorhandener Zeilen
+  wieder her (F-IMP-07).
+- Der Lauf traegt den Status `erfolgreich`/`teilweise`/`fehler` mit Zaehlern
+  neu/uebersprungen/Verdacht/fehlerhaft (F-IMP-06, F-SYN-07).
+
+### Upload-Speicher
+
+Der Zwischenspeicher (`services/import_uploads.py`) liegt nur im
+Arbeitsspeicher, ist auf `DEFAULT_MAX_ENTRIES` Eintraege begrenzt und laeuft
+nach der TTL ab (Entscheidung in `decisions.md`). Ein unbekannter oder
+abgelaufener Token liefert 422 `domain_error` mit der Bitte um erneuten Upload.
+
+### Auftraege
+
+`GET /api/accounts/{id}/standing-orders` liefert je Konto `available` (mit
+`fetched_at` und Zeilen), `unavailable` (mit dem festen Hinweis "Keine
+Auftragsdaten von der Bank verfuegbar", F-AUF-05) oder `none` fuer ein
+Datei-Konto ohne Bereich. `GET /api/standing-orders` fuehrt nur FinTS-Konten.
+Es gibt **keine** schreibende Route unter `standing-orders` (F-AUF-03).
+
 ## Grenzen (config)
 
 Zentral in `backend/finue/config.py`:
@@ -489,6 +547,7 @@ Zentral in `backend/finue/config.py`:
 - `api_max_batch_size` = 1000 (Batch-Aktionen).
 - `api_max_upload_bytes` = 50 MiB (Import-Datei; der Icon-Upload mit 512 KB
   aus F-KTO-11 wird in T-090 separat begrenzt).
+- `api_import_upload_ttl_seconds` = 300 (Lebensdauer des Import-Upload-Zwischenspeichers).
 - `export_max_rows` = 100000 (Export und Auswahl-ID-Liste, F-EXP-01/02).
 
 ## Ereignisse (F-CON-04)
@@ -498,7 +557,8 @@ Aenderungen meldet der In-Prozess-Ereignisbus
 (z. B. `transaction.updated` mit `transaction=42`) und traegt **keine**
 Geheimnisse und keine Freitextnutzlast (N-SEC-02). Der Bus liegt im
 Service-Container (`app.state.services`); die SSE-Route `/api/events` liefert
-ihn in T-101 aus.
+ihn in T-101 aus. Der Datei-Import meldet `import.finished` (IDs `account` und
+`run`) und `transaction.changed` (ID `account`).
 
 ## Vertragstest
 

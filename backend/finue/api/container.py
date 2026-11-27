@@ -5,8 +5,9 @@ Der Container buendelt die langlebigen Dienste einer App-Instanz und liegt in
 FastAPI-Dependencies (``finue.api.deps``) statt ueber globalen Zustand.
 
 Enthalten sind die Session-Factory, der Ereignisbus, die Sync-Registry als
-Singleton je App und die injizierbare Uhr. Ein Test kann ``create_app`` eine
-eigene Uhr mitgeben, ohne Systemzeit zu stubben.
+Singleton je App, der Upload-Zwischenspeicher fuer den Datei-Import und die
+injizierbare Uhr. Ein Test kann ``create_app`` eine eigene Uhr mitgeben, ohne
+Systemzeit zu stubben.
 """
 
 from __future__ import annotations
@@ -19,6 +20,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from finue.config import Settings
 from finue.services.events import EventBus
+from finue.services.import_uploads import UploadStore
 from finue.services.sync_registry import SyncRegistry
 
 __all__ = ["AppServices"]
@@ -32,4 +34,5 @@ class AppServices:
     session_factory: sessionmaker[Session]
     event_bus: EventBus
     sync_registry: SyncRegistry
+    upload_store: UploadStore
     clock: Callable[[], datetime]
