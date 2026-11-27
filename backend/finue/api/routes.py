@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from finue.api import accounts, groups
+from finue.api import accounts, banks, groups, icons, reconciliation, search
 from finue.api.health import router as health_router
 
 __all__ = ["build_protected_router", "build_router"]
@@ -40,6 +40,13 @@ def build_protected_router() -> APIRouter:
     # damit sie auch in verschachtelten Routen (FastAPI 0.16x) an jeder Route haengt.
     protected.include_router(accounts.router)
     protected.include_router(groups.router)
+    # Abstimmungsuebersicht je Konto und Gruppe (T-095, F-ABS-03).
+    protected.include_router(reconciliation.router)
+    # Banken-Stammdaten und Icon-Upload/-Auslieferung (T-090, F-KTO-10/11).
+    protected.include_router(banks.router)
+    protected.include_router(icons.router)
+    # Buchungssuche mit Filtern (T-092, F-SUC-01..07, F-ABS-04/05).
+    protected.include_router(search.router)
     return protected
 
 

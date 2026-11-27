@@ -103,6 +103,43 @@ CONTRACT: dict[str, RouteContract] = {
         kind="version",
         reason="Gruppe umbenennen oder loeschen mit Versionspruefung; Konten bleiben (F-KTO-03, F-CON-02)",
     ),
+    "/api/accounts/{account_id}/reconciliation": RouteContract(
+        frozenset({"GET"}),
+        kind="lesen",
+        reason="Abstimmungsuebersicht eines Kontos (F-ABS-03)",
+    ),
+    "/api/groups/{group_id}/reconciliation": RouteContract(
+        frozenset({"GET"}),
+        kind="lesen",
+        reason="Abstimmungsuebersicht einer Gruppe mit Fremdwaehrung getrennt (F-ABS-03)",
+    ),
+    "/api/banks": RouteContract(
+        frozenset({"GET", "POST"}),
+        kind="anlegen",
+        reason="Banken-Stammdaten auflisten; Bank anlegen, keine Vorbelegung (F-KTO-10)",
+        is_list=True,
+    ),
+    "/api/banks/{bank_id}": RouteContract(
+        frozenset({"GET", "PATCH", "DELETE"}),
+        kind="version",
+        reason="Bank ansehen/pflegen/loeschen mit Versionspruefung (nur ohne Bankzugaenge), F-KTO-10",
+    ),
+    "/api/accounts/{account_id}/icon": RouteContract(
+        frozenset({"GET", "PUT", "DELETE"}),
+        kind="version",
+        reason="Konto-Icon hochladen/entfernen mit Versionspruefung; GET liefert PNG mit ETag (F-KTO-11, F-CON-02)",
+    ),
+    "/api/banks/{bank_id}/icon": RouteContract(
+        frozenset({"GET", "PUT", "DELETE"}),
+        kind="version",
+        reason="Bank-Icon hochladen/entfernen mit Versionspruefung; GET liefert PNG mit ETag (F-KTO-10/11, F-CON-02)",
+    ),
+    "/api/search": RouteContract(
+        frozenset({"GET"}),
+        kind="lesen",
+        reason="Buchungssuche mit Filter, Sortierung, Trefferzahl und Summe (F-SUC-01..07, F-ABS-04/05)",
+        is_list=True,
+    ),
 }
 
 
