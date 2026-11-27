@@ -17,7 +17,13 @@ Referenzierte Anforderungen:
   Anforderung fuehrt zum selben Ergebnis. Ein bereits gesetzter Wert aendert
   nichts (kein Versionssprung, kein Zeitstempel, kein Audit, kein Ereignis).
 - **F-CON-02** Optimistisches Sperren: gibt der Aufrufer eine bekannte Version
-  mit, wird sie geprueft; ein veralteter Stand ist ein Konflikt.
+  mit, wird sie geprueft; ein veralteter Stand ist ein Konflikt. Gilt fuer die
+  **ersetzenden** Aenderungen (Notiz ersetzen, externe Referenz, T-109).
+- **F-CON-01** Notiz "anhaengen" ist eine **atomare** Operation: ein einzelner
+  UPDATE-Ausdruck haengt an, ohne das gelesene Feld in Python fortzuschreiben;
+  zwei gleichzeitige Aufrufe verlieren dadurch keinen Text.
+- **F-ABS-05** Optionale externe Referenz je Buchung (Freitext, setzbar ueber
+  UI und MCP, durchsuchbar).
 - **F-DET-01** Einzelbuchung mit Quelle, Import-Lauf, Kennzeichen samt
   Zeitpunkt/Herkunft und externer Referenz.
 - N-DB-01 (kein rohes SQL), N-DB-02 (Zeitstempel in UTC).
@@ -33,7 +39,7 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Any, Final, cast
 
-from sqlalchemy import select
+from sqlalchemy import CursorResult, case, or_, select, update
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.exc import StaleDataError
 
@@ -41,20 +47,27 @@ from finue.models.audit import AuditLog
 from finue.models.import_run import ImportRun
 from finue.models.transaction import Transaction
 from finue.services.events import EventBus
+from finue.services.search_text import refresh_search_text
 from finue.timeutil import utc_now
 
 __all__ = [
     "EDIT_ORIGINS",
+    "EXTERNAL_REF_MAX_LENGTH",
     "FLAGS",
+    "NOTE_APPEND_SEPARATOR",
     "ImportRunReference",
     "PendingReconciliationError",
     "TransactionDetail",
     "TransactionEditValidationError",
+    "TransactionFieldResult",
     "TransactionFlagResult",
     "TransactionNotFound",
     "TransactionVersionConflict",
+    "append_note",
     "latest_import_run",
+    "set_external_ref",
     "set_flag",
+    "set_note",
     "transaction_detail",
 ]
 
@@ -65,6 +78,15 @@ EDIT_ORIGINS: Final = frozenset({"ui", "mcp", "import"})
 
 #: Setzbare Kennzeichen (F-ABS-01).
 FLAGS: Final = frozenset({"checked", "reconciled"})
+
+#: Trennzeichen beim Anhaengen an eine Notiz (F-CON-01). Ein Zeilenumbruch,
+#: weil Notizen freier Text sind (``build_search_text`` fasst Zeilenumbrueche
+#: fuer die Suche ohnehin zu einem Leerzeichen zusammen).
+NOTE_APPEND_SEPARATOR: Final = "\n"
+
+#: Laenge der Spalte ``transaction.external_ref`` (F-ABS-05); laengere Werte
+#: waeren auf strengeren Dialekten (z. B. PostgreSQL) ein Fehler.
+EXTERNAL_REF_MAX_LENGTH: Final = 255
 
 #: Status einer vorgemerkten Buchung; sie laesst sich nicht abstimmen (F-ABS-01).
 PENDING_STATUS: Final = "vorgemerkt"
@@ -122,6 +144,25 @@ class TransactionFlagResult:
     version: int
     changed_at: datetime | None
     origin: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class TransactionFieldResult:
+    """Ergebnis einer Textfeld-Aenderung (Notiz, externe Referenz; T-109).
+
+    ``field`` ist ``note`` oder ``external_ref``. ``changed`` ist ``False``,
+    wenn der Zielwert bereits gleich war (Setz-Semantik, kein Versionssprung,
+    kein Audit, kein Ereignis). ``search_text`` ist der neu gesetzte Inhalt der
+    Suchspalte (F-SUC-01, F-ABS-05).
+    """
+
+    transaction_id: int
+    account_id: int
+    field: str
+    value: str | None
+    changed: bool
+    version: int
+    search_text: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -199,6 +240,48 @@ def _checked_value(value: object) -> bool:
     return value
 
 
+def _checked_note_text(text: object) -> str | None:
+    """Prueft den Zielwert einer Notiz (F-CON-02, F-ABS-05).
+
+    ``None`` und der leere String loeschen die Notiz; jeder andere String wird
+    unveraendert uebernommen (Notizen sind freier Text).
+    """
+
+    if text is None:
+        return None
+    if not isinstance(text, str):
+        raise TransactionEditValidationError("Die Notiz muss eine Zeichenkette oder leer sein.")
+    return text or None
+
+
+def _checked_append_text(text: object) -> str:
+    """Prueft den anzuhaengenden Notiztext (F-CON-01)."""
+
+    if not isinstance(text, str) or text.strip() == "":
+        raise TransactionEditValidationError("Der anzuhaengende Notiztext darf nicht leer sein.")
+    return text
+
+
+def _checked_external_ref(value: object) -> str | None:
+    """Prueft den Zielwert der externen Referenz (F-ABS-05)."""
+
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise TransactionEditValidationError("Die externe Referenz muss eine Zeichenkette oder leer sein.")
+    if len(value) > EXTERNAL_REF_MAX_LENGTH:
+        raise TransactionEditValidationError(
+            f"Die externe Referenz darf hoechstens {EXTERNAL_REF_MAX_LENGTH} Zeichen lang sein."
+        )
+    return value or None
+
+
+def _same_text(current: str | None, target: str | None) -> bool:
+    """Vergleicht zwei Textfeld-Werte mit Setz-Semantik (F-CON-01)."""
+
+    return (current or None) == (target or None)
+
+
 def _require_transaction(session: Session, transaction_id: int) -> Transaction:
     """Liefert eine Buchung oder wirft ``TransactionNotFound``."""
 
@@ -239,6 +322,27 @@ def _apply_flag(transaction: Transaction, flag: str, value: bool, moment: dateti
     transaction.reconciled_origin = origin
 
 
+def _write_audit(
+    session: Session,
+    transaction: Transaction,
+    *,
+    source: str,
+    changes: dict[str, Any],
+) -> None:
+    """Schreibt einen Audit-Eintrag je Aenderung (F-MCP-09, F-ABS-01/05)."""
+
+    session.add(
+        AuditLog(
+            account_id=transaction.account_id,
+            entity="transaction",
+            entity_id=transaction.id,
+            action="updated",
+            source=source,
+            changes=changes,
+        )
+    )
+
+
 def _append_audit(
     session: Session,
     transaction: Transaction,
@@ -248,18 +352,26 @@ def _append_audit(
     value: bool,
     origin: str,
 ) -> None:
-    """Schreibt einen Audit-Eintrag je Aenderung (F-MCP-09, F-ABS-01)."""
+    """Schreibt einen Audit-Eintrag je Kennzeichen-Aenderung (F-MCP-09, F-ABS-01)."""
 
-    session.add(
-        AuditLog(
-            account_id=transaction.account_id,
-            entity="transaction",
-            entity_id=transaction.id,
-            action="updated",
-            source=origin,
-            changes={flag: {"from": previous, "to": value}},
-        )
-    )
+    _write_audit(session, transaction, source=origin, changes={flag: {"from": previous, "to": value}})
+
+
+def _commit_or_conflict(session: Session, transaction_id: int, expected_version: int | None) -> None:
+    """Schreibt die Aenderung; ein parallel geaenderter Stand ist ein Konflikt (F-CON-02)."""
+
+    try:
+        session.commit()
+    except StaleDataError as exc:
+        session.rollback()
+        fresh = session.get(Transaction, transaction_id)
+        if fresh is None:
+            raise TransactionNotFound(f"Buchung {transaction_id} nicht gefunden.") from exc
+        raise TransactionVersionConflict(
+            transaction_id,
+            expected_version if expected_version is not None else 0,
+            fresh.version,
+        ) from exc
 
 
 # ------------------------------------------------------------------- Kennzeichen
@@ -385,6 +497,239 @@ def set_flag(
         version=transaction.version,
         changed_at=moment,
         origin=checked_origin,
+    )
+
+
+# --------------------------------------------------------- Notiz / Referenz
+
+
+def set_note(
+    session: Session,
+    transaction_id: int,
+    *,
+    text: str | None,
+    origin: str,
+    expected_version: int | None = None,
+    events: EventBus | None = None,
+) -> TransactionFieldResult:
+    """Ersetzt die Notiz einer Buchung (F-CON-01/02, F-ABS-05).
+
+    Der Zielwert wird **gesetzt** (ersetzt), nicht an das Bestehende
+    angefuegt; ``None`` oder der leere String loeschen die Notiz. Ist der Wert
+    bereits gleich, bleibt die Buchung unveraendert (kein Versionssprung, kein
+    Audit, kein Ereignis). Andernfalls werden Notiz und ``search_text`` neu
+    gesetzt, ein Audit-Eintrag geschrieben und ``transaction.changed`` gemeldet.
+
+    Args:
+        session: Offene SQLAlchemy-Session.
+        transaction_id: ID der Buchung.
+        text: Neuer Notiztext oder ``None`` zum Loeschen.
+        origin: Herkunft des Aufrufs (``ui``, ``mcp`` oder ``import``).
+        expected_version: Bekannte Version (F-CON-02); passt sie nicht, ist das
+            ein Konflikt.
+        events: Optionaler Ereignisbus; ist er gesetzt, meldet der Kern
+            ``transaction.changed``.
+
+    Returns:
+        Das Ergebnis mit ``changed``, Version und neuem ``search_text``.
+
+    Raises:
+        TransactionNotFound: Die Buchung existiert nicht.
+        TransactionEditValidationError: Notiz oder Herkunft sind ungueltig.
+        TransactionVersionConflict: ``expected_version`` ist veraltet (F-CON-02).
+    """
+
+    checked_origin = _checked_origin(origin)
+    checked_text = _checked_note_text(text)
+    transaction = _require_transaction(session, transaction_id)
+
+    if expected_version is not None and transaction.version != expected_version:
+        raise TransactionVersionConflict(transaction_id, expected_version, transaction.version)
+
+    previous = transaction.note
+    if _same_text(previous, checked_text):
+        # F-CON-01: gleicher Wert aendert nichts und hebt die Version nicht an.
+        return TransactionFieldResult(
+            transaction_id=transaction.id,
+            account_id=transaction.account_id,
+            field="note",
+            value=previous,
+            changed=False,
+            version=transaction.version,
+            search_text=transaction.search_text,
+        )
+
+    transaction.note = checked_text
+    refresh_search_text(transaction)
+    _write_audit(session, transaction, source=checked_origin, changes={"note": {"from": previous, "to": checked_text}})
+    _commit_or_conflict(session, transaction_id, expected_version)
+    session.refresh(transaction)
+
+    if events is not None:
+        events.emit("transaction.changed", account=transaction.account_id, transaction=transaction.id)
+
+    return TransactionFieldResult(
+        transaction_id=transaction.id,
+        account_id=transaction.account_id,
+        field="note",
+        value=transaction.note,
+        changed=True,
+        version=transaction.version,
+        search_text=transaction.search_text,
+    )
+
+
+def append_note(
+    session: Session,
+    transaction_id: int,
+    *,
+    text: str,
+    origin: str,
+    events: EventBus | None = None,
+) -> TransactionFieldResult:
+    """Haengt einen Text an die Notiz an - atomar (F-CON-01, F-ABS-05).
+
+    Der Anhang ist ein **einzelner** UPDATE-Ausdruck (``note = note || sep ||
+    text`` bzw. ``text``, wenn die Notiz leer ist). Es wird bewusst nichts
+    vorher gelesen und in Python fortgeschrieben; zwei gleichzeitige Aufrufe
+    reihen sich an der Schreibsperre auf und verlieren dadurch keinen Text.
+    Die Suchspalte wird anschliessend aus dem aktuellen Stand neu gebaut
+    (F-SUC-01, F-ABS-05).
+
+    Trennzeichen: :data:`NOTE_APPEND_SEPARATOR` (Zeilenumbruch).
+
+    Args:
+        session: Offene SQLAlchemy-Session.
+        transaction_id: ID der Buchung.
+        text: Anzuhaengender Text; darf nach Trimmen nicht leer sein.
+        origin: Herkunft des Aufrufs (``ui``, ``mcp`` oder ``import``).
+        events: Optionaler Ereignisbus; ist er gesetzt, meldet der Kern
+            ``transaction.changed``.
+
+    Returns:
+        Das Ergebnis mit dem neuen Notizstand, Version und ``search_text``.
+
+    Raises:
+        TransactionNotFound: Die Buchung existiert nicht.
+        TransactionEditValidationError: Text oder Herkunft sind ungueltig.
+    """
+
+    checked_origin = _checked_origin(origin)
+    checked_text = _checked_append_text(text)
+
+    statement = (
+        update(Transaction)
+        .where(Transaction.id == transaction_id)
+        .values(
+            note=case(
+                (or_(Transaction.note.is_(None), Transaction.note == ""), checked_text),
+                else_=Transaction.note + NOTE_APPEND_SEPARATOR + checked_text,
+            )
+        )
+    )
+    outcome = cast("CursorResult[Any]", session.execute(statement))
+    if outcome.rowcount == 0:
+        session.rollback()
+        raise TransactionNotFound(f"Buchung {transaction_id} nicht gefunden.")
+
+    # Frisch laden: die ORM-Instanz darf den neuen Stand nicht ueberschreiben.
+    transaction = session.get(Transaction, transaction_id, populate_existing=True)
+    if transaction is None:
+        session.rollback()
+        raise TransactionNotFound(f"Buchung {transaction_id} nicht gefunden.")
+
+    refresh_search_text(transaction)
+    _write_audit(session, transaction, source=checked_origin, changes={"note": {"appended": checked_text}})
+    session.commit()
+    session.refresh(transaction)
+
+    if events is not None:
+        events.emit("transaction.changed", account=transaction.account_id, transaction=transaction.id)
+
+    return TransactionFieldResult(
+        transaction_id=transaction.id,
+        account_id=transaction.account_id,
+        field="note",
+        value=transaction.note,
+        changed=True,
+        version=transaction.version,
+        search_text=transaction.search_text,
+    )
+
+
+def set_external_ref(
+    session: Session,
+    transaction_id: int,
+    *,
+    value: str | None,
+    origin: str,
+    expected_version: int | None = None,
+    events: EventBus | None = None,
+) -> TransactionFieldResult:
+    """Ersetzt die externe Referenz einer Buchung (F-ABS-05, F-CON-02).
+
+    Setz-Semantik wie :func:`set_note`: gleicher Wert aendert nichts. Andernfalls
+    werden Referenz und ``search_text`` gesetzt, ein Audit-Eintrag geschrieben und
+    ``transaction.changed`` gemeldet.
+
+    Args:
+        session: Offene SQLAlchemy-Session.
+        transaction_id: ID der Buchung.
+        value: Neue externe Referenz oder ``None`` zum Loeschen.
+        origin: Herkunft des Aufrufs (``ui``, ``mcp`` oder ``import``).
+        expected_version: Bekannte Version (F-CON-02).
+        events: Optionaler Ereignisbus.
+
+    Returns:
+        Das Ergebnis mit ``changed``, Version und neuem ``search_text``.
+
+    Raises:
+        TransactionNotFound: Die Buchung existiert nicht.
+        TransactionEditValidationError: Referenz oder Herkunft sind ungueltig.
+        TransactionVersionConflict: ``expected_version`` ist veraltet (F-CON-02).
+    """
+
+    checked_origin = _checked_origin(origin)
+    checked_ref = _checked_external_ref(value)
+    transaction = _require_transaction(session, transaction_id)
+
+    if expected_version is not None and transaction.version != expected_version:
+        raise TransactionVersionConflict(transaction_id, expected_version, transaction.version)
+
+    previous = transaction.external_ref
+    if _same_text(previous, checked_ref):
+        return TransactionFieldResult(
+            transaction_id=transaction.id,
+            account_id=transaction.account_id,
+            field="external_ref",
+            value=previous,
+            changed=False,
+            version=transaction.version,
+            search_text=transaction.search_text,
+        )
+
+    transaction.external_ref = checked_ref
+    refresh_search_text(transaction)
+    _write_audit(
+        session,
+        transaction,
+        source=checked_origin,
+        changes={"external_ref": {"from": previous, "to": checked_ref}},
+    )
+    _commit_or_conflict(session, transaction_id, expected_version)
+    session.refresh(transaction)
+
+    if events is not None:
+        events.emit("transaction.changed", account=transaction.account_id, transaction=transaction.id)
+
+    return TransactionFieldResult(
+        transaction_id=transaction.id,
+        account_id=transaction.account_id,
+        field="external_ref",
+        value=transaction.external_ref,
+        changed=True,
+        version=transaction.version,
+        search_text=transaction.search_text,
     )
 
 

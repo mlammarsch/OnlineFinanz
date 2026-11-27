@@ -13,6 +13,7 @@ echten Zugangsdaten und keine Bankzugriffe.
 
 from __future__ import annotations
 
+import threading
 from collections.abc import Iterator
 from datetime import date, datetime
 
@@ -113,6 +114,21 @@ def _audit_rows(client: TestClient, transaction_id: int) -> list[AuditLog]:
                 select(AuditLog).where(AuditLog.entity == "transaction", AuditLog.entity_id == transaction_id)
             )
         )
+
+
+def _reload(client: TestClient, transaction_id: int) -> Transaction:
+    """Laedt eine Buchung direkt aus der Datenbank (Pruefung der Spalten)."""
+
+    with _session(client) as session:
+        transaction = session.get(Transaction, transaction_id)
+        assert transaction is not None
+        return transaction
+
+
+def _search_text(client: TestClient, transaction_id: int) -> str:
+    """Liefert die gespeicherte Suchspalte einer Buchung (F-SUC-01, F-ABS-05)."""
+
+    return _reload(client, transaction_id).search_text
 
 
 @pytest.fixture
@@ -401,3 +417,298 @@ def test_service_detail_setzt_zeitstempel_typ(client: TestClient) -> None:
 
     assert isinstance(detail.checked_at, datetime)
     assert detail.checked_at.tzinfo is not None
+
+
+# ------------------------------------------------ F-CON-02 Notiz ersetzen (T-109)
+
+
+def test_notiz_ersetzen_setzt_text_und_version(client: TestClient) -> None:
+    """F-CON-02/F-ABS-05: PUT .../note ersetzt die Notiz und hebt die Version."""
+
+    account_id = _add_account(client)
+    transaction_id = _add_transaction(client, account_id, note="alt")
+
+    response = client.put(f"/api/transactions/{transaction_id}/note", json={"text": "neu", "version": 1})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["note"] == "neu"
+    assert body["version"] == 2
+    assert _reload(client, transaction_id).note == "neu"
+
+
+def test_notiz_ersetzen_mit_null_loescht(client: TestClient) -> None:
+    """F-CON-02: ``text: null`` loescht die Notiz."""
+
+    account_id = _add_account(client)
+    transaction_id = _add_transaction(client, account_id, note="alt")
+
+    response = client.put(f"/api/transactions/{transaction_id}/note", json={"text": None, "version": 1})
+
+    assert response.status_code == 200
+    assert response.json()["note"] is None
+    assert _reload(client, transaction_id).note is None
+
+
+def test_notiz_ersetzen_versionskonflikt_ist_409_mit_stand(client: TestClient) -> None:
+    """F-CON-02: Eine veraltete Version liefert 409 mit dem aktuellen Stand."""
+
+    account_id = _add_account(client)
+    transaction_id = _add_transaction(client, account_id, note="alt")
+
+    response = client.put(f"/api/transactions/{transaction_id}/note", json={"text": "neu", "version": 7})
+
+    assert response.status_code == 409
+    body = response.json()
+    assert body["code"] == "conflict"
+    assert body["current"]["id"] == transaction_id
+    assert body["current"]["version"] == 1
+    assert body["current"]["note"] == "alt"
+    assert _reload(client, transaction_id).note == "alt"
+
+
+def test_notiz_ersetzen_gleicher_wert_ist_idempotent(client: TestClient) -> None:
+    """F-CON-01/02: Derselbe Text aendert nichts (kein Versionssprung, kein Audit)."""
+
+    account_id = _add_account(client)
+    transaction_id = _add_transaction(client, account_id)
+
+    first = client.put(f"/api/transactions/{transaction_id}/note", json={"text": "gleich", "version": 1}).json()
+    second = client.put(f"/api/transactions/{transaction_id}/note", json={"text": "gleich", "version": 2}).json()
+
+    assert second["note"] == "gleich"
+    assert second["version"] == first["version"] == 2
+    assert len(_audit_rows(client, transaction_id)) == 1
+
+
+def test_notiz_ersetzen_ohne_version_ist_422(client: TestClient) -> None:
+    """F-CON-02: Bei den ersetzenden Routen ist ``version`` Pflicht."""
+
+    account_id = _add_account(client)
+    transaction_id = _add_transaction(client, account_id)
+
+    response = client.put(f"/api/transactions/{transaction_id}/note", json={"text": "ohne version"})
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "validation_error"
+
+
+# ------------------------------------------------ F-CON-01 Notiz anhaengen
+
+
+def test_notiz_anhaengen_mit_trennzeichen(client: TestClient) -> None:
+    """F-CON-01: Anhaengen setzt das festgelegte Trennzeichen (Zeilenumbruch)."""
+
+    account_id = _add_account(client)
+    transaction_id = _add_transaction(client, account_id, note="Start")
+
+    first = client.post(f"/api/transactions/{transaction_id}/note/append", json={"text": "Zweite"})
+    assert first.status_code == 200
+    assert first.json()["note"] == "Start\nZweite"
+    assert first.json()["version"] == 2
+
+    second = client.post(f"/api/transactions/{transaction_id}/note/append", json={"text": "Dritte"})
+    assert second.json()["note"] == "Start\nZweite\nDritte"
+    assert _reload(client, transaction_id).note == "Start\nZweite\nDritte"
+
+
+def test_notiz_anhaengen_ohne_vorhandene_notiz(client: TestClient) -> None:
+    """F-CON-01: Ohne Notiz entsteht kein fuehrendes Trennzeichen."""
+
+    account_id = _add_account(client)
+    transaction_id = _add_transaction(client, account_id, note=None)
+
+    response = client.post(f"/api/transactions/{transaction_id}/note/append", json={"text": "Erste"})
+
+    assert response.status_code == 200
+    assert response.json()["note"] == "Erste"
+    assert _reload(client, transaction_id).note == "Erste"
+
+
+def test_paralleles_anhaengen_verliert_keinen_text(client: TestClient) -> None:
+    """F-CON-01: Gleichzeitiges Anhaengen verliert keinen Text (einzelner UPDATE)."""
+
+    account_id = _add_account(client)
+    transaction_id = _add_transaction(client, account_id, note="Start")
+    fragments = [f"Zeile-{index}" for index in range(6)]
+    barrier = threading.Barrier(len(fragments))
+    errors: list[Exception] = []
+
+    def worker(fragment: str) -> None:
+        try:
+            barrier.wait(timeout=15)
+            with _session(client) as session:
+                te.append_note(session, transaction_id, text=fragment, origin="ui")
+        except Exception as exc:
+            errors.append(exc)
+
+    threads = [threading.Thread(target=worker, args=(fragment,)) for fragment in fragments]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=30)
+
+    assert errors == []
+    final = _reload(client, transaction_id).note
+    assert final is not None
+    assert final.startswith("Start")
+    for fragment in fragments:
+        assert fragment in final
+    # Jeder erfolgreiche Anhang hebt die Version genau einmal (F-CON-02).
+    assert client.get(f"/api/transactions/{transaction_id}").json()["version"] == 1 + len(fragments)
+
+
+@pytest.mark.parametrize("payload", [{"text": ""}, {"text": "   "}])
+def test_leere_anhaengung_ist_422(client: TestClient, payload: dict[str, str]) -> None:
+    """F-CON-01: Ein leerer oder reiner Leerraum-Anhang wird abgelehnt."""
+
+    account_id = _add_account(client)
+    transaction_id = _add_transaction(client, account_id)
+
+    response = client.post(f"/api/transactions/{transaction_id}/note/append", json=payload)
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "validation_error"
+
+
+def test_anhaengen_ignoriert_veralteten_leseversuch(client: TestClient) -> None:
+    """F-CON-01: Der Anhang nutzt den DB-Stand, nicht einen veralteten Leseversuch.
+
+    Zwei Sitzungen: die erste liest die Buchung (veralteter ORM-Schnappschuss),
+    die zweite haengt zuerst an. Die erste Sitzung haengt danach an; weil das
+    Anhaengen ein einzelner UPDATE-Ausdruck ist, greift es auf den aktuellen
+    Datenbankstand zu und verliert den Text der zweiten Sitzung nicht. Eine
+    naive Read-Modify-Write-Variante wuerde den zweiten Text ueberschreiben oder
+    einen Versionskonflikt ausloesen.
+    """
+
+    account_id = _add_account(client)
+    transaction_id = _add_transaction(client, account_id, note="Start")
+
+    session_a = _session(client)
+    session_b = _session(client)
+    try:
+        # Starke Referenz halten: die ORM-Identitaetskarte haelt Objekte nur
+        # schwach, sonst wuerde session_a die Buchung still neu laden.
+        stale = session_a.get(Transaction, transaction_id)
+        assert stale is not None
+        assert stale.note == "Start"
+        te.append_note(session_b, transaction_id, text="Zwei", origin="ui")
+        te.append_note(session_a, transaction_id, text="Drei", origin="ui")
+    finally:
+        session_a.close()
+        session_b.close()
+
+    assert _reload(client, transaction_id).note == "Start\nZwei\nDrei"
+
+
+# ------------------------------------------------ F-ABS-05 externe Referenz
+
+
+def test_externe_referenz_setzen_und_versionspruefung(client: TestClient) -> None:
+    """F-ABS-05/F-CON-02: Die externe Referenz laesst sich setzen und schuetzen."""
+
+    account_id = _add_account(client)
+    transaction_id = _add_transaction(client, account_id)
+
+    first = client.put(f"/api/transactions/{transaction_id}/external-ref", json={"value": "ACTUAL-42", "version": 1})
+    assert first.status_code == 200
+    assert first.json()["external_ref"] == "ACTUAL-42"
+    assert first.json()["version"] == 2
+
+    stale = client.put(f"/api/transactions/{transaction_id}/external-ref", json={"value": "X", "version": 1})
+    assert stale.status_code == 409
+    assert stale.json()["current"]["external_ref"] == "ACTUAL-42"
+
+
+def test_externe_referenz_zu_lang_ist_422(client: TestClient) -> None:
+    """F-ABS-05: Eine zu lange Referenz wird als Fachfehler abgelehnt."""
+
+    account_id = _add_account(client)
+    transaction_id = _add_transaction(client, account_id)
+
+    response = client.put(
+        f"/api/transactions/{transaction_id}/external-ref",
+        json={"value": "R" * 256, "version": 1},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "domain_error"
+
+
+# ------------------------------------------------ Suchspalte und Audit
+
+
+def test_search_text_wird_bei_notiz_und_referenz_aktualisiert(client: TestClient) -> None:
+    """F-SUC-01/F-ABS-05: Notiz und externe Referenz landen in der Suchspalte."""
+
+    account_id = _add_account(client)
+    transaction_id = _add_transaction(
+        client,
+        account_id,
+        counterparty="REWE Markt",
+        purpose="Wocheneinkauf",
+    )
+
+    client.put(f"/api/transactions/{transaction_id}/note", json={"text": "Urlaub Kroatien", "version": 1})
+    after_note = _search_text(client, transaction_id)
+    assert "rewe markt" in after_note
+    assert "wocheneinkauf" in after_note
+    assert "urlaub kroatien" in after_note
+
+    client.put(f"/api/transactions/{transaction_id}/external-ref", json={"value": "ACTUAL-99", "version": 2})
+    after_ref = _search_text(client, transaction_id)
+    assert "actual-99" in after_ref
+    assert "urlaub kroatien" in after_ref
+
+
+def test_search_text_nach_anhaengen(client: TestClient) -> None:
+    """F-CON-01/F-ABS-05: Auch angehaengter Text erscheint in der Suchspalte."""
+
+    account_id = _add_account(client)
+    transaction_id = _add_transaction(client, account_id, purpose="Miete")
+
+    client.post(f"/api/transactions/{transaction_id}/note/append", json={"text": "Nebenkosten"})
+
+    assert "nebenkosten" in _search_text(client, transaction_id)
+
+
+def test_audit_und_ereignis_bei_notizaenderung(client: TestClient, captured_events: list[Event]) -> None:
+    """F-MCP-09/F-CON-04: Eine Notizaenderung schreibt Audit und meldet das Ereignis."""
+
+    account_id = _add_account(client)
+    transaction_id = _add_transaction(client, account_id)
+
+    client.put(f"/api/transactions/{transaction_id}/note", json={"text": "Alle Jahre wieder", "version": 1})
+
+    rows = _audit_rows(client, transaction_id)
+    assert len(rows) == 1
+    assert rows[0].source == "ui"
+    assert rows[0].changes == {"note": {"from": None, "to": "Alle Jahre wieder"}}
+    events = [event for event in captured_events if event.type == "transaction.changed"]
+    assert len(events) == 1
+    assert events[0].get("transaction") == transaction_id
+
+
+def test_unbekannte_buchung_notiz_und_referenz_404(client: TestClient) -> None:
+    """F-CON-02: Notiz- und Referenzrouten auf eine unbekannte Buchung liefern 404."""
+
+    assert client.put("/api/transactions/9999/note", json={"text": "x", "version": 1}).status_code == 404
+    assert client.post("/api/transactions/9999/note/append", json={"text": "x"}).status_code == 404
+    assert client.put("/api/transactions/9999/external-ref", json={"value": "x", "version": 1}).status_code == 404
+
+
+def test_service_notiz_und_referenz_herkunft_mcp(client: TestClient) -> None:
+    """F-ABS-05/D10: Der Kern speichert die uebergebene Herkunft der Aenderung."""
+
+    account_id = _add_account(client)
+    transaction_id = _add_transaction(client, account_id)
+
+    with _session(client) as session:
+        note_result = te.set_note(session, transaction_id, text="aus mcp", origin="mcp")
+        assert note_result.changed is True
+        ref_result = te.set_external_ref(session, transaction_id, value="REF-1", origin="mcp")
+        assert ref_result.value == "REF-1"
+
+    rows = _audit_rows(client, transaction_id)
+    assert {row.source for row in rows} == {"mcp"}

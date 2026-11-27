@@ -2,6 +2,25 @@
 
 ## Next actions
 
+- **T-109 umgesetzt (M4-Entlastung T-094-B, Notiz ersetzen/atomar anhaengen und externe Referenz;
+  F-ABS-05, F-CON-01/02, Risiko medium).** Konflikt-Check: Ja (nur Einzelbuchung; keine Batch-/Regression-Logik
+  aus T-110, keine Sync-/Export-/Import-Aenderung, keine Migration). Neu in `services/transaction_edit.py`:
+  `set_note` (ersetzt, `version` Pflicht ueber die Route, 409 mit `current`), `append_note` (**atomar** per
+  einzelnem UPDATE-Ausdruck `note = CASE WHEN note IS NULL OR note='' THEN :text ELSE note || :sep || :text END`,
+  Trennzeichen `"\n"`, **kein** Read-Modify-Write), `set_external_ref` (F-ABS-05, Grenze 255 Zeichen),
+  `TransactionFieldResult`, gemeinsamer `_write_audit`/`_commit_or_conflict`; `search_text` wird nach Notiz und
+  Referenz neu gebaut, Audit je Aenderung, Ereignis `transaction.changed`. `api/transactions.py`:
+  `PUT /api/transactions/{id}/note`, `POST .../note/append`, `PUT .../external-ref` mit den DTOs
+  `NoteReplaceRequest`/`NoteAppendRequest`/`ExternalRefRequest` und gemeinsamem Fehleruebersetzer `_run_edit`.
+  Doku: `docs/api.md` (Routentabelle, Regeln, Ereignisse), `decisions.md` (T-109). Evidenz:
+  `uv run pytest tests/unit/test_transaction_edit.py tests/unit/test_api_contract.py -q` = 48 passed;
+  `uv run pytest tests/unit -q` = 1515 passed/1 skipped; `ruff check`/`ruff format --check` (201 Dateien)/
+  `mypy backend` (96 Dateien) gruen; **Mutationstest**: naive Read-Modify-Write-Variante macht
+  `test_anhaengen_ignoriert_veralteten_leseversuch` rot (Beleg der Atomaritaet); Artefakt
+  `artifacts/T-109-build.md`. **Offen:** Risiko medium - unabhaengige `verifier`-Pruefung steht vor `task-done`.
+  Kein Push. Fremde uncommittete Welle-Arbeit (Task-/Status-/events-Dateien, `tests/unit/test_transaction_list.py`)
+  bleibt unangetastet.
+
 - **T-099 Abschlussgate ausgefuehrt (M4-Entlastung, Sync-REST + DB-Session-Freigabe, Risiko medium).**
   Voraussetzung geprueft: T-111 `done` (Evidenz `T-111-verify-1795724203.json`) und T-112 `done`
   (Evidenz `T-112-verify-1795792983.json`). T-099 per `task-set` gezielt von `blocked` -> `pending` -> `running`

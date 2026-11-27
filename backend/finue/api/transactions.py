@@ -1,4 +1,4 @@
-"""REST-Router der Einzelbuchung: Detail und Kennzeichen (F-ABS-01/02, F-DET-01).
+"""REST-Router der Einzelbuchung: Detail, Kennzeichen, Notiz und Referenz.
 
 Setzt die schreibenden und lesenden Routen der Einzelbuchung um:
 
@@ -6,13 +6,19 @@ Setzt die schreibenden und lesenden Routen der Einzelbuchung um:
   Detailbereich (F-DET-01).
 - ``PUT /api/transactions/{transaction_id}/checked`` - "geprueft" setzen.
 - ``PUT /api/transactions/{transaction_id}/reconciled`` - "abgestimmt" setzen.
+- ``PUT /api/transactions/{transaction_id}/note`` - Notiz ersetzen (F-CON-02).
+- ``POST /api/transactions/{transaction_id}/note/append`` - Notiz atomar
+  anhaengen (F-CON-01).
+- ``PUT /api/transactions/{transaction_id}/external-ref`` - externe Referenz
+  setzen (F-ABS-05).
 
 Die Fachlogik liegt in :mod:`finue.services.transaction_edit` (gemeinsam mit
 MCP, D10); dieser Router uebersetzt nur HTTP: Body, Fehlerformat und DTOs. Die
 Kennzeichen folgen der Setz-Semantik aus F-CON-01 (setzen statt umschalten,
 idempotent); ein bereits gesetzter Wert liefert denselben Stand ohne
-Versionssprung. Der optionale ``version``-Wert im Body prueft optimistisch
-(F-CON-02) und liefert bei Abweichung 409 mit dem aktuellen Stand. Vorgemerkte
+Versionssprung. Der ``version``-Wert im Body prueft optimistisch (F-CON-02) und
+liefert bei Abweichung 409 mit dem aktuellen Stand; er ist bei den
+**ersetzenden** Routen (Notiz ersetzen, externe Referenz) Pflicht. Vorgemerkte
 Buchungen lassen sich nicht abstimmen (422 mit Klartext, F-ABS-01).
 
 Die Auth-Naht traegt der Router selbst (``require_user``); er bringt sein
@@ -40,7 +46,10 @@ from finue.services.transaction_edit import (
     TransactionEditValidationError,
     TransactionNotFound,
     TransactionVersionConflict,
+    append_note,
+    set_external_ref,
     set_flag,
+    set_note,
     transaction_detail,
 )
 
@@ -102,6 +111,39 @@ class FlagRequest(BaseModel):
     version: int | None = Field(default=None, ge=1)
 
 
+class NoteReplaceRequest(BaseModel):
+    """Anfrage zum Ersetzen der Notiz (F-CON-02, F-ABS-05).
+
+    ``text`` ersetzt die Notiz vollstaendig; ``null`` oder ``""`` loeschen sie.
+    ``version`` ist Pflicht (ersetzende Aenderung, optimistisches Sperren).
+    """
+
+    text: str | None
+    version: int = Field(ge=1)
+
+
+class NoteAppendRequest(BaseModel):
+    """Anfrage zum atomaren Anhaengen an die Notiz (F-CON-01, F-ABS-05).
+
+    ``text`` darf nicht leer (auch nicht nur Leerraum) sein. Es gibt bewusst
+    keine ``version``: Anhaengen ist eine atomare Operation (F-CON-01), kein
+    Ersetzen.
+    """
+
+    text: str = Field(min_length=1, pattern=r"\S")
+
+
+class ExternalRefRequest(BaseModel):
+    """Anfrage zum Setzen der externen Referenz (F-ABS-05, F-CON-02).
+
+    ``value`` ersetzt die Referenz; ``null`` oder ``""`` loeschen sie.
+    ``version`` ist Pflicht (ersetzende Aenderung, optimistisches Sperren).
+    """
+
+    value: str | None
+    version: int = Field(ge=1)
+
+
 # ---------------------------------------------------------------- Uebersetzung
 
 
@@ -158,6 +200,30 @@ def _load_detail(session: Session, transaction_id: int) -> TransactionDetailResp
         raise NotFoundError(f"Buchung {transaction_id} wurde nicht gefunden.") from exc
 
 
+def _run_edit(
+    operation: Callable[[], object],
+    session: Session,
+    transaction_id: int,
+) -> TransactionDetailResponse:
+    """Fuehrt eine Edit-Operation aus und uebersetzt Fachfehler in HTTP (F-CON-02).
+
+    Gemeinsamer Ablauf aller schreibenden Routen der Einzelbuchung: 404 bei
+    unbekannter Buchung, 409 mit aktuellem Stand bei Versionskonflikt, 422 mit
+    Klartext bei Fachfehlern. Bei Erfolg wird der neue Stand zurueckgegeben.
+    """
+
+    try:
+        operation()
+    except TransactionNotFound as exc:
+        raise NotFoundError(f"Buchung {transaction_id} wurde nicht gefunden.") from exc
+    except TransactionVersionConflict as exc:
+        session.rollback()
+        raise ConflictError(current=_load_detail(session, transaction_id)) from exc
+    except (PendingReconciliationError, TransactionEditValidationError) as exc:
+        raise DomainError(str(exc)) from exc
+    return _load_detail(session, transaction_id)
+
+
 def _set_flag(
     transaction_id: int,
     flag: str,
@@ -168,8 +234,8 @@ def _set_flag(
 ) -> TransactionDetailResponse:
     """Gemeinsamer Ablauf beider Kennzeichen-Routen (F-ABS-01/02, F-CON-01/02)."""
 
-    try:
-        set_flag(
+    return _run_edit(
+        lambda: set_flag(
             session,
             transaction_id,
             flag=flag,
@@ -178,15 +244,10 @@ def _set_flag(
             expected_version=payload.version,
             events=events,
             now=clock,
-        )
-    except TransactionNotFound as exc:
-        raise NotFoundError(f"Buchung {transaction_id} wurde nicht gefunden.") from exc
-    except TransactionVersionConflict as exc:
-        session.rollback()
-        raise ConflictError(current=_load_detail(session, transaction_id)) from exc
-    except (PendingReconciliationError, TransactionEditValidationError) as exc:
-        raise DomainError(str(exc)) from exc
-    return _load_detail(session, transaction_id)
+        ),
+        session,
+        transaction_id,
+    )
 
 
 # ------------------------------------------------------------------- Routen
@@ -226,3 +287,71 @@ def set_reconciled_route(
     """Setzt das "abgestimmt"-Kennzeichen (vorgemerkt -> 422, F-ABS-01/02, F-CON-01)."""
 
     return _set_flag(transaction_id, "reconciled", payload, session, events, clock)
+
+
+@router.put("/transactions/{transaction_id}/note", response_model=TransactionDetailResponse)
+def set_note_route(
+    transaction_id: int,
+    payload: NoteReplaceRequest,
+    session: Session = Depends(get_session),
+    events: EventBus = Depends(get_event_bus),
+) -> TransactionDetailResponse:
+    """Ersetzt die Notiz mit Versionspruefung (F-CON-02, F-ABS-05)."""
+
+    return _run_edit(
+        lambda: set_note(
+            session,
+            transaction_id,
+            text=payload.text,
+            origin=REST_ORIGIN,
+            expected_version=payload.version,
+            events=events,
+        ),
+        session,
+        transaction_id,
+    )
+
+
+@router.post("/transactions/{transaction_id}/note/append", response_model=TransactionDetailResponse)
+def append_note_route(
+    transaction_id: int,
+    payload: NoteAppendRequest,
+    session: Session = Depends(get_session),
+    events: EventBus = Depends(get_event_bus),
+) -> TransactionDetailResponse:
+    """Haengt einen Text atomar an die Notiz an (F-CON-01, F-ABS-05)."""
+
+    return _run_edit(
+        lambda: append_note(
+            session,
+            transaction_id,
+            text=payload.text,
+            origin=REST_ORIGIN,
+            events=events,
+        ),
+        session,
+        transaction_id,
+    )
+
+
+@router.put("/transactions/{transaction_id}/external-ref", response_model=TransactionDetailResponse)
+def set_external_ref_route(
+    transaction_id: int,
+    payload: ExternalRefRequest,
+    session: Session = Depends(get_session),
+    events: EventBus = Depends(get_event_bus),
+) -> TransactionDetailResponse:
+    """Setzt die externe Referenz mit Versionspruefung (F-ABS-05, F-CON-02)."""
+
+    return _run_edit(
+        lambda: set_external_ref(
+            session,
+            transaction_id,
+            value=payload.value,
+            origin=REST_ORIGIN,
+            expected_version=payload.version,
+            events=events,
+        ),
+        session,
+        transaction_id,
+    )

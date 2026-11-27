@@ -167,6 +167,21 @@ CONTRACT: dict[str, RouteContract] = {
         kind="setzen",
         reason="Abgestimmt-Kennzeichen setzen, Setz-Semantik; vorgemerkt 422 (F-ABS-01/02, F-CON-01)",
     ),
+    "/api/transactions/{transaction_id}/note": RouteContract(
+        frozenset({"PUT"}),
+        kind="version",
+        reason="Notiz ersetzen mit Versionspruefung, 409 mit aktuellem Stand (F-CON-02, F-ABS-05)",
+    ),
+    "/api/transactions/{transaction_id}/note/append": RouteContract(
+        frozenset({"POST"}),
+        kind="setzen",
+        reason="Notiz atomar anhaengen ohne Read-Modify-Write (F-CON-01, F-ABS-05)",
+    ),
+    "/api/transactions/{transaction_id}/external-ref": RouteContract(
+        frozenset({"PUT"}),
+        kind="version",
+        reason="Externe Referenz setzen mit Versionspruefung (F-ABS-05, F-CON-02)",
+    ),
     "/api/export": RouteContract(
         frozenset({"POST"}),
         kind="aktion",

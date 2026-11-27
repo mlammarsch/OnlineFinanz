@@ -381,7 +381,7 @@ Regeln (Herleitung in `projects/finanzuebersicht/decisions.md`):
   kann sich ueber Seiten erstrecken; der Tagessaldo bleibt dann gleich.
   Ungueltige Cursor und `limit`-Werte liefern 422 (F-CON-02, SPEC F-MCP-11).
 
-## Einzelbuchung: Detail und Kennzeichen (F-DET-01, F-ABS-01/02, F-CON-01/02)
+## Einzelbuchung: Detail, Kennzeichen, Notiz und Referenz (F-DET-01, F-ABS-01/02/05, F-CON-01/02)
 
 Die Fachlogik liegt in `backend/finue/services/transaction_edit.py` (MCP nutzt
 dieselbe Schicht ueber den Parameter `origin`, D10); der Router
@@ -392,6 +392,9 @@ dieselbe Schicht ueber den Parameter `origin`, D10); der Router
 | GET | `/api/transactions/{id}` | Einzelbuchung mit allen Feldern fuer den Detailbereich (F-DET-01) |
 | PUT | `/api/transactions/{id}/checked` | "geprueft" setzen (F-ABS-01/02) |
 | PUT | `/api/transactions/{id}/reconciled` | "abgestimmt" setzen (F-ABS-01/02) |
+| PUT | `/api/transactions/{id}/note` | Notiz ersetzen mit Versionspruefung (F-CON-02, F-ABS-05) |
+| POST | `/api/transactions/{id}/note/append` | Notiz atomar anhaengen (F-CON-01, F-ABS-05) |
+| PUT | `/api/transactions/{id}/external-ref` | externe Referenz setzen mit Versionspruefung (F-ABS-05, F-CON-02) |
 
 ```json
 {
@@ -448,6 +451,23 @@ Regeln (Herleitung in `projects/finanzuebersicht/decisions.md`):
 - Vorgemerkte Buchungen lassen sich **nicht** abstimmen: `PUT .../reconciled`
   mit `value=true` liefert 422 `domain_error` mit Klartext (F-ABS-01). Das
   "geprueft"-Kennzeichen ist auch bei Vormerkungen setzbar.
+- Notiz **ersetzen** (`PUT .../note`): Body `{ "text": "..." | null,
+  "version": n }`. `version` ist **Pflicht** (ersetzende Aenderung, F-CON-02);
+  ein veralteter Stand liefert 409 mit `current`. `null` oder `""` loeschen die
+  Notiz. Derselbe Text aendert nichts (kein Versionssprung, kein Audit).
+- Notiz **anhaengen** (`POST .../note/append`): Body `{ "text": "..." }`, ohne
+  `version`. Das Anhaengen ist eine **atomare** Operation: der Server haengt per
+  **einzelner** UPDATE-Anweisung an, nicht per Read-Modify-Write (F-CON-01);
+  zwei gleichzeitige Aufrufe verlieren dadurch keinen Text. Trennzeichen ist ein
+  **Zeilenumbruch**; ein leerer oder reiner Leerraum-Text liefert 422
+  `validation_error`.
+- Externe **Referenz** setzen (`PUT .../external-ref`): Body `{ "value": "..."
+  | null, "version": n }`, `version` Pflicht (F-CON-02). `null`/`""` loeschen;
+  mehr als 255 Zeichen liefern 422 `domain_error` (F-ABS-05).
+- Notiz und externe Referenz sind Teil der normalisierten Suchspalte
+  (F-SUC-01, F-ABS-05): jede Aenderung baut `search_text` neu. Jede echte
+  Aenderung meldet `transaction.changed` (IDs `account`, `transaction`) und
+  schreibt einen Audit-Eintrag (`source` = Herkunft, F-MCP-09).
 
 ## Suche (F-SUC-01..07, F-ABS-04/05)
 
@@ -765,9 +785,10 @@ Geheimnisse und keine Freitextnutzlast (N-SEC-02). Der Bus liegt im
 Service-Container (`app.state.services`); die SSE-Route `/api/events` liefert
 ihn in T-101 aus. Der Datei-Import meldet `import.finished` (IDs `account` und
 `run`) und `transaction.changed` (ID `account`). Der Edit-Kern der Einzelbuchung
-(T-108) meldet `transaction.changed` mit den IDs `account` und `transaction`,
-sobald ein Kennzeichen tatsaechlich wechselt; ein idempotenter Aufruf meldet
-nichts. Der Sync (T-112) meldet `sync.status` (IDs `job`, `bank_access`,
+(T-108/T-109) meldet `transaction.changed` mit den IDs `account` und
+`transaction`, sobald ein Kennzeichen, die Notiz oder die externe Referenz
+tatsaechlich wechselt; ein idempotenter Aufruf meldet nichts. Der Sync (T-112)
+meldet `sync.status` (IDs `job`, `bank_access`,
 `status`) bei jedem Statuswechsel, `sync.tan_required` (IDs `job`,
 `bank_access`) beim Uebergang nach `wartet_auf_tan` und `sync.tan_answered`
 (IDs `job`, `bank_access`) beim Uebergang von `wartet_auf_tan` nach `laeuft`.
