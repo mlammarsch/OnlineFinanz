@@ -1,4 +1,4 @@
-"""Export-Service fuer JSON und Markdown (F-EXP-01, F-EXP-02, F-EXP-04, F-EXP-05).
+"""Export-Service fuer JSON, Markdown und CSV (F-EXP-01..06).
 
 Der Export baut auf zwei vorhandenen Bausteinen auf:
 
@@ -29,6 +29,19 @@ Umfang und Anforderungen:
   Tabelle (Datum, Gegenpartei, Verwendungszweck, Betrag, Notiz; in der
   Gruppenansicht zusaetzlich Konto), Summenzeile, deutschem Zahlen- und
   Datumsformat und Maskierung von ``|``, Backslash und Zeilenumbruechen.
+* **F-EXP-03** CSV mit Optionen Trennzeichen, Dezimalformat, Datumsformat,
+  Kodierung, Spaltenauswahl und -reihenfolge sowie den Zusatzspalten Notiz,
+  geprueft, abgestimmt und externe Referenz. Das Standardprofil ist an den
+  Finanzblick-Export angelehnt und **unbelegt** (Owner-Beispieldatei fehlt,
+  SPEC Abschnitt 7); die Optionen sind ueber :class:`CsvExportOptions`
+  zentral validiert. Formel-Injection: frei wirkende Textzellen mit einem
+  fuehrenden Formelzeichen werden mit einem Apostroph entschaerft
+  (:func:`strip_export_guard` macht das beim Import rueckgaengig, siehe
+  ``decisions.md``); Betrag und Datum bleiben unveraendert, damit der
+  Roundtrip intakt bleibt.
+* **F-EXP-06** Der CSV-Export traegt mit der passenden Importvorlage
+  ("Eigener CSV-Export", F-IMP-05) alle Fingerprint-Felder; ein Re-Import
+  ergibt dadurch 0 neue Buchungen.
 * Zusammengefuehrte Buchungen (``merged``, F-DUP-04) sind immer ausgeschlossen.
 
 Grenze: Mehr als ``max_rows`` Buchungen lehnt der Service mit
@@ -39,19 +52,25 @@ SQLAlchemy-Ausdruecke.
 
 from __future__ import annotations
 
+import csv
+import io
 import re
 import unicodedata
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from enum import StrEnum
-from typing import Final
+from typing import Any, Final
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from finue.models.account import Account, AccountGroup
 from finue.models.transaction import Transaction
+from finue.services.csv_detect import (
+    SUPPORTED_DELIMITERS,
+    SUPPORTED_ENCODINGS,
+)
 from finue.services.export_schema import (
     EXPORT_FORMAT_NAME,
     SUPPORTED_EXPORT_VERSION,
@@ -71,26 +90,39 @@ from finue.services.search import (
 
 __all__ = [
     "CLIPBOARD_MEDIA_TYPE",
+    "CSV_COLUMN_LABELS",
+    "CSV_MEDIA_TYPE",
+    "DEFAULT_CSV_COLUMNS",
+    "EXPORT_GUARD_PRE_FILTER",
     "JSON_MEDIA_TYPE",
     "MARKDOWN_MEDIA_TYPE",
+    "SUPPORTED_CSV_COLUMNS",
+    "CsvExportOptions",
     "ExportFormat",
     "ExportLimitExceeded",
     "ExportRequest",
     "ExportResult",
     "ExportScope",
     "ExportValidationError",
+    "build_csv",
     "build_filename",
     "build_export_document",
+    "encode_content",
     "format_amount_de",
     "format_date_de",
+    "merge_csv_options",
     "render_markdown",
     "run_export",
     "slugify",
+    "strip_export_guard",
+    "validate_csv_columns",
+    "validate_csv_options",
 ]
 
-#: Medientypen der Exportantworten (F-EXP-01, F-EXP-05).
+#: Medientypen der Exportantworten (F-EXP-01, F-EXP-03, F-EXP-05).
 JSON_MEDIA_TYPE: Final = "application/json"
 MARKDOWN_MEDIA_TYPE: Final = "text/markdown"
+CSV_MEDIA_TYPE: Final = "text/csv"
 CLIPBOARD_MEDIA_TYPE: Final = "text/plain"
 
 #: Deutsche Umlaute und das scharfe s fuer den ASCII-Dateinamen (F-EXP-02).
@@ -99,12 +131,73 @@ _TRANSCRIPTION: Final = str.maketrans({"ä": "ae", "ö": "oe", "ü": "ue", "ß":
 #: Ersatzlabel, wenn ein Name keinen verwertbaren ASCII-Rest hat (F-EXP-02).
 _FALLBACK_SLUG: Final = "export"
 
+#: Spalten des CSV-Exports: stabile Schluessel -> deutsche Kopfzeile (F-EXP-03).
+#: Die Kopfzeilen sind ASCII (Umlaute ausgeschrieben), damit cp1252-Exporte
+#: ohne Sonderzeichen auskommen. Die Importvorlage "Eigener CSV-Export" mappt
+#: ueber genau diese Kopfzeilen (F-IMP-05, F-EXP-06).
+CSV_COLUMN_LABELS: Final[dict[str, str]] = {
+    "booking_date": "Buchungstag",
+    "value_date": "Wertstellung",
+    "counterparty": "Gegenpartei",
+    "counterparty_iban": "IBAN Gegenpartei",
+    "purpose": "Verwendungszweck",
+    "amount": "Betrag",
+    "currency": "Waehrung",
+    "note": "Notiz",
+    "checked": "Geprueft",
+    "reconciled": "Abgestimmt",
+    "external_ref": "Externe Referenz",
+    "status": "Status",
+    "account": "Konto",
+}
+
+#: Erlaubte Spalten (Reihenfolge der Definition, nicht der Ausgabe).
+SUPPORTED_CSV_COLUMNS: Final[tuple[str, ...]] = tuple(CSV_COLUMN_LABELS)
+
+#: Standardprofil "Finanzblick-angelehnt" -- **UNBELEGT, NACH BESTEM WISSEN**
+#: (Owner-Beispieldatei fehlt, SPEC Abschnitt 7). Enthaelt alle Fingerprint-
+#: Felder fuer den Roundtrip (F-EXP-06) sowie die Zusatzspalten Notiz,
+#: geprueft, abgestimmt und externe Referenz (F-EXP-03).
+DEFAULT_CSV_COLUMNS: Final[tuple[str, ...]] = (
+    "booking_date",
+    "value_date",
+    "counterparty",
+    "counterparty_iban",
+    "purpose",
+    "amount",
+    "currency",
+    "note",
+    "checked",
+    "reconciled",
+    "external_ref",
+)
+
+#: Spalten, die als Freitext gegen Formel-Injection entschaerft werden.
+_CSV_FREE_TEXT_COLUMNS: Final[frozenset[str]] = frozenset(
+    {"counterparty", "counterparty_iban", "purpose", "note", "external_ref", "account"}
+)
+
+#: Erste Zeichen, die eine Tabellenkalkulation als Formel auswerten kann
+#: (OWASP). Ein Apostroph davor entschaerft die Zelle.
+_FORMULA_TRIGGERS: Final[tuple[str, ...]] = ("=", "+", "-", "@", "\t", "\r")
+
+#: Flag einer Importvorlage, das die Formel-Entschaerfung rueckgaengig macht.
+EXPORT_GUARD_PRE_FILTER: Final = "own_csv"
+
+#: Zeilenende des CSV-Exports (RFC 4180).
+_CSV_LINE_TERMINATOR: Final = "\r\n"
+
+#: Regel fuer in cp1252 nicht darstellbare Zeichen (kuerzt nichts weg, ersetzt
+#: nur einzeln); dokumentiert in decisions.md.
+_CP1252_ERRORS: Final = "replace"
+
 
 class ExportFormat(StrEnum):
-    """Ausgabeformat eines Exports (F-EXP-01)."""
+    """Ausgabeformat eines Exports (F-EXP-01, F-EXP-03)."""
 
     JSON = "json"
     MARKDOWN = "md"
+    CSV = "csv"
 
 
 class ExportScope(StrEnum):
@@ -115,6 +208,25 @@ class ExportScope(StrEnum):
     GROUP = "group"
     SEARCH = "search"
     SELECTION = "selection"
+
+
+@dataclass(frozen=True, slots=True)
+class CsvExportOptions:
+    """Optionen des CSV-Exports (F-EXP-03).
+
+    Trennzeichen, Dezimalformat, Datumsformat, Kodierung sowie Auswahl und
+    Reihenfolge der Spalten. Die Wertebereiche sind zentral in
+    :func:`validate_csv_options` und :func:`validate_csv_columns` geprueft.
+    ``guard_formulas`` schaltet den Formel-Injection-Schutz fuer Freitextzellen
+    ein (Standard) oder aus.
+    """
+
+    delimiter: str = ";"
+    decimal_separator: str = "comma"
+    date_format: str = "TT.MM.JJJJ"
+    encoding: str = "utf-8"
+    columns: tuple[str, ...] = DEFAULT_CSV_COLUMNS
+    guard_formulas: bool = True
 
 
 class ExportValidationError(ValueError):
@@ -149,15 +261,21 @@ class ExportRequest:
     sort: SortField = SortField.DATE
     direction: SortDirection = SortDirection.ASC
     transaction_ids: Sequence[int] | None = None
+    csv: CsvExportOptions | None = None
 
 
 @dataclass(frozen=True, slots=True)
 class ExportResult:
-    """Fertiger Export: Inhalt, Medientyp und Dateiname (F-EXP-02)."""
+    """Fertiger Export: Inhalt, Medientyp und Dateiname (F-EXP-02).
+
+    ``encoding`` gilt fuer die Bytes-Kodierung des Inhalts; JSON und Markdown
+    sind immer UTF-8, CSV kann UTF-8 mit BOM oder Windows-1252 sein (F-EXP-03).
+    """
 
     content: str
     media_type: str
     filename: str
+    encoding: str = "utf-8"
 
 
 # --------------------------------------------------------------- Dateiname
@@ -182,11 +300,11 @@ def slugify(value: str) -> str:
 def build_filename(label: str, start: date, end: date, export_format: ExportFormat) -> str:
     """Baut den Export-Dateinamen ``slug_von_bis.ext`` (F-EXP-02).
 
-    Der Zeitraum steht als ``JJJJ-MM-TT_JJJJ-MM-TT``; die Endung ist ``json``
-    bzw. ``md``.
+    Der Zeitraum steht als ``JJJJ-MM-TT_JJJJ-MM-TT``; die Endung ist ``json``,
+    ``md`` bzw. ``csv`` (F-EXP-03).
     """
 
-    extension = "json" if export_format is ExportFormat.JSON else "md"
+    extension = {ExportFormat.JSON: "json", ExportFormat.MARKDOWN: "md", ExportFormat.CSV: "csv"}[export_format]
     return f"{slugify(label)}_{start.isoformat()}_{end.isoformat()}.{extension}"
 
 
@@ -547,6 +665,213 @@ def render_markdown(
     return "\n".join(lines)
 
 
+# --------------------------------------------------------------- CSV
+
+
+def validate_csv_columns(columns: object) -> tuple[str, ...]:
+    """Prueft Spaltenauswahl und -reihenfolge des CSV-Exports (F-EXP-03).
+
+    ``None`` liefert das Standardprofil. Ein leerer Wert, unbekannte oder
+    doppelte Schluessel werden mit Klartext abgelehnt.
+    """
+
+    if columns is None:
+        return DEFAULT_CSV_COLUMNS
+    if isinstance(columns, (str, bytes)) or not isinstance(columns, Sequence):
+        raise ExportValidationError("Die Spaltenauswahl muss eine Liste sein.")
+    keys = list(columns)
+    if not keys:
+        raise ExportValidationError("Die Spaltenauswahl darf nicht leer sein.")
+
+    result: list[str] = []
+    for key in keys:
+        if not isinstance(key, str) or key not in CSV_COLUMN_LABELS:
+            raise ExportValidationError(f"Unbekannte CSV-Spalte {key!r}. Erlaubt: {', '.join(SUPPORTED_CSV_COLUMNS)}.")
+        if key in result:
+            raise ExportValidationError(f"CSV-Spalte {key!r} ist doppelt gewaehlt.")
+        result.append(key)
+    return tuple(result)
+
+
+def _checked_choice(value: object, allowed: Sequence[str], name: str) -> str:
+    """Prueft einen Auswahlwert gegen die erlaubten Optionen (F-EXP-03)."""
+
+    if not isinstance(value, str) or value not in allowed:
+        raise ExportValidationError(f"Ungueltige Option {name!r}: {value!r}. Erlaubt: {', '.join(allowed)}.")
+    return value
+
+
+def validate_csv_options(options: Mapping[str, Any] | None) -> CsvExportOptions:
+    """Prueft und normalisiert CSV-Optionen (F-EXP-03).
+
+    ``None`` liefert das Standardprofil. Unbekannte Schluessel werden
+    abgelehnt, damit ein Tippfehler in einem Exportprofil nicht still
+    ignoriert wird.
+    """
+
+    if options is None:
+        return CsvExportOptions()
+    if not isinstance(options, Mapping):
+        raise ExportValidationError("Die CSV-Optionen muessen ein Objekt sein.")
+
+    allowed = {"delimiter", "decimal_separator", "date_format", "encoding", "columns", "guard_formulas"}
+    unknown = set(options) - allowed
+    if unknown:
+        raise ExportValidationError(f"Unbekannte CSV-Option(en): {', '.join(sorted(unknown))}.")
+
+    guard = options.get("guard_formulas", True)
+    if not isinstance(guard, bool):
+        raise ExportValidationError("Die Option 'guard_formulas' muss true oder false sein.")
+
+    return CsvExportOptions(
+        delimiter=_checked_choice(options.get("delimiter", ";"), SUPPORTED_DELIMITERS, "delimiter"),
+        decimal_separator=_checked_choice(
+            options.get("decimal_separator", "comma"), ("comma", "point"), "decimal_separator"
+        ),
+        date_format=_checked_choice(
+            options.get("date_format", "TT.MM.JJJJ"), ("TT.MM.JJJJ", "JJJJ-MM-TT"), "date_format"
+        ),
+        encoding=_checked_choice(options.get("encoding", "utf-8"), SUPPORTED_ENCODINGS, "encoding"),
+        columns=validate_csv_columns(options.get("columns", DEFAULT_CSV_COLUMNS)),
+        guard_formulas=guard,
+    )
+
+
+def merge_csv_options(base: CsvExportOptions, overrides: Mapping[str, Any] | None) -> CsvExportOptions:
+    """Ueberschreibt einzelne CSV-Optionen einer Basis (F-EXP-03).
+
+    Die API legt so Anfragewerte ueber ein Exportprofil; nicht gesetzte Werte
+    bleiben aus der Basis erhalten.
+    """
+
+    if not overrides:
+        return base
+    merged: dict[str, Any] = {
+        "delimiter": base.delimiter,
+        "decimal_separator": base.decimal_separator,
+        "date_format": base.date_format,
+        "encoding": base.encoding,
+        "columns": list(base.columns),
+        "guard_formulas": base.guard_formulas,
+    }
+    for key in ("delimiter", "decimal_separator", "date_format", "encoding", "columns", "guard_formulas"):
+        if key in overrides and overrides[key] is not None:
+            merged[key] = overrides[key]
+    return validate_csv_options(merged)
+
+
+def _guard_cell(value: str) -> str:
+    """Entschaerft eine Freitextzelle mit fuehrendem Formelzeichen (F-EXP-03)."""
+
+    if value and value[0] in _FORMULA_TRIGGERS:
+        return "'" + value
+    return value
+
+
+def _unguard_cell(value: object) -> object:
+    """Entfernt einen von der Entschaerfung gesetzten fuehrenden Apostroph."""
+
+    if isinstance(value, str) and len(value) > 1 and value[0] == "'" and value[1] in _FORMULA_TRIGGERS:
+        return value[1:]
+    return value
+
+
+def strip_export_guard(rows: list[dict[str, Any]], status_field: str = "") -> list[dict[str, Any]]:
+    """Macht die Formel-Entschaerfung rueckgaengig (Import-Vorverarbeitung).
+
+    Entfernt genau einen fuehrenden Apostroph, wenn darauf ein Formelzeichen
+    folgt. So bleibt eine entschaerfte Zelle beim Re-Import identisch und der
+    Roundtrip (F-EXP-06) bricht nicht. Die Signatur entspricht den uebrigen
+    Import-Vorverarbeitungsschritten; ``status_field`` wird nicht gebraucht.
+    """
+
+    del status_field
+    return [{key: _unguard_cell(value) for key, value in row.items()} for row in rows]
+
+
+def _csv_amount(cents: int, decimal_separator: str) -> str:
+    """Formatiert einen Betrag fuer den CSV-Export (F-EXP-03)."""
+
+    return format_amount_de(cents) if decimal_separator == "comma" else cents_to_amount_string(cents)
+
+
+def _csv_date(value: date | None, date_format: str) -> str:
+    """Formatiert ein Datum fuer den CSV-Export (F-EXP-03)."""
+
+    if value is None:
+        return ""
+    return format_date_de(value) if date_format == "TT.MM.JJJJ" else value.isoformat()
+
+
+def _csv_cell(transaction: Transaction, account: Account | None, column: str, options: CsvExportOptions) -> str:
+    """Liefert den Zellwert einer Spalte (F-EXP-03)."""
+
+    if column == "booking_date":
+        return _csv_date(transaction.booking_date, options.date_format)
+    if column == "value_date":
+        return _csv_date(transaction.value_date, options.date_format)
+    if column == "amount":
+        return _csv_amount(transaction.amount_cents, options.decimal_separator)
+    if column == "currency":
+        return transaction.currency
+    if column == "checked":
+        return "ja" if transaction.checked else "nein"
+    if column == "reconciled":
+        return "ja" if transaction.reconciled else "nein"
+    if column == "status":
+        return transaction.status
+    if column == "account":
+        return account.name if account is not None else ""
+
+    raw = getattr(transaction, column, None)
+    text = raw if isinstance(raw, str) else ""
+    if column in _CSV_FREE_TEXT_COLUMNS and options.guard_formulas:
+        return _guard_cell(text)
+    return text
+
+
+def build_csv(
+    *,
+    transactions: Sequence[Transaction],
+    accounts_by_id: dict[int, Account],
+    options: CsvExportOptions,
+    group_view: bool,
+) -> str:
+    """Rendert den CSV-Export (F-EXP-03).
+
+    Kopfzeile aus den Spaltenlabels, danach je Buchung eine Zeile. Werte werden
+    per :mod:`csv` RFC-4180-konform gequotet. In der Gruppenansicht wird die
+    Spalte ``Konto`` vorangestellt, wenn sie nicht schon gewaehlt ist.
+    """
+
+    columns = list(options.columns)
+    if group_view and "account" not in columns:
+        columns.insert(0, "account")
+
+    buffer = io.StringIO()
+    writer = csv.writer(buffer, delimiter=options.delimiter, lineterminator=_CSV_LINE_TERMINATOR)
+    writer.writerow([CSV_COLUMN_LABELS[column] for column in columns])
+    for transaction in transactions:
+        account = accounts_by_id.get(transaction.account_id)
+        writer.writerow([_csv_cell(transaction, account, column, options) for column in columns])
+    return buffer.getvalue()
+
+
+def encode_content(content: str, encoding: str) -> bytes:
+    """Kodiert Exportinhalt byteweise (F-EXP-03).
+
+    ``utf-8-sig`` setzt das BOM, ``cp1252`` ersetzt nicht darstellbare Zeichen
+    mit ``?`` (dokumentierte Regel in ``decisions.md``). Andere Werte gelten als
+    UTF-8.
+    """
+
+    if encoding == "utf-8-sig":
+        return content.encode("utf-8-sig")
+    if encoding == "cp1252":
+        return content.encode("cp1252", errors=_CP1252_ERRORS)
+    return content.encode("utf-8")
+
+
 # --------------------------------------------------------------- Einstieg
 
 
@@ -593,6 +918,22 @@ def run_export(
 
     accounts_by_id = {account.id: account for account in accounts}
     group_view = request.scope is ExportScope.GROUP or len(accounts_by_id) > 1
+
+    if request.format is ExportFormat.CSV:
+        options = request.csv or CsvExportOptions()
+        content = build_csv(
+            transactions=transactions,
+            accounts_by_id=accounts_by_id,
+            options=options,
+            group_view=group_view,
+        )
+        return ExportResult(
+            content=content,
+            media_type=CSV_MEDIA_TYPE,
+            filename=filename,
+            encoding=options.encoding,
+        )
+
     content = render_markdown(
         label=label,
         start=start,

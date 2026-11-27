@@ -435,23 +435,29 @@ nicht nur die Seite; `total_cents` ist die vorzeichenbehaftete Summe der Treffer
 (bei gemischten Waehrungen nur je Konto/Gruppe aussagekraeftig). Ungueltige
 Bereiche oder Zeitraeume liefern 422 mit deutschem Klartext.
 
-## Export (F-EXP-01/02/04/05)
+## Export (F-EXP-01..06)
 
 Die Fachlogik liegt in `backend/finue/services/export.py`, der Router
 `backend/finue/api/export.py` uebersetzt nur HTTP. Der Endpunkt aendert keinen
 Datenbestand; er nutzt denselben Filterbaustein wie die Suche
 (`services/search.py`) und dasselbe JSON-Schema wie der Import (M2,
-`docs/schemas/export-v1.schema.json`). CSV-Profile folgen in T-098.
+`docs/schemas/export-v1.schema.json`). CSV-Optionen und Exportprofile kommen aus
+`services/export.py` und `services/export_profiles.py` (T-098, F-EXP-03).
 
 | Methode | Pfad | Zweck |
 |---|---|---|
-| POST | `/api/export` | Buchungen als JSON oder Markdown exportieren (F-EXP-01/02/04/05) |
+| POST | `/api/export` | Buchungen als JSON, Markdown oder CSV exportieren (F-EXP-01..06) |
+| GET | `/api/export-profiles` | Gespeicherte CSV-Exportprofile auflisten, Standard zuerst (F-EXP-03) |
+| POST | `/api/export-profiles` | CSV-Exportprofil anlegen (F-EXP-03) |
+| GET | `/api/export-profiles/{id}` | CSV-Exportprofil ansehen (F-EXP-03) |
+| PATCH | `/api/export-profiles/{id}` | CSV-Exportprofil aendern, mit `version` (F-EXP-03, F-CON-02) |
+| DELETE | `/api/export-profiles/{id}?version=` | CSV-Exportprofil loeschen, mit `version` (F-EXP-03, F-CON-02) |
 
 Anfragekoerper (die Filterfelder entsprechen `GET /api/search`):
 
 ```json
 {
-  "format": "json",
+  "format": "csv",
   "scope": "account",
   "account_id": 1,
   "period": "365",
@@ -459,27 +465,60 @@ Anfragekoerper (die Filterfelder entsprechen `GET /api/search`):
   "reconciled": null,
   "with_note": false,
   "sort": "date",
-  "direction": "asc"
+  "direction": "asc",
+  "profile_id": 1,
+  "csv": {"delimiter": ";", "decimal_separator": "comma", "date_format": "TT.MM.JJJJ", "encoding": "utf-8"}
 }
 ```
 
-- `format`: `json` (Standard) oder `md`.
+- `format`: `json` (Standard), `md` oder `csv`.
 - `scope`: `all`, `account` (dann `account_id`), `group` (dann `group_id`),
   `search` (freie Suchtreffer ueber `q`) oder `selection` (explizite
   `transaction_ids`, gegen die Grenze gezaehlt).
 - Zeitraum und Filter (`q`, `period`, `from`, `to`, `checked`, `reconciled`,
   `with_note`, `status`, `sort`, `direction`) gelten wie bei der Suche
   (F-EXP-02). Zusammengefuehrte Buchungen fehlen immer (F-DUP-04).
+- Bei `format="csv"` waehlt `profile_id` ein gespeichertes Profil; `csv`
+  ueberschreibt einzelne Optionen. Erlaubt sind Trennzeichen `;`/`,`/Tabulator,
+  Dezimalformat `comma`/`point`, Datumsformat `TT.MM.JJJJ`/`JJJJ-MM-TT`,
+  Kodierung `utf-8`/`utf-8-sig`/`cp1252`, `columns` (Auswahl und Reihenfolge)
+  und `guard_formulas`. Das Standardprofil ist an den Finanzblick-Export
+  angelehnt und **unbelegt** (Owner-Beispieldatei fehlt, SPEC Abschnitt 7).
 
 `?download=false` liefert den Koerper ohne `Content-Disposition`; Markdown kommt
-dann als `text/plain` fuer die Zwischenablage (sonst `text/markdown`). Im
-Standard liefert der Server die Datei mit
+dann als `text/plain` fuer die Zwischenablage (sonst `text/markdown`), CSV als
+`text/csv`. Im Standard liefert der Server die Datei mit
 `Content-Disposition: attachment; filename="<slug>_<von>_<bis>.<ext>"`; der Name
 ist ASCII (Umlaute transkribiert), bei Zeitraum `alle` stammt der Zeitraum aus
 Minimum/Maximum der exportierten Buchungen (F-EXP-02). Eine Buchungsmenge ueber
 `export_max_rows` wird als 413 mit Klartext abgewiesen. Das JSON folgt
 `docs/schemas/export-v1.schema.json` (F-EXP-04); der Vorkommen-Index wird darin
 1-basiert ausgegeben (der Bestand fuehrt ihn 0-basiert, F-DUP-02).
+
+### CSV-Details (F-EXP-03, F-EXP-06)
+
+- **Spalten** (Auswahl und Reihenfolge ueber `columns`): `booking_date`,
+  `value_date`, `counterparty`, `counterparty_iban`, `purpose`, `amount`,
+  `currency`, `note`, `checked`, `reconciled`, `external_ref`, `status`,
+  `account`. Die deutschen Kopfzeilen stehen in `CSV_COLUMN_LABELS`. In der
+  Gruppenansicht wird `account` vorangestellt, wenn nicht schon gewaehlt.
+- **Kodierung**: `utf-8` (Standard), `utf-8-sig` (mit BOM) oder `cp1252`. In
+  cp1252 nicht darstellbare Zeichen werden mit `?` ersetzt (Regel in
+  `decisions.md`).
+- **Formel-Injection**: Freitextzellen mit fuehrenden Zeichen `= + - @`, Tabulator
+  oder CR werden mit einem Apostroph entschaerft; Betrag und Datum bleiben
+  unveraendert. Die Importvorlage "Eigener CSV-Export" macht die Entschaerfung
+  beim Re-Import rueckgaengig, sodass der Roundtrip 0 neue Buchungen ergibt
+  (F-EXP-06).
+
+### Importvorlage "Eigener CSV-Export" (F-IMP-05, F-EXP-06)
+
+`seed_default_templates` legt vier Standardvorlagen an: N26, Easybank, PayPal
+und "Eigener CSV-Export". Letztere passt zum Standardprofil: Semikolon,
+`TT.MM.JJJJ`, Dezimalkomma, UTF-8, und mappt die Fingerprint-Felder
+(Buchungstag, Wertstellung, Betrag, Waehrung, Gegenpartei, IBAN Gegenpartei,
+Verwendungszweck). Ein CSV-Export mit Standardprofil ergibt beim Re-Import ueber
+diese Vorlage 0 neue Buchungen.
 
 ## Datei-Import und Auftraege (F-IMP-01..08, F-AUF-02/04/05)
 

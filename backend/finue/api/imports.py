@@ -39,18 +39,26 @@ from finue.models.import_run import ImportRun, ImportRunError
 from finue.models.import_template import ImportTemplate
 from finue.services.accounts import AccountNotFound, get_account
 from finue.services.events import EventBus
+from finue.services.export import EXPORT_GUARD_PRE_FILTER, strip_export_guard
 from finue.services.import_detect import CsvOptions, detect_import, load_rows
 from finue.services.import_preview import ImportPreview, PreviewRow, build_preview
 from finue.services.import_run import execute_import
 from finue.services.import_templates import get_template, template_pre_filter
 from finue.services.import_uploads import UploadExpired, UploadStore
-from finue.services.paypal_filter import PRE_FILTERS
+from finue.services.paypal_filter import PRE_FILTERS, PreFilter
 
 __all__ = ["router"]
 
 router = APIRouter(prefix="/api", tags=["import"], dependencies=[Depends(require_user)])
 
 Item = TypeVar("Item")
+
+#: Vorverarbeitungsschritte des Imports: PayPal-Filter (F-IMP-08) und der
+#: Ruecknahme der Formel-Entschaerfung des eigenen CSV-Exports (F-EXP-06, T-098).
+_IMPORT_PRE_FILTERS: dict[str, PreFilter] = {
+    **PRE_FILTERS,
+    EXPORT_GUARD_PRE_FILTER: strip_export_guard,
+}
 
 #: Standardname der Statusspalte fuer den PayPal-Vorverarbeitungsschritt (F-IMP-08).
 _DEFAULT_STATUS_FIELD = "Status"
@@ -307,7 +315,7 @@ def _apply_pre_filter(
     flag = template_pre_filter(template)
     if flag is None:
         return data
-    filter_func = PRE_FILTERS.get(flag)
+    filter_func = _IMPORT_PRE_FILTERS.get(flag)
     if filter_func is None:
         return data
     if isinstance(data, list) and all(isinstance(row, dict) for row in data):

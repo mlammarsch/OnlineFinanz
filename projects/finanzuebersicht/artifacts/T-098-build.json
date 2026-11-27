@@ -1,0 +1,54 @@
+{
+  "task": "T-098",
+  "title": "CSV-Export mit Optionen, Exportprofilen und passender Importvorlage (F-EXP-03, F-EXP-06)",
+  "milestone": "M4",
+  "wave": 6,
+  "risk": "medium",
+  "branch": "m4/develop",
+  "role": "builder",
+  "requirements": ["F-EXP-03", "F-EXP-06", "F-IMP-05", "F-CON-02", "F-DUP-04"],
+  "changed_files": [
+    "backend/finue/services/export.py",
+    "backend/finue/services/export_profiles.py",
+    "backend/finue/api/export_profiles.py",
+    "backend/finue/api/export.py",
+    "backend/finue/api/imports.py",
+    "backend/finue/api/routes.py",
+    "backend/finue/services/import_templates.py",
+    "tests/unit/test_export_csv.py",
+    "tests/unit/test_export_profiles_api.py",
+    "tests/unit/test_import_templates.py",
+    "tests/unit/test_api_contract.py",
+    "docs/api.md",
+    "projects/finanzuebersicht/decisions.md"
+  ],
+  "verification": [
+    {
+      "cmd": "uv run pytest tests/unit/test_export_csv.py tests/unit/test_export_profiles_api.py -q",
+      "result": "25 passed, 1 warning"
+    },
+    {
+      "cmd": "uv run pytest tests/unit -q",
+      "result": "1454 passed, 1 skipped, 1 warning"
+    },
+    {
+      "cmd": "uv run ruff check backend tests scripts",
+      "result": "All checks passed!"
+    },
+    {
+      "cmd": "uv run ruff format --check backend tests scripts",
+      "result": "189 files already formatted"
+    },
+    {
+      "cmd": "uv run mypy backend",
+      "result": "Success: no issues found in 91 source files"
+    }
+  ],
+  "notes": [
+    "Formel-Injection: Freitextzellen mit fuehrendem =, +, -, @, Tab oder CR werden mit einem Apostroph entschaerft; Betrag und Datum nie.",
+    "Roundtrip F-EXP-06: die Importvorlage 'Eigener CSV-Export' traegt pre_filter='own_csv' (strip_export_guard) und macht die Entschaerfung rueckgaengig; serverseitig und ueber die REST-Importkette je 0 neue Buchungen.",
+    "Standardprofil 'Finanzblick-angelehnt' und seine Spalten sind UNBELEGT (Owner-Beispieldatei fehlt).",
+    "Kodierung: utf-8, utf-8-sig (BOM), cp1252 (nicht darstellbare Zeichen -> '?', dokumentiert).",
+    "Nur erfundene Testdaten (D8); keine echten Zugangsdaten, keine externen Schreibaktionen."
+  ]
+}

@@ -1,10 +1,12 @@
-"""REST-Router fuer den Export (F-EXP-01, F-EXP-02, F-EXP-04, F-EXP-05).
+"""REST-Router fuer den Export (F-EXP-01..06).
 
 Setzt den Service aus :mod:`finue.services.export` als ``POST /api/export`` um.
 Der Endpunkt aendert keinen Datenbestand; er waehlt Buchungen nach Umfang und
-Filtern, rendert JSON oder Markdown und liefert die Datei mit
+Filtern, rendert JSON, Markdown oder CSV und liefert die Datei mit
 ``Content-Disposition``. Markdown kann zusaetzlich als ``text/plain`` fuer die
-Zwischenablage abgerufen werden.
+Zwischenablage abgerufen werden. Fuer CSV greifen die Optionen eines gewaehlten
+Exportprofils (F-EXP-03); einzelne Optionen lassen sich in der Anfrage
+ueberschreiben.
 
 Die Auth-Naht traegt der Router selbst (``require_user``); er bringt sein
 ``prefix="/api"`` mit (FastAPI 0.165 setzt das Elternpraefix nicht in
@@ -26,13 +28,17 @@ from finue.api.deps import get_clock, get_services, get_session, require_user
 from finue.api.errors import PayloadTooLargeError, ValidationApiError
 from finue.services.export import (
     CLIPBOARD_MEDIA_TYPE,
+    CsvExportOptions,
     ExportFormat,
     ExportLimitExceeded,
     ExportRequest,
     ExportScope,
     ExportValidationError,
+    encode_content,
+    merge_csv_options,
     run_export,
 )
+from finue.services.export_profiles import csv_options_from_profile, get_profile
 from finue.services.search import SearchPeriod, SortDirection, SortField, local_today
 
 __all__ = ["router"]
@@ -40,18 +46,39 @@ __all__ = ["router"]
 router = APIRouter(prefix="/api", tags=["export"], dependencies=[Depends(require_user)])
 
 ScopeParam = Literal["all", "account", "group", "search", "selection"]
-FormatParam = Literal["json", "md"]
+FormatParam = Literal["json", "md", "csv"]
 PeriodParam = Literal["30", "90", "365", "current_year", "previous_year", "all", "custom"]
 StatusParam = Literal["gebucht", "vorgemerkt"]
 SortParam = Literal["date", "amount", "counterparty"]
 DirectionParam = Literal["asc", "desc"]
+DelimiterParam = Literal[";", ",", "\t"]
+DecimalParam = Literal["comma", "point"]
+DateFormatParam = Literal["TT.MM.JJJJ", "JJJJ-MM-TT"]
+EncodingParam = Literal["utf-8", "utf-8-sig", "cp1252"]
+
+
+class CsvOptionsModel(BaseModel):
+    """Anfrage-Ueberschreibungen der CSV-Optionen (F-EXP-03).
+
+    Nicht gesetzte Felder bleiben aus dem gewaehlten Profil bzw. dem
+    Standardprofil erhalten.
+    """
+
+    delimiter: DelimiterParam | None = None
+    decimal_separator: DecimalParam | None = None
+    date_format: DateFormatParam | None = None
+    encoding: EncodingParam | None = None
+    columns: list[str] | None = None
+    guard_formulas: bool | None = None
 
 
 class ExportRequestModel(BaseModel):
-    """Anfragekoerper des Exports (F-EXP-01, F-EXP-02).
+    """Anfragekoerper des Exports (F-EXP-01..03).
 
     Die Filterfelder entsprechen ``GET /api/search``; ``scope`` erweitert sie um
-    ``search`` (freie Suchtreffer) und ``selection`` (explizite ID-Liste).
+    ``search`` (freie Suchtreffer) und ``selection`` (explizite ID-Liste). Bei
+    ``format="csv"`` waehlt ``profile_id`` ein gespeichertes Profil, ``csv``
+    ueberschreibt einzelne Optionen.
     """
 
     model_config = ConfigDict(populate_by_name=True)
@@ -71,11 +98,32 @@ class ExportRequestModel(BaseModel):
     sort: SortParam = "date"
     direction: DirectionParam = "asc"
     transaction_ids: list[int] | None = None
+    profile_id: int | None = Field(default=None, ge=1)
+    csv: CsvOptionsModel | None = None
 
 
-def _to_export_request(payload: ExportRequestModel) -> ExportRequest:
+def _resolve_csv_options(session: Session, payload: ExportRequestModel) -> CsvExportOptions:
+    """Loest Profil und Anfrage-Ueberschreibungen zu CSV-Optionen auf (F-EXP-03)."""
+
+    options = CsvExportOptions()
+    if payload.profile_id is not None:
+        profile = get_profile(session, payload.profile_id)
+        if profile is None:
+            raise ValidationApiError(f"Das Exportprofil {payload.profile_id} wurde nicht gefunden.")
+        options = csv_options_from_profile(profile)
+    if payload.csv is not None:
+        overrides = payload.csv.model_dump(exclude_unset=True, exclude_none=True)
+        try:
+            options = merge_csv_options(options, overrides)
+        except ExportValidationError as exc:
+            raise ValidationApiError(str(exc)) from exc
+    return options
+
+
+def _to_export_request(session: Session, payload: ExportRequestModel) -> ExportRequest:
     """Uebersetzt den Anfragekoerper in die Service-Beschreibung."""
 
+    csv_options = _resolve_csv_options(session, payload) if payload.format == "csv" else None
     return ExportRequest(
         format=ExportFormat(payload.format),
         scope=ExportScope(payload.scope),
@@ -92,6 +140,7 @@ def _to_export_request(payload: ExportRequestModel) -> ExportRequest:
         sort=SortField(payload.sort),
         direction=SortDirection(payload.direction),
         transaction_ids=payload.transaction_ids,
+        csv=csv_options,
     )
 
 
@@ -108,7 +157,7 @@ def export_route(
     services: AppServices = Depends(get_services),
     clock: Callable[[], datetime] = Depends(get_clock),
 ) -> Response:
-    """Exportiert Buchungen als JSON oder Markdown (F-EXP-01/02/04/05).
+    """Exportiert Buchungen als JSON, Markdown oder CSV (F-EXP-01..06).
 
     Der Zeitraum und die Filter der Ansicht gelten auch hier (F-EXP-02). Bei
     ``download=false`` liefert Markdown ``text/plain`` ohne Dateikopf, damit die
@@ -116,7 +165,7 @@ def export_route(
     Buchungsmenge wird als 413 mit Klartext abgewiesen (Grenze, F-EXP-01).
     """
 
-    request = _to_export_request(payload)
+    request = _to_export_request(session, payload)
     now = clock()
     today = local_today(lambda: now)
     try:
@@ -136,4 +185,4 @@ def export_route(
     elif request.format is ExportFormat.MARKDOWN:
         media_type = CLIPBOARD_MEDIA_TYPE
 
-    return Response(content=result.content.encode("utf-8"), media_type=media_type, headers=headers)
+    return Response(content=encode_content(result.content, result.encoding), media_type=media_type, headers=headers)

@@ -2,11 +2,12 @@
 
 Belegt Speichern/Wiederfinden, die gemeinsame Liste aus kontospezifischen und
 kontounabhaengigen Vorlagen, die Passgenauigkeits-Reihenfolge beim Vorschlagen,
-das idempotente Seeding genau fuer N26, Easybank und PayPal (ohne eigenen
-CSV-Export) sowie die Verwendbarkeit der Seed-Mappings in der Mapping-Engine
-(F-IMP-02, F-IMP-03). Die PayPal-Vorlage bindet den Vorverarbeitungsschritt aus
-F-IMP-08 ueber ``template_pre_filter``. Alle Zugriffe laufen ueber das ORM
-(N-DB-01).
+das idempotente Seeding fuer N26, Easybank, PayPal und den eigenen CSV-Export
+(T-098, F-EXP-03) sowie die Verwendbarkeit der Seed-Mappings in der
+Mapping-Engine (F-IMP-02, F-IMP-03). Die PayPal-Vorlage bindet den
+Vorverarbeitungsschritt aus F-IMP-08 ueber ``template_pre_filter``; die Vorlage
+"Eigener CSV-Export" den Ruecknahme-Schritt des Formel-Schutzes (F-EXP-06).
+Alle Zugriffe laufen ueber das ORM (N-DB-01).
 """
 
 from __future__ import annotations
@@ -24,6 +25,7 @@ from finue.services.import_templates import (
     DEFAULT_TEMPLATE_NAMES,
     EASYBANK_TEMPLATE_NAME,
     N26_TEMPLATE_NAME,
+    OWN_CSV_TEMPLATE_NAME,
     PAYPAL_PRE_FILTER,
     PAYPAL_TEMPLATE_NAME,
     create_template,
@@ -183,12 +185,12 @@ def test_suggest_requires_account_id(factory: sessionmaker[Session]) -> None:
             suggest_templates(session, None)  # type: ignore[arg-type]
 
 
-def test_seed_creates_exactly_n26_easybank_paypal_and_is_idempotent(factory: sessionmaker[Session]) -> None:
-    """F-IMP-05: Genau drei Standardvorlagen, zweiter Aufruf legt nichts an."""
+def test_seed_creates_n26_easybank_paypal_own_csv_and_is_idempotent(factory: sessionmaker[Session]) -> None:
+    """F-IMP-05: Vier Standardvorlagen, zweiter Aufruf legt nichts an."""
     with factory() as session:
         first = seed_default_templates(session)
         assert {template.name for template in first} == set(DEFAULT_TEMPLATE_NAMES)
-        assert len(first) == 3
+        assert len(first) == 4
         for template in first:
             assert template.account_id is None
             assert template.kind == "csv"
@@ -199,17 +201,18 @@ def test_seed_creates_exactly_n26_easybank_paypal_and_is_idempotent(factory: ses
             N26_TEMPLATE_NAME,
             EASYBANK_TEMPLATE_NAME,
             PAYPAL_TEMPLATE_NAME,
+            OWN_CSV_TEMPLATE_NAME,
         }
-        assert len(seeded) == 3
-        # Der eigene CSV-Export entsteht erst in M4 (F-EXP-03) und wird nicht geseedet.
-        assert not any("eigene" in template.name.lower() for template in seeded)
+        assert len(seeded) == 4
+        # Der eigene CSV-Export (F-EXP-03) passt zum Standard-Exportprofil (T-098).
+        assert any("eigene" in template.name.lower() for template in seeded)
 
     with factory() as session:
         second = seed_default_templates(session)
         assert second == []
 
     with factory() as session:
-        assert len(list_templates(session)) == 3
+        assert len(list_templates(session)) == 4
 
 
 def test_seeded_mappings_are_apply_ready(factory: sessionmaker[Session]) -> None:
@@ -249,6 +252,18 @@ def test_seeded_mappings_are_apply_ready(factory: sessionmaker[Session]) -> None
             },
             -1234,
         ),
+        OWN_CSV_TEMPLATE_NAME: (
+            {
+                "Buchungstag": "31.01.2026",
+                "Wertstellung": "31.01.2026",
+                "Betrag": "-12,34",
+                "Waehrung": "EUR",
+                "Gegenpartei": "Online-Shop",
+                "IBAN Gegenpartei": "DE02120300000000202051",
+                "Verwendungszweck": "Rechnung 42",
+            },
+            -1234,
+        ),
     }
 
     for name, (row, expected_cents) in expected_rows.items():
@@ -266,14 +281,15 @@ def test_seeded_mappings_are_apply_ready(factory: sessionmaker[Session]) -> None
         assert result[0].currency == "EUR"
 
 
-def test_paypal_template_binds_pre_filter_and_others_do_not(factory: sessionmaker[Session]) -> None:
-    """F-IMP-08: Nur die PayPal-Vorlage nennt den Vorverarbeitungsschritt."""
+def test_templates_bind_pre_filters(factory: sessionmaker[Session]) -> None:
+    """F-IMP-08/F-EXP-06: PayPal bindet den Filter, der eigene Export den Ruecknahme-Schritt."""
     with factory() as session:
         seed_default_templates(session)
         templates = {template.name: template for template in list_templates(session)}
 
     assert template_pre_filter(templates[PAYPAL_TEMPLATE_NAME]) == PAYPAL_PRE_FILTER
     assert PAYPAL_PRE_FILTER == "paypal"
+    assert template_pre_filter(templates[OWN_CSV_TEMPLATE_NAME]) == "own_csv"
     assert template_pre_filter(templates[N26_TEMPLATE_NAME]) is None
     assert template_pre_filter(templates[EASYBANK_TEMPLATE_NAME]) is None
 

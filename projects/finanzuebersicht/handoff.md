@@ -2,6 +2,28 @@
 
 ## Next actions
 
+- **T-098 umgesetzt (M4 Welle 6, CSV-Export mit Optionen, Exportprofilen und passender Importvorlage,
+  F-EXP-03/F-EXP-06, Risiko medium).** Konflikt-Check: Ja (nur CSV-Export, Exportprofil-CRUD und der eigene
+  Seed; JSON-/Markdown-Logik unveraendert ausser gemeinsamer Verdrahtung). Neu/geaendert:
+  `backend/finue/services/export.py` (`ExportFormat.CSV`, `CsvExportOptions`, `validate_csv_options`/
+  `validate_csv_columns`, `merge_csv_options`, `build_csv`, `encode_content`, `strip_export_guard`,
+  `ExportResult.encoding`; Spaltenlabels ASCII, Standardprofil "Finanzblick-angelehnt" **unbelegt**),
+  `backend/finue/services/export_profiles.py` (Profil-CRUD mit `ExportProfileVersionConflict`, genau ein
+  Standardprofil), `backend/finue/api/export_profiles.py` (`GET/POST /api/export-profiles`,
+  `GET/PATCH/DELETE /api/export-profiles/{id}` mit 409/`current`), `backend/finue/api/export.py`
+  (`format="csv"`, `profile_id`, `csv`-Overrides, Kodierung), `backend/finue/services/import_templates.py`
+  (vierter Seed "Eigener CSV-Export", `pre_filter='own_csv'`), `backend/finue/api/imports.py`
+  (Import-Vorverarbeitungsregister um `strip_export_guard`), `api/routes.py` (Router). Formel-Injection:
+  Freitextzellen mit fuehrendem `= + - @`/Tab/CR werden mit `'` entschaerft, Betrag/Datum nie; die
+  Importvorlage macht die Entschaerfung rueckgaengig, der Roundtrip bleibt verlustfrei. Evidenz:
+  `uv run pytest tests/unit/test_export_csv.py tests/unit/test_export_profiles_api.py -q` = 25 passed;
+  `uv run pytest tests/unit -q` = 1454 passed/1 skipped; `uv run ruff check backend tests scripts` =
+  All checks passed; `uv run ruff format --check backend tests scripts` = 189 files already formatted;
+  `uv run mypy backend` = Success (91 Dateien); Artefakt `artifacts/T-098-build.json`. **Offen:** Risiko
+  medium: unabhaengige `verifier`-Pruefung (Review-Checkliste AGENTS.md) steht vor `task-done`. Kein Push;
+  fremde uncommittete Welle-Arbeit (status.md/queues.md/events.jsonl, Task-Dateien T-092/093/100/108/112,
+  `tests/unit/test_transaction_list.py`, Verifier-Artefakte) bleibt unangetastet.
+
 - **T-102 umgesetzt (M4 Welle 3, Sitzungsuebersicht und Abmelden einzelner Sitzungen, F-CON-06, Risiko low).**
   Konflikt-Check: Ja (nur Sitzungen; keine Sync-/SSE-/Import-/Export-Aenderung ausser der Router-Verdrahtung;
   keine N-SEC-04-Anmeldung, Anlage bleibt M10). Neu: `backend/finue/services/sessions.py`

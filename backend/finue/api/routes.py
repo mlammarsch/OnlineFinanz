@@ -24,6 +24,7 @@ from finue.api import (
     accounts,
     banks,
     export,
+    export_profiles,
     groups,
     icons,
     import_templates,
@@ -60,8 +61,10 @@ def build_protected_router() -> APIRouter:
     protected.include_router(icons.router)
     # Buchungssuche mit Filtern (T-092, F-SUC-01..07, F-ABS-04/05).
     protected.include_router(search.router)
-    # Export als JSON oder Markdown ohne Datenänderung (T-097, F-EXP-01/02/04/05).
+    # Export als JSON, Markdown oder CSV ohne Datenänderung (T-097/T-098, F-EXP-01..06).
     protected.include_router(export.router)
+    # Gespeicherte CSV-Exportprofile (T-098, F-EXP-03, F-CON-02).
+    protected.include_router(export_profiles.router)
     # Buchungsliste je Konto und Gruppe mit Vormerkungen und Tagessalden (T-093, F-BUC-01..06).
     protected.include_router(transaction_list.router)
     # Import-Assistent: Formaterkennung, Vorschau, Lauf und Vorlagen-CRUD (T-100, F-IMP-01..08).

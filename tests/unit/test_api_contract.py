@@ -189,6 +189,17 @@ CONTRACT: dict[str, RouteContract] = {
         kind="version",
         reason="Import-Vorlage ansehen/pflegen/loeschen mit Versionspruefung (F-IMP-05, F-CON-02)",
     ),
+    "/api/export-profiles": RouteContract(
+        frozenset({"GET", "POST"}),
+        kind="anlegen",
+        reason="CSV-Exportprofile auflisten; Profil anlegen (F-EXP-03)",
+        is_list=True,
+    ),
+    "/api/export-profiles/{profile_id}": RouteContract(
+        frozenset({"GET", "PATCH", "DELETE"}),
+        kind="version",
+        reason="CSV-Exportprofil ansehen/pflegen/loeschen mit Versionspruefung (F-EXP-03, F-CON-02)",
+    ),
     "/api/accounts/{account_id}/standing-orders": RouteContract(
         frozenset({"GET"}),
         kind="lesen",

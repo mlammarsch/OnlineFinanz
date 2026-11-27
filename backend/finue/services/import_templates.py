@@ -47,8 +47,14 @@ Beleglage je Anbieter (Stand 2026-11-26):
   nicht im Mapping gespeichert (das wuerde die Mapping-Engine ablehnen),
   sondern ueber :func:`template_pre_filter` an die Vorlage gebunden.
 
-Der eigene CSV-Export wird hier bewusst **nicht** geseedet: Das
-Exportformat/-profil entsteht erst in M4 nach F-EXP-03.
+Der eigene CSV-Export wird als vierte Vorlage "Eigener CSV-Export" geseedet
+(T-098). Ihr Mapping passt zum Standard-Exportprofil (F-EXP-03) und mappt nur
+die Fingerprint-Felder; die Zusatzspalten Notiz, geprueft, abgestimmt und
+externe Referenz bleiben dem Re-Import vorerst unveraendert (das Mapping
+akzeptiert sie nicht als Zielfeld). Die Vorlage traegt den
+Vorverarbeitungsschritt ``pre_filter='own_csv'``, der die Formel-Entschaerfung
+des CSV-Exports rueckgaengig macht, damit der Roundtrip (F-EXP-06) 0 neue
+Buchungen ergibt.
 """
 
 from __future__ import annotations
@@ -63,11 +69,16 @@ from sqlalchemy.orm import Session
 from sqlalchemy.orm.exc import StaleDataError
 
 from finue.models.import_template import ImportTemplate
+from finue.services.export import (
+    EXPORT_GUARD_PRE_FILTER,
+    CSV_COLUMN_LABELS as _CSV_LABELS,
+)
 
 __all__ = [
     "DEFAULT_TEMPLATE_NAMES",
     "EASYBANK_TEMPLATE_NAME",
     "N26_TEMPLATE_NAME",
+    "OWN_CSV_TEMPLATE_NAME",
     "PAYPAL_PRE_FILTER",
     "PAYPAL_TEMPLATE_NAME",
     "TemplateVersionConflict",
@@ -99,12 +110,16 @@ class TemplateVersionConflict(RuntimeError):
 N26_TEMPLATE_NAME: Final = "N26 CSV"
 EASYBANK_TEMPLATE_NAME: Final = "Easybank CSV"
 PAYPAL_TEMPLATE_NAME: Final = "PayPal CSV"
+#: Passend zum Standard-Exportprofil (T-098, F-EXP-03); macht die Entschaerfung
+#: des CSV-Exports beim Re-Import rueckgaengig (F-EXP-06).
+OWN_CSV_TEMPLATE_NAME: Final = "Eigener CSV-Export"
 
 #: Namen, die :func:`seed_default_templates` genau einmal anlegt.
 DEFAULT_TEMPLATE_NAMES: Final[tuple[str, ...]] = (
     N26_TEMPLATE_NAME,
     EASYBANK_TEMPLATE_NAME,
     PAYPAL_TEMPLATE_NAME,
+    OWN_CSV_TEMPLATE_NAME,
 )
 
 #: Kennung des PayPal-Vorverarbeitungsschritts (F-IMP-08, Umsetzung in T-057).
@@ -183,11 +198,35 @@ _DEFAULT_TEMPLATE_SEEDS: Final[tuple[_TemplateSeed, ...]] = (
         date_format="MM/TT/JJJJ",
         decimal_separator="point",
     ),
+    _TemplateSeed(
+        name=OWN_CSV_TEMPLATE_NAME,
+        mapping={
+            # Die Quellfelder sind die Kopfzeilen des CSV-Exports (T-098,
+            # F-EXP-03); ueber CSV_COLUMN_LABELS bleibt die Vorlage an den
+            # Export gebunden und driftet nicht.
+            "fields": {
+                "booking_date": _CSV_LABELS["booking_date"],
+                "value_date": _CSV_LABELS["value_date"],
+                "amount_cents": _CSV_LABELS["amount"],
+                "currency": _CSV_LABELS["currency"],
+                "counterparty": _CSV_LABELS["counterparty"],
+                "counterparty_iban": _CSV_LABELS["counterparty_iban"],
+                "purpose": _CSV_LABELS["purpose"],
+            },
+            "kind": "csv",
+            "currency_default": "EUR",
+        },
+        delimiter=";",
+        encoding="utf-8",
+        date_format="TT.MM.JJJJ",
+        decimal_separator="comma",
+    ),
 )
 
-#: Vorlagenname -> Vorverarbeitungsschritt (F-IMP-08, T-057).
+#: Vorlagenname -> Vorverarbeitungsschritt (F-IMP-08 T-057, F-EXP-06 T-098).
 _DEFAULT_TEMPLATE_PRE_FILTERS: Final[dict[str, str]] = {
     PAYPAL_TEMPLATE_NAME: PAYPAL_PRE_FILTER,
+    OWN_CSV_TEMPLATE_NAME: EXPORT_GUARD_PRE_FILTER,
 }
 
 
@@ -382,8 +421,8 @@ def delete_template(session: Session, template_id: int, *, expected_version: int
 def seed_default_templates(session: Session) -> list[ImportTemplate]:
     """Legt die mitgelieferten Standardvorlagen idempotent an (F-IMP-05).
 
-    Legt genau drei kontounabhaengige CSV-Vorlagen an: N26, Easybank und
-    PayPal. Der eigene CSV-Export wird bewusst nicht geseedet (M4/F-EXP-03).
+    Legt genau vier kontounabhaengige CSV-Vorlagen an: N26, Easybank, PayPal
+    und den eigenen CSV-Export (T-098, passend zum Standard-Exportprofil).
     Vorhandene Vorlagen mit demselben Namen (kontounabhaengig) werden nicht
     angefasst, sodass ein zweiter Aufruf nichts doppelt anlegt.
 
@@ -429,10 +468,13 @@ def seed_default_templates(session: Session) -> list[ImportTemplate]:
 
 
 def template_pre_filter(template: ImportTemplate) -> str | None:
-    """Nennt den Vorverarbeitungsschritt einer Standardvorlage (F-IMP-08).
+    """Nennt den Vorverarbeitungsschritt einer Standardvorlage (F-IMP-08, F-EXP-06).
 
-    Die PayPal-Vorlage liefert ``"paypal"``; T-057 bindet daran
-    :func:`finue.services.paypal_filter.filter_paypal_rows` an. Andere
+    Die PayPal-Vorlage liefert ``"paypal"`` (T-057 bindet daran
+    :func:`finue.services.paypal_filter.filter_paypal_rows` an); die Vorlage
+    "Eigener CSV-Export" liefert ``"own_csv"`` (T-098 bindet daran
+    :func:`finue.services.export.strip_export_guard` an, damit die
+    Formel-Entschaerfung des Exports den Roundtrip nicht bricht). Andere
     Vorlagen liefern ``None``. Der Wert steht nicht im Mapping, damit die
     Vorlage unveraendert an :func:`finue.services.mapping.apply_mapping`
     uebergeben werden kann.
