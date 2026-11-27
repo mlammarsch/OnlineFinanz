@@ -116,6 +116,10 @@ genau dann gesetzt, wenn das jeweilige Kennzeichen `true` ist (F-ABS-01).
 - **Verlustfreiheit**: `fingerprint`, `occurrence_index`, Notiz, Pruef- und
   Abstimmungskennzeichen sowie die externe Referenz sind enthalten, damit
   Export und Re-Import denselben Datenstand ergeben (F-EXP-04, F-EXP-06).
+- **Vorkommen-Index**: Der Bestand fuehrt `occurrence_index` 0-basiert (F-DUP-02,
+  Demo- und Importdaten); das Format schreibt ihn 1-basiert (Minimum 1). Beim
+  Re-Import vergibt der Multimengen-Abgleich den Index ohnehin neu, sodass die
+  Zuordnung verlustfrei bleibt.
 
 ## Re-Import
 

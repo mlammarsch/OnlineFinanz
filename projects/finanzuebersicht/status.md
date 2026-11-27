@@ -1,22 +1,22 @@
 # Status finanzuebersicht
 
-_generated 2026-11-26T20:30:22Z_
+_generated 2026-11-27T13:34:49Z_
 
-Tasks: pending=22, running=0, done=86, failed=0, blocked=3, cancelled=4
+Tasks: pending=15, running=2, done=91, failed=0, blocked=3, cancelled=4
 
-Verified complete: 86/115; retry rate 0.04; learnings 75; events 420
+Verified complete: 91/115; retry rate 0.04; learnings 79; events 448
 
 ## now
 
-- (empty)
+- [ ] T-097 M4: Export-Service JSON und Markdown mit Umfang, Filter und Dateiname (F-EXP-01, 02, 04, 05) (owner None)
+- [ ] T-100 M4: REST fuer Datei-Import, Importvorlagen, Lauf-Protokoll und lesende Auftraege (owner None)
 
 ## next
 
-- [ ] T-089 M4: Konto loeschen mit vollstaendiger Bereinigung (F-KTO-07)
-- [ ] T-090 M4: Banken-Stammdaten und Icon-Upload (F-KTO-10, F-KTO-11)
-- [ ] T-092 M4: Such- und Filterabfrage als gemeinsamer Baustein plus Such-API (F-SUC-01..07, F-ABS-04/05)
-- [ ] T-095 M4: Abstimmungsuebersicht je Konto und Gruppe (F-ABS-03)
-- [ ] T-100 M4: REST fuer Datei-Import, Importvorlagen, Lauf-Protokoll und lesende Auftraege
+- [ ] T-102 M4: Sitzungsuebersicht und Abmelden einzelner Sitzungen im Backend (F-CON-06)
+- [ ] T-103 M4: Performance-Block mit 100.000 Buchungen (N-PERF-01, F-BUC-06)
+- [ ] T-108 M4 T-094-A: Edit-Service Kern, Abstimmen/Pruefen (Setz-Semantik) und Buchungsdetail (F-ABS-01/02, F-CON-01/02)
+- [ ] T-112 M4 T-099-B: Sync-REST, Runner, TAN-Endpunkte, Waechter, Protokoll, Ereignisse
 
 ## blocked
 
@@ -24,12 +24,9 @@ Verified complete: 86/115; retry rate 0.04; learnings 75; events 420
 - [ ] T-099 M4: Sync-REST mit TAN-Endpunkten und DB-Session-Freigabe waehrend der TAN-Pause: Abschlusstask: Umsetzung in T-111,T-112. Freigabe (task-set pending) erst wenn beide done; dann nur Gesamtverifikation, kein Neubau
 - [ ] T-106 M4: API-E2E-Szenario gegen echten Uvicorn-Prozess mit Fake-Bank und SSE: Abschlusstask: Szenarien in T-113,T-115. Freigabe (task-set pending) erst wenn beide done; Rest: validate.py Check api-e2e, 3x gruen
 - [ ] T-091 M4: FinTS-Anlage-Assistent im Backend (F-KTO-05a): waiting on T-088,T-099
-- [ ] T-093 M4: Buchungsliste mit Vormerkungen, Tagessalden, Gruppenansicht und Keyset-Paginierung (F-BUC-01..06): waiting on T-088,T-092
 - [ ] T-096 M4: Aufloesung von Verdachtsdubletten - Zusammenfuehren, Rueckgaengig, Ignorieren (F-DUP-05): waiting on T-094
-- [ ] T-097 M4: Export-Service JSON und Markdown mit Umfang, Filter und Dateiname (F-EXP-01, 02, 04, 05): waiting on T-092,T-085
 - [ ] T-098 M4: CSV-Export mit Optionen, Exportprofilen und passender Importvorlage (F-EXP-03, F-EXP-06): waiting on T-097
 - [ ] T-101 M4: Aenderungsbenachrichtigung per Server-Sent Events /api/events (F-CON-04): waiting on T-086,T-099
-- [ ] T-103 M4: Performance-Block mit 100.000 Buchungen (N-PERF-01, F-BUC-06): waiting on T-093
 - [ ] T-104 M4: Concurrency-Block (F-CON-01..05, N-DB-04): waiting on T-088,T-094,T-099,T-101
 - [ ] T-105 M4: Roundtrip-Block erweitern (Mehrkonto-JSON, CSV mit Vorlage, alle Schema-Versionen) (F-EXP-06/07, F-ABS-06): waiting on T-094,T-096,T-098,T-100
 - [ ] T-107 M4: Abnahme und Aufraeumen (validate.py m4 inkl. roundtrip, perf, concurrency, api-e2e): waiting on T-084,T-085,T-086,T-087,T-088,T-089,T-090,T-091,T-092,T-093,T-094,T-095,T-096,T-097,T-098,T-099,T-100,T-101,T-102,T-103,T-104,T-105,T-106
@@ -73,4 +70,10 @@ Verified complete: 86/115; retry rate 0.04; learnings 75; events 420
 - [ ] T-112 (Sync-REST/Runner): denselben Vertrag einhalten - im Runner-/Event-Zustand ueber eine Pause nur IDs/Werte halten, keine DB-Session/ORM-Objekte; im Runner-Test die Pool-Pruefung (Engine.pool.checkedout()==0) waehrend AWAITING_TAN wiederholen.
 - [ ] T-088 Fund (API-Struktur): FastAPI 0.165 setzt bei verschachtelten include_router das Elternpraefix NICHT in APIRoute.path; deshalb bringt jeder Fachrouter prefix="/api" und require_user selbst mit (siehe decisions.md T-088). Neue Fachrouter im selben Muster anlegen, sonst findet der Vertragstest die Pfade nicht.
 - [ ] T-088 Fund (Modell-Typisierung): Account.balance_at ist als Mapped[UtcDateTime | None] deklariert (statt Mapped[datetime | None] wie in TimestampMixin); Schreibzugriffe brauchen daher setattr/cast-Umwege (services/accounts.py, api-DTO). Ebenso ImportRun.finished_at. Annotationen an das Mixin-Muster angleichen, dann entfallen die Umwege.
+- [ ] Parallel-Builder im selben Arbeitsbaum: die planweiten Verifikationsbefehle (ruff/mypy ueber backend tests scripts) erfassen fremde, noch unfertige Dateien, sodass task-done gruen scheitern kann. Builder in isolierten Worktrees starten oder die Verifikationsplaene auf die eigenen Dateien begrenzen.
+- [ ] Shared-Files-Schutz: `api/routes.py`, `tests/unit/test_api_contract.py`, `docs/api.md` und `decisions.md` werden von mehreren Welle-Buildern gleichzeitig geaendert; ganze-Datei-Commits nehmen fremde, noch unfertige Aenderungen mit (T-095 nahm die T-089-Doku-/Entscheidungszeilen in seinen Commit auf, T-089 musste den eigenen Vertragstabelle-Hunk gezielt stagen). Shared-Files nur hunkweise stagen oder Welle-Builder in isolierten Worktrees starten.
+- [ ] hx.py: `task-claim` kann keine Task-ID waehlen und vergibt die niedrigste priorisierte faellige Task; im gemeinsamen Welle-4b-Arbeitsbaum traf der Claim T-108 (Prio 4) statt der gewuenschten T-090 (Prio 5), ebenso T-112. Workaround: `task-set <T> pending` (Fehlclaim zuruecksetzen) plus `task-set <T> running`. Empfehlung: `hx.py task-claim <projekt> <task-id>` (optional `--task`) ergaenzen.
+- [ ] Agent Manager: parallele Builder im GLEICHEN Arbeitsbaum kollidieren (gemeinsamer Git-Index, hx task-claim ohne Task-ID -> Fehlclaim auf niedrigste prio, Register-Dateien). Je Task einen eigenen Worktree nutzen; task-claim um optionale Task-ID ergaenzen.
+- [ ] T-093: Der Tagessaldo einer Folgeseite kommt aus einem SQL-Aggregat ueber die juengeren Buchungen; bei sehr vielen Buchungen am selben Tag sind das wenige, aber unbeschraenkt breite Aggregatabfragen. Im Perf-Block T-103 (100.000 Buchungen) das Tagessaldo-Aggregat je Seite messen und bei Bedarf einen zusammengefassten Tagesindex erwaegen.
+- [ ] Schema v1 (docs/schemas/export-v1.schema.json) verlangt occurrence_index minimum 1, der Bestand fuehrt ihn 0-basiert (duplicate import/Demo). Mit dem Owner klaeren: Import/Modell auf 1-basiert ziehen (Migration) oder Schema-Minimum auf 0 senken (Formatversion beruehren); bis dahin normalisiert der Export still auf 1-basiert (verlustfrei, da Re-Import neu vergibt).
 

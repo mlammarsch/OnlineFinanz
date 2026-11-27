@@ -65,6 +65,14 @@ class Settings(BaseSettings):
         ge=1,
         description="Hoechste Groesse einer hochgeladenen Datei in Bytes (Import, M4)",
     )
+    export_max_rows: int = Field(
+        default=100_000,
+        ge=1,
+        description=(
+            "Hoechstzahl der Buchungen je Export (F-EXP-01/02). Begrenzt zugleich die "
+            "Laenge einer Auswahl-ID-Liste; groessere Exporte werden mit Klartext abgelehnt."
+        ),
+    )
 
     def __init__(self, **data: Any) -> None:
         """Initialisierung mit Standard-DATABASE_URL-Berechnung."""

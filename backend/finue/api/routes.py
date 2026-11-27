@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from finue.api import accounts, banks, groups, icons, reconciliation, search, transaction_list
+from finue.api import accounts, banks, export, groups, icons, reconciliation, search, transaction_list
 from finue.api.health import router as health_router
 
 __all__ = ["build_protected_router", "build_router"]
@@ -47,6 +47,8 @@ def build_protected_router() -> APIRouter:
     protected.include_router(icons.router)
     # Buchungssuche mit Filtern (T-092, F-SUC-01..07, F-ABS-04/05).
     protected.include_router(search.router)
+    # Export als JSON oder Markdown ohne Datenänderung (T-097, F-EXP-01/02/04/05).
+    protected.include_router(export.router)
     # Buchungsliste je Konto und Gruppe mit Vormerkungen und Tagessalden (T-093, F-BUC-01..06).
     protected.include_router(transaction_list.router)
     return protected

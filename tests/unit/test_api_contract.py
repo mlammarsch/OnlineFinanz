@@ -152,6 +152,11 @@ CONTRACT: dict[str, RouteContract] = {
         reason="Buchungsliste einer Gruppe mit Kontokennzeichnung je Zeile (F-BUC-05)",
         is_list=True,
     ),
+    "/api/export": RouteContract(
+        frozenset({"POST"}),
+        kind="aktion",
+        reason="Export als Datei/Zwischenablage-Text ohne Aenderung des Datenbestands (F-EXP-01/02/04/05)",
+    ),
 }
 
 

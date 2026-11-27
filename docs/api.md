@@ -435,6 +435,52 @@ nicht nur die Seite; `total_cents` ist die vorzeichenbehaftete Summe der Treffer
 (bei gemischten Waehrungen nur je Konto/Gruppe aussagekraeftig). Ungueltige
 Bereiche oder Zeitraeume liefern 422 mit deutschem Klartext.
 
+## Export (F-EXP-01/02/04/05)
+
+Die Fachlogik liegt in `backend/finue/services/export.py`, der Router
+`backend/finue/api/export.py` uebersetzt nur HTTP. Der Endpunkt aendert keinen
+Datenbestand; er nutzt denselben Filterbaustein wie die Suche
+(`services/search.py`) und dasselbe JSON-Schema wie der Import (M2,
+`docs/schemas/export-v1.schema.json`). CSV-Profile folgen in T-098.
+
+| Methode | Pfad | Zweck |
+|---|---|---|
+| POST | `/api/export` | Buchungen als JSON oder Markdown exportieren (F-EXP-01/02/04/05) |
+
+Anfragekoerper (die Filterfelder entsprechen `GET /api/search`):
+
+```json
+{
+  "format": "json",
+  "scope": "account",
+  "account_id": 1,
+  "period": "365",
+  "checked": null,
+  "reconciled": null,
+  "with_note": false,
+  "sort": "date",
+  "direction": "asc"
+}
+```
+
+- `format`: `json` (Standard) oder `md`.
+- `scope`: `all`, `account` (dann `account_id`), `group` (dann `group_id`),
+  `search` (freie Suchtreffer ueber `q`) oder `selection` (explizite
+  `transaction_ids`, gegen die Grenze gezaehlt).
+- Zeitraum und Filter (`q`, `period`, `from`, `to`, `checked`, `reconciled`,
+  `with_note`, `status`, `sort`, `direction`) gelten wie bei der Suche
+  (F-EXP-02). Zusammengefuehrte Buchungen fehlen immer (F-DUP-04).
+
+`?download=false` liefert den Koerper ohne `Content-Disposition`; Markdown kommt
+dann als `text/plain` fuer die Zwischenablage (sonst `text/markdown`). Im
+Standard liefert der Server die Datei mit
+`Content-Disposition: attachment; filename="<slug>_<von>_<bis>.<ext>"`; der Name
+ist ASCII (Umlaute transkribiert), bei Zeitraum `alle` stammt der Zeitraum aus
+Minimum/Maximum der exportierten Buchungen (F-EXP-02). Eine Buchungsmenge ueber
+`export_max_rows` wird als 413 mit Klartext abgewiesen. Das JSON folgt
+`docs/schemas/export-v1.schema.json` (F-EXP-04); der Vorkommen-Index wird darin
+1-basiert ausgegeben (der Bestand fuehrt ihn 0-basiert, F-DUP-02).
+
 ## Grenzen (config)
 
 Zentral in `backend/finue/config.py`:
@@ -443,6 +489,7 @@ Zentral in `backend/finue/config.py`:
 - `api_max_batch_size` = 1000 (Batch-Aktionen).
 - `api_max_upload_bytes` = 50 MiB (Import-Datei; der Icon-Upload mit 512 KB
   aus F-KTO-11 wird in T-090 separat begrenzt).
+- `export_max_rows` = 100000 (Export und Auswahl-ID-Liste, F-EXP-01/02).
 
 ## Ereignisse (F-CON-04)
 
