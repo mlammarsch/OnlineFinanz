@@ -2,6 +2,21 @@
 
 ## Next actions
 
+- **T-099 Abschlussgate ausgefuehrt (M4-Entlastung, Sync-REST + DB-Session-Freigabe, Risiko medium).**
+  Voraussetzung geprueft: T-111 `done` (Evidenz `T-111-verify-1795724203.json`) und T-112 `done`
+  (Evidenz `T-112-verify-1795792983.json`). T-099 per `task-set` gezielt von `blocked` -> `pending` -> `running`
+  (kein Neubau; der generische `task-claim` traf in dieser Welle wiederholt die falsche ID). Unveraenderter
+  Verifikationsplan, alle Exit 0: `uv run pytest tests/unit/test_sync_api.py -q` = 18 passed;
+  `uv run pytest -m integration tests/integration -q` = 17 passed/1 deselected;
+  `uv run ruff check backend tests scripts` = All checks passed;
+  `uv run ruff format --check backend tests scripts` = 201 files already formatted;
+  `uv run mypy backend` = Success (96 Dateien). Querschnitt/Integration: alle sieben DoD-Routen in
+  `api/sync.py`, Vertragseintraege in `test_api_contract.py`, Ereignisse `sync.status`/`sync.tan_required`/
+  `sync.tan_answered` im Runner, Session-Freigabe `_open_session`/`_close_session` in `sync_service.py` (T-111-Naht);
+  Zusatzbeleg `test_sync_session_release.py`+`test_api_contract.py` = 18 passed. Abschluss-Evidenz:
+  `artifacts/T-099-abschluss.md` plus `hx.py task-done`-Artefakt. **Offen:** Medium-Risiko - unabhaengige
+  `verifier`-Pruefung (Integration und Querschnitt, Checkliste AGENTS.md) folgt. Kein Push.
+
 - **T-103 Verifierbefund behoben (M4, F-DUP-02, Risiko medium) -- T-103 bleibt offen.**
   Befund der unabhaengigen Pruefung: `scripts/perf_data.py` startete den
   Multiset-Vorkommensindex je (Konto, Fingerprint) bei **1** (`counters.get(counter_key, 1)`),
