@@ -2,6 +2,30 @@
 
 ## Next actions
 
+- **T-093 umgesetzt (M4 Welle 5, Buchungsliste mit Vormerkungen, Tagessalden, Gruppenansicht und
+  Keyset-Paginierung, F-BUC-01..06, Risiko medium).** Konflikt-Check: Ja (nur Buchungsliste; keine
+  Kennzeichen-/Notiz-Editierung, keine Export-/Sync-REST-Aenderung; `api/transactions.py` bleibt T-094/T-108).
+  Neu: `backend/finue/services/transaction_list.py` (Kopf mit Name/Icon-Verweis/Saldo F-BUC-01;
+  Vormerkungsbereich mit Liste/Summe/Saldo inkl. Vormerkungen F-BUC-02; Tagesgruppen mit Tagessumme und
+  rueckwaerts vom aktuellen Saldo berechnetem Tagessaldo F-BUC-03; Zeilenfelder F-BUC-04; Gruppenansicht
+  mit Kontokennzeichnung je Zeile F-BUC-05; Keyset-Paginierung F-BUC-06) und `backend/finue/api/transaction_list.py`
+  (`GET /api/accounts/{id}/transactions`, `GET /api/groups/{id}/transactions`; Filter/Zeitraum/Sortierung aus
+  `services/search.py`/`TransactionQuery` T-092). Kernregeln: Ankerregel wie T-095 (FinTS `balance_cents`, sonst
+  `opening_balance_cents` + gebuchte Betraege); Tagessaldo(Tag) = aktueller Saldo minus Summe aller juengeren
+  gebuchten Betraege, auf Folgeseiten per SQL-Aggregat statt Python-Vollscan; Tagessalden filterunabhaengig
+  (alle gebuchten, nicht zusammengefuehrten Buchungen zaehlen); Gruppe summiert nur die Buchwaehrung (T-088-Regel) und
+  zeigt Fremdwaehrung nur als Zeile. `api/pagination.py`: `resolve_limit` aus `resolve_page_params` extrahiert (eine
+  Quelle der `limit`-Pruefung). Vertragstabelle, `docs/api.md`, `decisions.md` (Tagessaldo-/Keyset-Regel),
+  `improve.md` ergaenzt. Evidenz: `uv run pytest tests/unit/test_transaction_list.py -q` = 26 passed;
+  `uv run pytest tests/unit/test_api_contract.py -q` = 13 passed; ruff check/format und mypy der T-093-Dateien gruen
+  (Artefakt `artifacts/T-093-build.md`). **Offen:** Die planweiten Befehle (ruff/mypy ueber `backend tests scripts`)
+  sind zum Commit-Zeitpunkt durch parallele, noch nicht committete Welle-Arbeit rot
+  (T-097 `services/export.py` mypy, `tests/unit/test_export_json_md.py`, `api/import_templates.py`); die
+  T-093-Dateien sind sauber. Shared-Files (`api/routes.py`, `tests/unit/test_api_contract.py`) wurden hunk-weise
+  ueber den Git-Index gestaged, damit die fremden Export-Zeilen nicht mitgehen. `task-done` bewusst nicht
+  aufgerufen: die unabhaengige `verifier`-Pruefung (medium) folgt; danach bei sauberem Baum den Verifikationsplan
+  erneut fahren. Kein Push.
+
 - **T-090 umgesetzt (M4 Welle 4b, Banken-Stammdaten und Icon-Upload, F-KTO-10/11, Risiko medium).** Konflikt-Check: Ja
   (F-KTO-10/11, F-CON-02, N-SEC-05; kein Web-Abruf F-KTO-08, keine Aenderung an Loeschung/Suche/Sync). Neu:
   `backend/finue/services/icons.py` (Signatur-Erkennung PNG/JPEG/WebP; 512-KB-Grenze **vor** dem Dekodieren;
