@@ -182,6 +182,11 @@ CONTRACT: dict[str, RouteContract] = {
         kind="version",
         reason="Externe Referenz setzen mit Versionspruefung (F-ABS-05, F-CON-02)",
     ),
+    "/api/transactions/batch": RouteContract(
+        frozenset({"POST"}),
+        kind="setzen",
+        reason="Batch-Aktion mit Ergebnis je Buchung, Konflikte brechen nicht ab (F-CON-01/02/03, F-ABS-02)",
+    ),
     "/api/export": RouteContract(
         frozenset({"POST"}),
         kind="aktion",

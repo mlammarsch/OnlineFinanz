@@ -2,6 +2,25 @@
 
 ## Next actions
 
+- **T-110 umgesetzt (M4-Entlastung T-094-C, Batch mit Ergebnis je Buchung und Regression Sync/Re-Import;
+  F-CON-03, F-ABS-02/06, F-CON-05, Risiko medium).** Konflikt-Check: Ja (nur die Batch-Route auf dem
+  Kern aus T-108/T-109; keine Einzel-Edit-Funktion, keine Sync-/Export-/Import-Aenderung, keine Migration).
+  Neu in `backend/finue/api/transactions.py`: `POST /api/transactions/batch` mit
+  `{ids, action checked|reconciled|note_set|note_append, value, versions?}`, Ergebnis je Buchung als
+  `BatchItemResult` (`geaendert`/`unveraendert`/`konflikt` mit `current`/`fehler`); der Batch ruft je
+  Eintrag **genau** `set_flag`/`set_note`/`append_note` auf (keine zweite Schreibpfad-Logik), je Eintrag
+  eigener Commit, ein Konflikt/Fehler rollt nur diesen Eintrag zurueck (F-CON-03); `versions` optional
+  (Abbildung ID->Version, Pruefung nur wo angegeben); Grenze ueber `check_batch_size`/`api_max_batch_size`.
+  DTOs `BatchEditAction`/`TransactionBatchRequest`; Vertragseintrag in `test_api_contract.py`; Doku
+  `docs/api.md` (Routentabelle + Abschnitt "Batch-Aktion auf eine Auswahl"), `decisions.md` (T-110),
+  `improve.md` (zwei Kandidaten). Tests: neues `tests/unit/test_transaction_batch.py` (23 Tests: Auswahl,
+  Reihenfolge, Idempotenz, Konflikt bricht nicht ab, Fehler je Eintrag, Notiz, Grenze, Validierung,
+  Audit/Ereignis, **F-ABS-06-Regression** Sync+CSV-Re-Import). Evidenz: Etappen-Plan
+  `uv run pytest tests/unit/test_transaction_batch.py tests/unit/test_transaction_edit.py tests/unit/test_api_contract.py -q`
+  = 71 passed; `uv run pytest tests/unit -q` = 1538 passed/1 skipped; `ruff check`/`ruff format --check`
+  (202 Dateien)/`mypy backend` (96 Dateien) planweit gruen; Artefakt `artifacts/T-110-build.md`.
+  **Offen:** Risiko medium - unabhaengige `verifier`-Pruefung steht vor `task-done`. Kein Push.
+
 - **T-109 umgesetzt (M4-Entlastung T-094-B, Notiz ersetzen/atomar anhaengen und externe Referenz;
   F-ABS-05, F-CON-01/02, Risiko medium).** Konflikt-Check: Ja (nur Einzelbuchung; keine Batch-/Regression-Logik
   aus T-110, keine Sync-/Export-/Import-Aenderung, keine Migration). Neu in `services/transaction_edit.py`:

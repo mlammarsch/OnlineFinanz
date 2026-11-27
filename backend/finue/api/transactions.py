@@ -11,6 +11,8 @@ Setzt die schreibenden und lesenden Routen der Einzelbuchung um:
   anhaengen (F-CON-01).
 - ``PUT /api/transactions/{transaction_id}/external-ref`` - externe Referenz
   setzen (F-ABS-05).
+- ``POST /api/transactions/batch`` - Batch-Aktion auf eine Auswahl von Buchungen
+  mit Ergebnis je Eintrag (F-CON-03, F-ABS-02, F-SEL-03).
 
 Die Fachlogik liegt in :mod:`finue.services.transaction_edit` (gemeinsam mit
 MCP, D10); dieser Router uebersetzt nur HTTP: Body, Fehlerformat und DTOs. Die
@@ -21,6 +23,11 @@ liefert bei Abweichung 409 mit dem aktuellen Stand; er ist bei den
 **ersetzenden** Routen (Notiz ersetzen, externe Referenz) Pflicht. Vorgemerkte
 Buchungen lassen sich nicht abstimmen (422 mit Klartext, F-ABS-01).
 
+Der **Batch** ruft je Eintrag genau den Kern aus T-108/T-109 auf (keine zweite
+Schreibpfad-Logik); ein Konflikt oder Fehler eines Eintrags bricht den Rest
+**nicht** ab (F-CON-03). Die Ergebnisfolge bleibt in der Reihenfolge der
+angefragten IDs.
+
 Die Auth-Naht traegt der Router selbst (``require_user``); er bringt sein
 ``prefix="/api"`` mit (FastAPI 0.165 setzt das Elternpraefix nicht in
 ``APIRoute.path``, siehe ``decisions.md`` T-088).
@@ -30,13 +37,22 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from datetime import date, datetime
+from enum import StrEnum
+from typing import Any
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from sqlalchemy.orm import Session
 
-from finue.api.conventions import REST_ORIGIN
-from finue.api.deps import get_clock, get_event_bus, get_session, require_user
+from finue.api.container import AppServices
+from finue.api.conventions import (
+    REST_ORIGIN,
+    BatchItemResult,
+    BatchOutcome,
+    BatchResponse,
+    check_batch_size,
+)
+from finue.api.deps import get_clock, get_event_bus, get_services, get_session, require_user
 from finue.api.errors import ConflictError, DomainError, NotFoundError
 from finue.services.events import EventBus
 from finue.services.transaction_edit import (
@@ -142,6 +158,56 @@ class ExternalRefRequest(BaseModel):
 
     value: str | None
     version: int = Field(ge=1)
+
+
+class BatchEditAction(StrEnum):
+    """Erlaubte Batch-Aktionen auf eine Buchungsauswahl (F-ABS-02, F-SEL-03).
+
+    Deckt genau die Kennzeichen- und Notiz-Aktionen der Auswahl ab; die
+    externe Referenz ist bewusst nicht Teil des Batches (F-SEL-03 nennt nur
+    Notiz, geprueft und abgestimmt).
+    """
+
+    CHECKED = "checked"
+    RECONCILED = "reconciled"
+    NOTE_SET = "note_set"
+    NOTE_APPEND = "note_append"
+
+
+class TransactionBatchRequest(BaseModel):
+    """Anfrage einer Batch-Aktion auf eine Buchungsauswahl (F-CON-03, F-ABS-02).
+
+    ``ids`` ist die Auswahl (Reihenfolge bestimmt die Ergebnisfolge, keine
+    Duplikate), ``action`` die Aktion, ``value`` der Zielwert (Kennzeichen:
+    wahr/falsch; Notiz ersetzen: Text oder ``null``; Notiz anhaengen:
+    nichtleerer Text). ``versions`` ist optional: eine Abbildung
+    Buchungs-ID -> bekannte Version; wo ein Eintrag eine Version traegt, prueft
+    der Server optimistisch und meldet einen veralteten Stand je Eintrag als
+    Konflikt (F-CON-02/03), ohne den Rest abzubrechen.
+    """
+
+    ids: list[int] = Field(min_length=1, description="Auswahl an Buchungs-IDs")
+    action: BatchEditAction
+    value: bool | str | None = None
+    versions: dict[int, int] | None = None
+
+    @model_validator(mode="after")
+    def _validate(self) -> TransactionBatchRequest:
+        """Prueft Wert je Aktion, die Versionsnummern und die Eindeutigkeit der IDs."""
+
+        if len(set(self.ids)) != len(self.ids):
+            raise ValueError("Die Liste enthaelt doppelte Buchungs-IDs.")
+        if self.action in (BatchEditAction.CHECKED, BatchEditAction.RECONCILED):
+            if not isinstance(self.value, bool):
+                raise ValueError("Der Kennzeichen-Wert muss wahr oder falsch sein.")
+        elif self.action is BatchEditAction.NOTE_SET:
+            if self.value is not None and not isinstance(self.value, str):
+                raise ValueError("Die Notiz muss eine Zeichenkette oder leer sein.")
+        elif not isinstance(self.value, str) or self.value.strip() == "":
+            raise ValueError("Der anzuhaengende Notiztext darf nicht leer sein.")
+        if self.versions is not None and any(version < 1 for version in self.versions.values()):
+            raise ValueError("Die Versionsnummer muss mindestens 1 sein.")
+        return self
 
 
 # ---------------------------------------------------------------- Uebersetzung
@@ -355,3 +421,131 @@ def set_external_ref_route(
         session,
         transaction_id,
     )
+
+
+# ------------------------------------------------------------------- Batch
+
+#: Deutscher Klartext fuer einen Konflikt-Eintrag im Batch (F-CON-02/03).
+_BATCH_CONFLICT_MESSAGE = "Die Buchung wurde zwischenzeitlich geaendert."
+
+
+def _safe_current(session: Session, transaction_id: int) -> dict[str, Any] | None:
+    """Liefert den aktuellen Stand als DTO-Dict oder ``None`` (F-CON-02)."""
+
+    try:
+        return _load_detail(session, transaction_id).model_dump(mode="json")
+    except (TransactionNotFound, NotFoundError):
+        return None
+
+
+def _apply_batch_action(
+    payload: TransactionBatchRequest,
+    transaction_id: int,
+    session: Session,
+    events: EventBus,
+    clock: Callable[[], datetime],
+    expected_version: int | None,
+) -> bool:
+    """Fuehrt die Batch-Aktion fuer eine Buchung auf dem T-108/T-109-Kern aus.
+
+    Es gibt **keine** zweite Schreibpfad-Logik: jede Aktion ruft genau die
+    Service-Funktion auf, die auch die Einzelrouten nutzen. Rueckgabe ist
+    ``changed`` (F-CON-01); Konflikte und Fachfehler wirft die Kernfunktion.
+    """
+
+    action = payload.action
+    if action is BatchEditAction.CHECKED:
+        result = set_flag(
+            session,
+            transaction_id,
+            flag="checked",
+            value=bool(payload.value),
+            origin=REST_ORIGIN,
+            expected_version=expected_version,
+            events=events,
+            now=clock,
+        )
+        return result.changed
+    if action is BatchEditAction.RECONCILED:
+        result = set_flag(
+            session,
+            transaction_id,
+            flag="reconciled",
+            value=bool(payload.value),
+            origin=REST_ORIGIN,
+            expected_version=expected_version,
+            events=events,
+            now=clock,
+        )
+        return result.changed
+    if action is BatchEditAction.NOTE_SET:
+        note = payload.value if isinstance(payload.value, str) else None
+        return set_note(
+            session,
+            transaction_id,
+            text=note,
+            origin=REST_ORIGIN,
+            expected_version=expected_version,
+            events=events,
+        ).changed
+    return append_note(session, transaction_id, text=str(payload.value), origin=REST_ORIGIN, events=events).changed
+
+
+def _batch_entry(
+    payload: TransactionBatchRequest,
+    transaction_id: int,
+    session: Session,
+    events: EventBus,
+    clock: Callable[[], datetime],
+) -> BatchItemResult:
+    """Verarbeitet einen Batch-Eintrag und uebersetzt Fehler in ein Ergebnis (F-CON-03).
+
+    Konflikte und Fehler eines Eintrags werden zu einem ``konflikt``- bzw.
+    ``fehler``-Ergebnis; der Rest des Batches laeuft weiter.
+    """
+
+    expected_version = payload.versions.get(transaction_id) if payload.versions else None
+    try:
+        changed = _apply_batch_action(payload, transaction_id, session, events, clock, expected_version)
+    except TransactionNotFound as exc:
+        return BatchItemResult(
+            id=transaction_id,
+            outcome=BatchOutcome.FEHLER,
+            message=str(exc),
+        )
+    except TransactionVersionConflict:
+        session.rollback()
+        return BatchItemResult(
+            id=transaction_id,
+            outcome=BatchOutcome.KONFLIKT,
+            current=_safe_current(session, transaction_id),
+            message=_BATCH_CONFLICT_MESSAGE,
+        )
+    except (PendingReconciliationError, TransactionEditValidationError) as exc:
+        session.rollback()
+        return BatchItemResult(id=transaction_id, outcome=BatchOutcome.FEHLER, message=str(exc))
+    return BatchItemResult(
+        id=transaction_id,
+        outcome=BatchOutcome.GEAENDERT if changed else BatchOutcome.UNVERAENDERT,
+    )
+
+
+@router.post("/transactions/batch", response_model=BatchResponse)
+def batch_route(
+    payload: TransactionBatchRequest,
+    session: Session = Depends(get_session),
+    events: EventBus = Depends(get_event_bus),
+    clock: Callable[[], datetime] = Depends(get_clock),
+    services: AppServices = Depends(get_services),
+) -> BatchResponse:
+    """Batch-Aktion auf eine Auswahl mit Ergebnis je Buchung (F-CON-03, F-ABS-02).
+
+    Nutzt je Eintrag genau den Kern aus T-108/T-109 (keine zweite
+    Schreibpfad-Logik); Konflikte oder Fehler eines Eintrags brechen den Rest
+    nicht ab. Die Batchgrenze prueft die zentrale Einstellung
+    ``api_max_batch_size`` (F-CON-03).
+    """
+
+    check_batch_size(len(payload.ids), services.settings)
+    results = [_batch_entry(payload, transaction_id, session, events, clock) for transaction_id in payload.ids]
+    return BatchResponse(results=results)

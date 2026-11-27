@@ -395,6 +395,7 @@ dieselbe Schicht ueber den Parameter `origin`, D10); der Router
 | PUT | `/api/transactions/{id}/note` | Notiz ersetzen mit Versionspruefung (F-CON-02, F-ABS-05) |
 | POST | `/api/transactions/{id}/note/append` | Notiz atomar anhaengen (F-CON-01, F-ABS-05) |
 | PUT | `/api/transactions/{id}/external-ref` | externe Referenz setzen mit Versionspruefung (F-ABS-05, F-CON-02) |
+| POST | `/api/transactions/batch` | Batch-Aktion auf eine Auswahl mit Ergebnis je Buchung (F-CON-03, F-ABS-02) |
 
 ```json
 {
@@ -468,6 +469,54 @@ Regeln (Herleitung in `projects/finanzuebersicht/decisions.md`):
   (F-SUC-01, F-ABS-05): jede Aenderung baut `search_text` neu. Jede echte
   Aenderung meldet `transaction.changed` (IDs `account`, `transaction`) und
   schreibt einen Audit-Eintrag (`source` = Herkunft, F-MCP-09).
+
+### Batch-Aktion auf eine Auswahl (F-CON-03, F-ABS-02)
+
+`POST /api/transactions/batch` wendet **eine** Aktion auf eine Buchungsauswahl an
+und liefert **je Buchung** ein Ergebnis; ein Konflikt oder Fehler eines Eintrags
+bricht den Rest nicht ab (F-CON-03). Der Aufruf nutzt je Eintrag genau den Kern
+der Einzelrouten (keine zweite Schreibpfad-Logik).
+
+Body:
+
+- `ids`: Liste der Buchungs-IDs (mindestens eine, keine Duplikate; die
+  Ergebnisfolge entspricht der Reihenfolge der Anfrage). Hoechstens
+  `api_max_batch_size` (Standard 1000) Eintraege.
+- `action`: `checked`, `reconciled`, `note_set` oder `note_append`
+  (F-ABS-02, F-SEL-03).
+- `value`: Zielwert passend zur Aktion — `checked`/`reconciled`: `true|false`;
+  `note_set`: Text oder `null` (loescht die Notiz); `note_append`: nichtleerer
+  Text.
+- `versions` (optional): Abbildung Buchungs-ID → bekannte Version. Wo eine
+  Version angegeben ist, prueft der Server optimistisch; ein veralteter Stand
+  wird **je Eintrag** als `konflikt` mit dem aktuellen Stand in `current`
+  gemeldet (F-CON-02). Ohne Version gilt reine Setz-Semantik.
+
+```json
+{ "ids": [42, 43, 44], "action": "checked", "value": true, "versions": { "43": 5 } }
+```
+
+Beispielantwort:
+
+```json
+{
+  "results": [
+    { "id": 42, "outcome": "geaendert" },
+    { "id": 43, "outcome": "konflikt", "current": { "id": 43, "version": 2, "checked": false },
+      "message": "Die Buchung wurde zwischenzeitlich geaendert." },
+    { "id": 44, "outcome": "unveraendert" }
+  ]
+}
+```
+
+`outcome` ist `geaendert` (tatsaechlich geaendert), `unveraendert`
+(Setz-Semantik, kein Versionssprung), `konflikt` (veraltete Version; `current`
+traegt den aktuellen Stand) oder `fehler` (unbekannte Buchung, Abstimmung einer
+Vormerkung, Fachfehler; `message` traegt Klartext). Die Aktionen folgen dem Kern
+aus T-108/T-109: `checked`/`reconciled` sind Setz-Semantik (idempotent,
+F-CON-01), `note_set` ersetzt, `note_append` haengt atomar an (F-CON-01); je
+tatsaechlicher Aenderung entstehen ein Audit-Eintrag und `transaction.changed`
+(F-MCP-09, F-CON-04).
 
 ## Suche (F-SUC-01..07, F-ABS-04/05)
 
