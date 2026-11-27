@@ -2,6 +2,24 @@
 
 ## Next actions
 
+- **T-094 Abschlussgate ausgefuehrt (M4-Entlastung, Kennzeichen/Notiz/Referenz/Batch, Risiko medium).**
+  Voraussetzung geprueft: T-108 `done` (Evidenz `T-108-verify-1795790641.json`), T-109 `done`
+  (`T-109-verify-1795794585.json`), T-110 `done` (`T-110-verify-1795795732.json`). T-094 per `task-set`
+  gezielt von `blocked` -> `pending` -> `running` (kein Neubau; der generische `task-claim` traf in
+  dieser Welle wiederholt die falsche ID). Unveraenderter Verifikationsplan, alle Exit 0:
+  `uv run pytest tests/unit/test_transaction_edit.py tests/unit/test_transaction_batch.py -q` = 58 passed;
+  `uv run ruff check backend tests scripts` = All checks passed; `uv run ruff format --check backend tests
+  scripts` = 202 files already formatted; `uv run mypy backend` = Success (96 Dateien). Querschnitt/Integration:
+  Einzel-Edit-Kern `services/transaction_edit.py` (`set_flag` mit `origin` ui/mcp/import, `set_note`,
+  `append_note` atomar, `set_external_ref`, `transaction_detail`), Batch in `api/transactions.py` auf demselben
+  Kern, sieben Routen in `api/routes.py` (Zeile 73) und `test_api_contract.py` (7 Eintraege); Audit-Eintrag je
+  Aenderung, Ereignis `transaction.changed`, `search_text` neu gebaut; F-ABS-01/02/05/06, F-CON-01..03/05 im
+  Fokustest referenziert. Zusatzbelege: `tests/unit` = 1538 passed/1 skipped; Integration = 17 passed/1
+  deselected; Vertragstest 13 passed. Abschluss-Evidenz `artifacts/T-094-abschluss.md` plus `hx.py
+  task-done`-Artefakt `T-094-verify-1795796190.json`. **Offen:** Medium-Risiko - unabhaengige
+  `verifier`-Pruefung (Integration und Querschnitt, Checkliste AGENTS.md) folgt auf den committeten Stand.
+  Kein Push.
+
 - **T-110 umgesetzt (M4-Entlastung T-094-C, Batch mit Ergebnis je Buchung und Regression Sync/Re-Import;
   F-CON-03, F-ABS-02/06, F-CON-05, Risiko medium).** Konflikt-Check: Ja (nur die Batch-Route auf dem
   Kern aus T-108/T-109; keine Einzel-Edit-Funktion, keine Sync-/Export-/Import-Aenderung, keine Migration).
