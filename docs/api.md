@@ -381,6 +381,74 @@ Regeln (Herleitung in `projects/finanzuebersicht/decisions.md`):
   kann sich ueber Seiten erstrecken; der Tagessaldo bleibt dann gleich.
   Ungueltige Cursor und `limit`-Werte liefern 422 (F-CON-02, SPEC F-MCP-11).
 
+## Einzelbuchung: Detail und Kennzeichen (F-DET-01, F-ABS-01/02, F-CON-01/02)
+
+Die Fachlogik liegt in `backend/finue/services/transaction_edit.py` (MCP nutzt
+dieselbe Schicht ueber den Parameter `origin`, D10); der Router
+`backend/finue/api/transactions.py` uebersetzt nur HTTP.
+
+| Methode | Pfad | Zweck |
+|---|---|---|
+| GET | `/api/transactions/{id}` | Einzelbuchung mit allen Feldern fuer den Detailbereich (F-DET-01) |
+| PUT | `/api/transactions/{id}/checked` | "geprueft" setzen (F-ABS-01/02) |
+| PUT | `/api/transactions/{id}/reconciled` | "abgestimmt" setzen (F-ABS-01/02) |
+
+```json
+{
+  "id": 42,
+  "account_id": 1,
+  "account_name": "Girokonto",
+  "status": "gebucht",
+  "origin": "csv",
+  "counterparty": "REWE Markt",
+  "counterparty_iban": "DE02120300000000202051",
+  "purpose": "Wocheneinkauf",
+  "amount_cents": -4883,
+  "currency": "EUR",
+  "booking_date": "2026-01-10",
+  "value_date": "2026-01-09",
+  "note": null,
+  "checked": true,
+  "checked_at": "2026-01-15T09:00:00Z",
+  "checked_origin": "ui",
+  "reconciled": false,
+  "reconciled_at": null,
+  "reconciled_origin": null,
+  "external_ref": null,
+  "merged": false,
+  "version": 2,
+  "import_run": {
+    "id": 7,
+    "kind": "csv",
+    "status": "erfolgreich",
+    "started_at": "2026-01-10T18:00:00Z",
+    "finished_at": "2026-01-10T18:00:01Z"
+  }
+}
+```
+
+Regeln (Herleitung in `projects/finanzuebersicht/decisions.md`):
+
+- `origin` ist die Quelle der Buchung (FinTS `fints`, CSV `csv`, JSON `json`);
+  `import_run` ist der juengste Import-Lauf des Kontos mit passender Art
+  (FinTS -> `sync`, CSV -> `csv`, JSON -> `json`) oder `null`. Der Bestand
+  fuehrt (Stand T-108) noch keine direkte Verknuepfung Buchung -> Lauf.
+- `checked_at`/`checked_origin` und `reconciled_at`/`reconciled_origin` sind
+  Zeitpunkt und Herkunft der letzten Aenderung des jeweiligen Kennzeichens
+  (F-ABS-01); die Herkunft ist `ui` (REST), `mcp` oder `import`.
+- Der Body der Kennzeichen-Routen ist `{ "value": true|false, "version": n }`.
+  `version` ist optional: mitgesendet prueft der Server optimistisch und liefert
+  bei einem veralteten Stand 409 mit dem aktuellen Stand im Feld `current`
+  (F-CON-02); ohne `version` gilt reine Setz-Semantik.
+- Die Kennzeichen werden **gesetzt**, nicht umgeschaltet (F-CON-01): Ein
+  bereits gesetzter Wert liefert denselben Stand ohne Versionssprung, ohne
+  neuen Zeitstempel, ohne Audit-Eintrag und ohne Ereignis. Eine echte Aenderung
+  hebt `version` um 1, schreibt einen Audit-Eintrag (`source` = Herkunft,
+  F-MCP-09) und meldet `transaction.changed`.
+- Vorgemerkte Buchungen lassen sich **nicht** abstimmen: `PUT .../reconciled`
+  mit `value=true` liefert 422 `domain_error` mit Klartext (F-ABS-01). Das
+  "geprueft"-Kennzeichen ist auch bei Vormerkungen setzbar.
+
 ## Suche (F-SUC-01..07, F-ABS-04/05)
 
 `GET /api/search` sucht Buchungen ueber den gemeinsamen Baustein
@@ -597,7 +665,10 @@ Aenderungen meldet der In-Prozess-Ereignisbus
 Geheimnisse und keine Freitextnutzlast (N-SEC-02). Der Bus liegt im
 Service-Container (`app.state.services`); die SSE-Route `/api/events` liefert
 ihn in T-101 aus. Der Datei-Import meldet `import.finished` (IDs `account` und
-`run`) und `transaction.changed` (ID `account`).
+`run`) und `transaction.changed` (ID `account`). Der Edit-Kern der Einzelbuchung
+(T-108) meldet `transaction.changed` mit den IDs `account` und `transaction`,
+sobald ein Kennzeichen tatsaechlich wechselt; ein idempotenter Aufruf meldet
+nichts.
 
 ## Sitzungen (F-CON-06)
 

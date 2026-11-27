@@ -34,6 +34,7 @@ from finue.api import (
     sessions,
     standing_orders,
     transaction_list,
+    transactions,
 )
 from finue.api.health import router as health_router
 
@@ -67,6 +68,8 @@ def build_protected_router() -> APIRouter:
     protected.include_router(export_profiles.router)
     # Buchungsliste je Konto und Gruppe mit Vormerkungen und Tagessalden (T-093, F-BUC-01..06).
     protected.include_router(transaction_list.router)
+    # Einzelbuchung: Detail und Kennzeichen setzen (T-108, F-ABS-01/02, F-DET-01).
+    protected.include_router(transactions.router)
     # Import-Assistent: Formaterkennung, Vorschau, Lauf und Vorlagen-CRUD (T-100, F-IMP-01..08).
     protected.include_router(imports.router)
     protected.include_router(import_templates.router)

@@ -152,6 +152,21 @@ CONTRACT: dict[str, RouteContract] = {
         reason="Buchungsliste einer Gruppe mit Kontokennzeichnung je Zeile (F-BUC-05)",
         is_list=True,
     ),
+    "/api/transactions/{transaction_id}": RouteContract(
+        frozenset({"GET"}),
+        kind="lesen",
+        reason="Einzelbuchung mit allen Feldern (Quelle, Import-Lauf, Kennzeichen-Herkunft) (F-DET-01)",
+    ),
+    "/api/transactions/{transaction_id}/checked": RouteContract(
+        frozenset({"PUT"}),
+        kind="setzen",
+        reason="Geprueft-Kennzeichen setzen, Setz-Semantik und idempotent (F-ABS-01/02, F-CON-01)",
+    ),
+    "/api/transactions/{transaction_id}/reconciled": RouteContract(
+        frozenset({"PUT"}),
+        kind="setzen",
+        reason="Abgestimmt-Kennzeichen setzen, Setz-Semantik; vorgemerkt 422 (F-ABS-01/02, F-CON-01)",
+    ),
     "/api/export": RouteContract(
         frozenset({"POST"}),
         kind="aktion",
