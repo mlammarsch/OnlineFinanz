@@ -33,6 +33,7 @@ from finue.api import (
     search,
     sessions,
     standing_orders,
+    sync,
     transaction_list,
     transactions,
 )
@@ -77,6 +78,8 @@ def build_protected_router() -> APIRouter:
     protected.include_router(standing_orders.router)
     # Sitzungsuebersicht und Abmelden einzelner Sitzungen (T-102, F-CON-06).
     protected.include_router(sessions.router)
+    # Sync-Anstoesse, TAN-Endpunkte und Sync-Protokoll (T-112, F-SYN-01/02/04/07/10/11).
+    protected.include_router(sync.router)
     return protected
 
 

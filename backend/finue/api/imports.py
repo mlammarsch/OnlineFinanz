@@ -362,8 +362,12 @@ def _error_dto(error: ImportRunError) -> ImportRunErrorView:
     return ImportRunErrorView(id=error.id, row_no=error.row_no, code=error.code, message=error.message)
 
 
-def _run_dto(run: ImportRun) -> ImportRunView:
-    """Uebersetzt einen Import-Lauf in das API-DTO (F-SYN-07, F-IMP-06)."""
+def run_view(run: ImportRun) -> ImportRunView:
+    """Uebersetzt einen Import-Lauf in das API-DTO (F-SYN-07, F-IMP-06).
+
+    Oeffentlich, weil das Sync-Protokoll (``GET /api/sync/runs``, T-112)
+    dieselbe Darstellung nutzt.
+    """
 
     return ImportRunView(
         id=run.id,
@@ -494,7 +498,7 @@ def execute_import_route(
     )
     event_bus.emit("import.finished", account=payload.account_id, run=run.id)
     event_bus.emit("transaction.changed", account=payload.account_id)
-    return _run_dto(run)
+    return run_view(run)
 
 
 @router.get("/import-runs", response_model=ImportRunListResponse)
@@ -519,6 +523,6 @@ def list_import_runs_route(
         stmt = stmt.where(ImportRun.account_id == account_id)
     if kind is not None:
         stmt = stmt.where(ImportRun.kind == kind)
-    runs = [_run_dto(run) for run in session.scalars(stmt)]
+    runs = [run_view(run) for run in session.scalars(stmt)]
     page_items, next_cursor = _page(runs, params.limit, params.cursor)
     return ImportRunListResponse(items=page_items, next_cursor=next_cursor)

@@ -27,14 +27,22 @@ from finue.db.engine import create_db_engine, make_session_factory
 from finue.db.migrate import upgrade_to_head
 from finue.logging_setup import configure_logging
 from finue.services.events import EventBus
+from finue.services.fints_client import FinTSClientProtocol
 from finue.services.import_uploads import UploadStore
 from finue.services.sync_registry import SyncRegistry
+from finue.services.sync_runner import SyncRunner
+from finue.services.sync_service import SyncService
 from finue.timeutil import utc_now
 
 logger = logging.getLogger(__name__)
 
 
-def create_app(settings: Settings | None = None, *, clock: Callable[[], datetime] | None = None) -> FastAPI:
+def create_app(
+    settings: Settings | None = None,
+    *,
+    clock: Callable[[], datetime] | None = None,
+    sync_client_factory: Callable[..., FinTSClientProtocol] | None = None,
+) -> FastAPI:
     """Erzeugt und konfiguriert die FastAPI-Anwendung.
 
     Ohne ``settings`` werden die Standard-Settings aus Umgebungsvariablen
@@ -46,13 +54,18 @@ def create_app(settings: Settings | None = None, *, clock: Callable[[], datetime
     Geheimnisse), erzeugt die SQLAlchemy-Engine, migriert das Schema auf ``head``
     (N-DB-03) und hinterlegt den Service-Container in ``app.state`` (D12):
     Engine/Session-Factory, Ereignisbus (F-CON-04), Sync-Registry als Singleton,
-    den Upload-Zwischenspeicher des Datei-Imports und die Uhr. Beim
-    Herunterfahren wird die Engine geschlossen.
+    den :class:`~finue.services.sync_service.SyncService` mit seinem
+    Hintergrund-Runner (T-112, D3), den Upload-Zwischenspeicher des Datei-Imports
+    und die Uhr. Der Waechter des Runners laeuft ab dem Start. Beim
+    Herunterfahren wird der Waechter beendet und die Engine geschlossen.
 
     Args:
         settings: Optionale Konfiguration; ohne Angabe die Projekt-Defaults.
         clock: Injizierbare Uhr (Default ``finue.timeutil.utc_now``) fuer Bus,
             Sync-Registry und Tests.
+        sync_client_factory: Fabrik fuer den python-fints-Client des Syncs. In
+            Tests wird hier der Fake-Client eingesetzt (D8); im Betrieb bleibt
+            sie ``None`` und der echte Client wird gebaut.
 
     Returns:
         Konfigurierte FastAPI-Instanz.
@@ -72,6 +85,13 @@ def create_app(settings: Settings | None = None, *, clock: Callable[[], datetime
         session_factory = make_session_factory(engine)
         event_bus = EventBus(clock=resolved_clock)
         sync_registry = SyncRegistry(clock=resolved_clock)
+        sync_service = SyncService(
+            session_factory,
+            registry=sync_registry,
+            settings=resolved,
+            client_factory=sync_client_factory,
+        )
+        sync_runner = SyncRunner(sync_service, event_bus=event_bus)
         upload_store = UploadStore(
             clock=resolved_clock,
             ttl_seconds=resolved.api_import_upload_ttl_seconds,
@@ -81,6 +101,8 @@ def create_app(settings: Settings | None = None, *, clock: Callable[[], datetime
             session_factory=session_factory,
             event_bus=event_bus,
             sync_registry=sync_registry,
+            sync_service=sync_service,
+            sync_runner=sync_runner,
             upload_store=upload_store,
             clock=resolved_clock,
         )
@@ -90,13 +112,17 @@ def create_app(settings: Settings | None = None, *, clock: Callable[[], datetime
         app.state.services = services
         app.state.event_bus = event_bus
         app.state.sync_registry = sync_registry
+        app.state.sync_service = sync_service
+        app.state.sync_runner = sync_runner
         app.state.upload_store = upload_store
         app.state.clock = resolved_clock
         # Der Zeitplaner kommt erst in M8; bis dahin ist er nicht gestartet.
         app.state.scheduler_running = False
+        sync_runner.start_watchdog()
         try:
             yield
         finally:
+            sync_runner.close()
             engine.dispose()
             logger.info("Anwendung beendet")
 

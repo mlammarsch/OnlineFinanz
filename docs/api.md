@@ -646,6 +646,105 @@ Auftragsdaten von der Bank verfuegbar", F-AUF-05) oder `none` fuer ein
 Datei-Konto ohne Bereich. `GET /api/standing-orders` fuehrt nur FinTS-Konten.
 Es gibt **keine** schreibende Route unter `standing-orders` (F-AUF-03).
 
+## Sync (F-SYN-01/02/04/07/10/11)
+
+Die Fachlogik liegt im `backend/finue/services/sync_service.py` und im
+`backend/finue/services/sync_runner.py`; der Router
+`backend/finue/api/sync.py` uebersetzt nur HTTP. Der `SyncService` ist ein
+Singleton im Service-Container (`app.state.services.sync_service`), der Runner
+haelt die Job-Momentaufnahmen und den Waechter (`app.state.services.sync_runner`).
+
+| Methode | Pfad | Zweck |
+|---|---|---|
+| POST | `/api/sync` | Batch-Sync starten, kehrt sofort mit den Job-IDs zurueck (F-SYN-01/11) |
+| POST | `/api/accounts/{id}/sync` | Einzel-Sync eines Kontos starten (F-SYN-02) |
+| GET | `/api/sync/jobs/{job_id}` | Status, Kontoergebnisse und offene TAN-Challenge (F-SYN-04/07) |
+| POST | `/api/sync/jobs/{job_id}/tan` | TAN annehmen, Dialog fortsetzen; zweite Antwort 409 (F-SYN-04) |
+| POST | `/api/sync/jobs/{job_id}/approve-poll` | App-Freigabe erneut abfragen (F-SYN-04) |
+| POST | `/api/sync/jobs/{job_id}/cancel` | Lauf abbrechen (F-SYN-10) |
+| GET | `/api/sync/runs` | Sync-Protokoll, paginiert und je Konto filterbar (F-SYN-07) |
+
+### Anstoss
+
+`POST /api/sync` nimmt `bank_access_id` (optional), `account_ids` (optional) und
+`pin` (optional). Ohne `bank_access_id` startet die Route **je Bankzugang mit
+aktiven FinTS-Konten** einen Job; `account_ids` und `pin` sind dann nur bei genau
+einem Zugang zulaessig (sonst 422). Mit `bank_access_id` startet genau ein Job;
+`account_ids` grenzt ihn auf einzelne Konten ein, `account_ids = null` ist der
+Batch aller aktiven FinTS-Konten des Zugangs. Die Antwort ist `202 Accepted`:
+
+```json
+{ "jobs": [ { "job_id": "3f2c...", "bank_access_id": 1, "status": "laeuft" } ] }
+```
+
+Der Lauf laeuft in einem Hintergrund-Thread des einen Worker-Prozesses (D3); die
+Antwort kehrt sofort zurueck. Laeuft fuer einen Zugang bereits ein Job, liefert
+der Doppelstart denselben Job (F-SYN-11), ohne einen zweiten Thread zu starten.
+`POST /api/accounts/{id}/sync` traegt nur `pin` und antwortet mit genau einem Job;
+ein Konto ohne aktives FinTS-Ziel liefert 422 `domain_error`.
+
+### TAN-Ablauf und Zustand (F-SYN-04)
+
+`GET /api/sync/jobs/{job_id}` liefert eine Momentaufnahme aus dem
+Arbeitsspeicher des Runners:
+
+```json
+{
+  "job_id": "3f2c...",
+  "bank_access_id": 1,
+  "status": "wartet_auf_tan",
+  "account_ids": [1],
+  "account_results": [
+    { "account_id": 1, "status": "laeuft", "import_run_id": 7, "attempts": 0, "message": null }
+  ],
+  "challenge": "Bitte TAN eingeben: 123456",
+  "tan_kind": "text",
+  "approval_polls": 0,
+  "message": null,
+  "started_at": "2026-11-27T14:40:00Z"
+}
+```
+
+- `status` fuehrt dieselben Werte wie das Sync-Protokoll (`laeuft`,
+  `wartet_auf_tan`, `erfolgreich`, `teilweise`, `fehler`, `abgebrochen`,
+  `zeitueberschreitung`).
+- `challenge` ist der anzuzeigende Text der offenen Abfrage, `tan_kind` ihre Art
+  (`text` oder `app`). **Dialogdaten, TAN und PIN sind nie Teil der Antwort**
+  (N-SEC-02/03); die eingefrorenen Dialogdaten bleiben im `SyncService`.
+- `POST .../tan` nimmt `{"tan": "..."}` und setzt den Text-Dialog fort. Die
+  **erste** Antwort gewinnt; ein weiterer Aufruf liefert `409` im Standard-
+  Fehlerformat mit dem aktuellen Job als `current` (F-SYN-04, F-CON-02).
+- `POST .../approve-poll` fragt eine App-Freigabe erneut ab und zaehlt
+  `approval_polls`. Verlangt die Bank eine weitere Freigabe, bleibt der Job
+  `wartet_auf_tan`.
+- `POST .../cancel` bricht ab (F-SYN-10); ein bereits beendeter Job bleibt
+  unveraendert (idempotent).
+
+### Protokoll (F-SYN-07)
+
+`GET /api/sync/runs` listet die Import-Laeufe mit `kind = "sync"`, nach Start
+absteigend, paginiert (`limit`, `cursor`) und je Konto filterbar
+(`?account_id=`). Die Darstellung entspricht `GET /api/import-runs`, welche
+dieselbe Tabelle fuehrt.
+
+### PIN und Leckage (N-SEC-01..03)
+
+Bei `store_pin = false` kommt die PIN im Anfragekoerper (`pin`) und wird nur im
+Arbeitsspeicher des Laufs gehalten; bei `store_pin = true` wird der uebergebene
+Wert ignoriert. Fehlt bei `store_pin = false` die PIN, antwortet die Route 422
+`domain_error` mit dem Klartext "PIN bitte eingeben." (F-SYN-08). PIN, TAN und
+Dialogdaten erscheinen in keiner Antwort, keinem Log und keinem Ereignis
+(N-SEC-02/03); der Vertragstest und ein eigener Leckagetest sichern das.
+
+### Waechter (5-Minuten-Timeout)
+
+Der Runner startet mit der App einen periodischen Waechter-Thread, der offene
+TAN-Dialoge nach fuenf Minuten verwirft (`SyncRunner.check_timeouts` ueber
+`SyncService.expire_tan_timeout`); der Lauf wechselt dann auf
+`zeitueberschreitung`. Waehrend `wartet_auf_tan` haelt der Lauf weder eine
+DB-Session noch eine Verbindung (N-DB-04), damit parallele Schreibvorgaenge
+nicht warten.
+
 ## Grenzen (config)
 
 Zentral in `backend/finue/config.py`:
@@ -668,7 +767,12 @@ ihn in T-101 aus. Der Datei-Import meldet `import.finished` (IDs `account` und
 `run`) und `transaction.changed` (ID `account`). Der Edit-Kern der Einzelbuchung
 (T-108) meldet `transaction.changed` mit den IDs `account` und `transaction`,
 sobald ein Kennzeichen tatsaechlich wechselt; ein idempotenter Aufruf meldet
-nichts.
+nichts. Der Sync (T-112) meldet `sync.status` (IDs `job`, `bank_access`,
+`status`) bei jedem Statuswechsel, `sync.tan_required` (IDs `job`,
+`bank_access`) beim Uebergang nach `wartet_auf_tan` und `sync.tan_answered`
+(IDs `job`, `bank_access`) beim Uebergang von `wartet_auf_tan` nach `laeuft`.
+Die Ereignisse tragen den Challenge-Text nicht; die UI holt ihn ueber
+`GET /api/sync/jobs/{job_id}`.
 
 ## Sitzungen (F-CON-06)
 

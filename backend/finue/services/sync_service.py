@@ -370,6 +370,25 @@ class SyncService:
 
     # -- Start --------------------------------------------------------------
 
+    def claim_sync(
+        self,
+        bank_access_id: int,
+        account_ids: Iterable[int] | None = None,
+    ) -> tuple[SyncJob, bool]:
+        """Beansprucht den Bankzugang atomar und liefert Job und ``created``.
+
+        Der Aufruf prueft die IDs, legt bei freiem Zugang einen neuen Job an
+        und gibt ``created = False`` samt laufendem Job zurueck, wenn bereits
+        ein Sync laeuft (F-SYN-11). Der Hintergrund-Runner (T-112) nennt den
+        Zugang sofort und kennt die Job-ID, bevor der Lauf startet.
+        """
+        checked_access_id = _checked_id(bank_access_id, "bank_access_id")
+        requested_ids = _checked_account_ids(account_ids)
+        return self._registry.try_start(
+            checked_access_id,
+            requested_ids if requested_ids is not None else (),
+        )
+
     def start_sync(
         self,
         bank_access_id: int,
@@ -402,14 +421,36 @@ class SyncService:
             PinRequiredError: Eine PIN wird benoetigt, ist aber nicht
                 verfuegbar (F-SYN-08).
         """
-        checked_access_id = _checked_id(bank_access_id, "bank_access_id")
-        requested_ids = _checked_account_ids(account_ids)
-        job, created = self._registry.try_start(checked_access_id, requested_ids if requested_ids is not None else ())
+        job, created = self.claim_sync(bank_access_id, account_ids)
         if not created:
             # F-SYN-11: Der zweite Anstoss fuehrt nichts aus und liefert den
             # laufenden Job. Die Sperre bleibt beim Erststarter.
             return SyncResult(job=job, reused=True, status="laeuft")
+        return self.start_claimed_sync(
+            job,
+            bank_access_id=bank_access_id,
+            account_ids=account_ids,
+            supplied_pin=supplied_pin,
+        )
 
+    def start_claimed_sync(
+        self,
+        job: SyncJob,
+        *,
+        bank_access_id: int,
+        account_ids: Iterable[int] | None = None,
+        supplied_pin: str | None = None,
+    ) -> SyncResult:
+        """Fuehrt einen bereits beanspruchten Job aus (:meth:`claim_sync`).
+
+        Der Hintergrund-Runner (T-112, D3) ruft diese Methode in einem eigenen
+        Thread auf: Die Job-ID ist bereits vergeben, der HTTP-Anstoss kehrt
+        sofort zurueck. Die Methode kehrt an der ersten TAN-Pause
+        (``wartet_auf_tan``) oder nach dem Laufende zurueck und verhaelt sich
+        ansonsten wie :meth:`start_sync`.
+        """
+        checked_access_id = _checked_id(bank_access_id, "bank_access_id")
+        requested_ids = _checked_account_ids(account_ids)
         job_group_id = job.id if requested_ids is None else None
         context = _RunContext(
             job=job,

@@ -237,6 +237,42 @@ CONTRACT: dict[str, RouteContract] = {
         kind="aktion",
         reason="Einzelne Sitzung abmelden, idempotent (F-CON-06)",
     ),
+    "/api/sync": RouteContract(
+        frozenset({"POST"}),
+        kind="aktion",
+        reason="Batch-Sync starten, kehrt sofort mit der Job-ID zurueck (F-SYN-01/11)",
+    ),
+    "/api/accounts/{account_id}/sync": RouteContract(
+        frozenset({"POST"}),
+        kind="aktion",
+        reason="Einzel-Sync eines Kontos starten (F-SYN-02)",
+    ),
+    "/api/sync/jobs/{job_id}": RouteContract(
+        frozenset({"GET"}),
+        kind="lesen",
+        reason="Status, Kontoergebnisse und Challenge einer offenen TAN-Abfrage (F-SYN-04/07)",
+    ),
+    "/api/sync/jobs/{job_id}/tan": RouteContract(
+        frozenset({"POST"}),
+        kind="aktion",
+        reason="TAN annehmen; die zweite Antwort liefert 409 (F-SYN-04)",
+    ),
+    "/api/sync/jobs/{job_id}/approve-poll": RouteContract(
+        frozenset({"POST"}),
+        kind="aktion",
+        reason="App-Freigabe erneut abfragen (F-SYN-04)",
+    ),
+    "/api/sync/jobs/{job_id}/cancel": RouteContract(
+        frozenset({"POST"}),
+        kind="aktion",
+        reason="Sync-Lauf abbrechen (F-SYN-10)",
+    ),
+    "/api/sync/runs": RouteContract(
+        frozenset({"GET"}),
+        kind="lesen",
+        reason="Sync-Protokoll, paginiert und je Konto filterbar (F-SYN-07)",
+        is_list=True,
+    ),
 }
 
 
