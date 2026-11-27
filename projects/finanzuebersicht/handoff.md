@@ -2,6 +2,27 @@
 
 ## Next actions
 
+- **T-108 umgesetzt (M4-Entlastung T-094-A, Edit-Kern, Kennzeichen-Setz-Semantik und Buchungsdetail,
+  F-ABS-01/02, F-CON-01/02, F-DET-01, Risiko medium).** Konflikt-Check: Ja (nur Einzelbuchung; keine
+  Notiz-/externe-Referenz-/Batch-Logik aus T-109/T-110, keine Migration, keine Import-/Sync-Aenderung). Neu:
+  `backend/finue/services/transaction_edit.py` (`set_flag` mit `origin` ui/mcp/import, `expected_version`,
+  `events`, `now`; Setz-Semantik: gleicher Wert -> no-op ohne Versionssprung/Zeitstempel/Audit/Ereignis; echte
+  Aenderung setzt Wert+Zeitpunkt+Herkunft, schreibt einen Audit-Eintrag (`source`=Herkunft, F-MCP-09) und meldet
+  `transaction.changed`; `PendingReconciliationError` fuer vorgemerkte Buchungen; `transaction_detail` fuer
+  F-DET-01 inkl. `latest_import_run`), `backend/finue/api/transactions.py` (`GET /api/transactions/{id}`,
+  `PUT .../checked`, `PUT .../reconciled`; Body `{value, version?}`, 404/409 mit `current`/422 im einheitlichen
+  Format), `api/routes.py` (Router-Zeile), `tests/unit/test_transaction_edit.py` (21 Tests), drei Eintraege in
+  `tests/unit/test_api_contract.py`, `docs/api.md` (Abschnitt Einzelbuchung + Ereignisse), `decisions.md` (T-108)
+  und `improve.md`. Offen: **Import-Lauf** im Detail ist der juengste Lauf des Kontos mit passender Art (FinTS->
+  `sync`, CSV->`csv`, JSON->`json`), weil das Modell keine direkte Verknuepfung Buchung -> ImportRun hat
+  (Improve-Kandidat, decisions.md). Evidenz: Etappen-Plan `uv run pytest
+  tests/unit/test_transaction_edit.py tests/unit/test_api_contract.py -q` = 30 passed; ruff check/format der
+  geaenderten Dateien gruen; `mypy backend` = Success (93 Dateien); Artefakt `artifacts/T-108-build.md`. Commit
+  `ef9aed1`. **Offen:** Risiko medium - unabhaengige `verifier`-Pruefung steht vor `task-done`. Planweites
+  `ruff check` ist durch fremde, noch unfertige Parallelarbeit rot (`scripts/perf_data.py`, T-103); fremde
+  uncommittete Welle-Arbeit (`container.py`/`sync_service.py`/`sync_runner.py` T-112, `perf_data.py`, Task-/
+  Status-/events-Dateien) bleibt unangetastet. Kein Push.
+
 - **T-098 Roundtrip-Defekt behoben (M4, F-EXP-03/F-EXP-06, Risiko medium) -- T-098 bleibt offen.**
   Befund der Verifierpruefung: `_guard_cell` und `_unguard_cell` in `backend/finue/services/export.py` waren fuer
   Originalwerte mit fuehrendem Apostroph nicht umkehrbar (`'=x` wurde beim Re-Import zu `=x`). Fix: gemeinsame
