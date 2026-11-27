@@ -39,6 +39,11 @@ _CURSOR_PREFIX = "o"
 #: Datenbank ueberlaufen lassen und als 500 statt 422 erscheinen (F-CON-02).
 _MAX_OFFSET = 2**31 - 1
 
+#: Hoechstzahl an Ziffern des Offsets (10 fuer ``2147483647``). Eine laengere
+#: Ziffernfolge wird vor :func:`int` abgelehnt, weil ``int`` ab ca. 4300 Ziffern
+#: ``ValueError`` wirft und der Wert sonst als 500 statt 422 endet.
+_MAX_OFFSET_DIGITS = len(str(_MAX_OFFSET))
+
 
 class Page(BaseModel, Generic[T]):
     """Antwortumschlag einer Liste: Eintraege plus Cursor der naechsten Seite."""
@@ -67,8 +72,10 @@ def encode_cursor(offset: int) -> str:
 def decode_cursor(cursor: str) -> int:
     """Dekodiert einen Cursor; ungueltige Werte werden als 422 gemeldet.
 
-    Ein Offset ueber :data:`_MAX_OFFSET` wird ebenso als ungueltiger Cursor
-    abgelehnt, statt die Datenbank in einen Ueberlauf zu treiben.
+    Ein Offset ueber :data:`_MAX_OFFSET`, eine ueberlange Ziffernfolge oder
+    eine nicht-kanonische Form mit fuehrenden Nullen wird als ungueltiger
+    Cursor abgelehnt, statt :func:`int` (und damit die Datenbank) in einen
+    Fehler zu treiben.
     """
 
     padded = cursor + "=" * (-len(cursor) % 4)
@@ -79,9 +86,18 @@ def decode_cursor(cursor: str) -> int:
             "Der Cursor ist ungueltig.",
             details={"field": "cursor"},
         ) from exc
-    if not raw.startswith(_CURSOR_PREFIX) or not raw[1:].isdigit():
+    if not raw.startswith(_CURSOR_PREFIX):
         raise ValidationApiError("Der Cursor ist ungueltig.", details={"field": "cursor"})
-    offset = int(raw[1:])
+    digits = raw[1:]
+    # Fuehrende Nullen und die Ziffernlaenge vor int() pruefen: int() wirft ab
+    # ca. 4300 Ziffern ValueError (Python-Limit), sonst folgt ein 500 statt 422.
+    if not digits or not digits.isdigit():
+        raise ValidationApiError("Der Cursor ist ungueltig.", details={"field": "cursor"})
+    if len(digits) > 1 and digits[0] == "0":
+        raise ValidationApiError("Der Cursor ist ungueltig.", details={"field": "cursor"})
+    if len(digits) > _MAX_OFFSET_DIGITS:
+        raise ValidationApiError("Der Cursor ist ungueltig.", details={"field": "cursor"})
+    offset = int(digits)
     if offset > _MAX_OFFSET:
         raise ValidationApiError("Der Cursor ist ungueltig.", details={"field": "cursor"})
     return offset

@@ -173,6 +173,26 @@ def test_riesiger_cursor_ist_422(client: TestClient) -> None:
     assert body["details"]["field"] == "cursor"
 
 
+def test_fuenftausend_ziffern_cursor_ist_422(client: TestClient) -> None:
+    """F-CON-02: Ein extrem langer Ziffern-Cursor liefert 422 statt 500.
+
+    Python begrenzt die Laenge der int()-Konvertierung (Standard 4300
+    Ziffern); ohne Vorabpruefung wirft ein Cursor aus ``o`` und 5000 Ziffern
+    ``ValueError`` und endet als 500 (Regression zum Verifierbefund T-092).
+    """
+
+    account_id = _add_account(client)
+    _add_transaction(client, account_id, counterparty="Treffer")
+
+    cursor = base64.urlsafe_b64encode(("o" + "9" * 5000).encode("ascii")).decode("ascii").rstrip("=")
+    response = client.get("/api/search", params={"q": "treffer", "cursor": cursor})
+
+    assert response.status_code == 422
+    body = response.json()
+    assert body["code"] == "validation_error"
+    assert body["details"]["field"] == "cursor"
+
+
 # ------------------------------------------------------------------ F-SUC-02
 
 
