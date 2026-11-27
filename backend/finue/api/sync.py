@@ -109,9 +109,15 @@ class SyncAccountStartRequest(BaseModel):
 
 
 class TanSubmitRequest(BaseModel):
-    """TAN-Eingabe einer offenen Text-Abfrage (F-SYN-04)."""
+    """TAN-Eingabe einer offenen Text-Abfrage (F-SYN-04).
 
-    tan: str = Field(min_length=1, max_length=64)
+    Reine Leerzeichen sind keine gueltige TAN: ``pattern=r"\\S"`` verlangt
+    mindestens ein Nicht-Leerzeichen-Zeichen und lehnt sie bereits bei der
+    Validierung als 422 ab (statt eines ``ValueError`` aus der Service-Schicht,
+    der als 500 enden wuerde).
+    """
+
+    tan: str = Field(min_length=1, max_length=64, pattern=r"\S")
 
 
 class SyncRunListResponse(BaseModel):

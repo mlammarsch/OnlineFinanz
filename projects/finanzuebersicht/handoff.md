@@ -2,6 +2,24 @@
 
 ## Next actions
 
+- **T-112 Fehlerpfade behoben (M4, F-SYN-04/F-SYN-10, Risiko medium) -- T-112 bleibt offen.**
+  Befund der unabhaengigen Pruefung: (1) `SyncService.start_claimed_sync` fing
+  `SyncCancelledError`/`TanTimeoutError` vor der ersten TAN-Pause nicht ab, sodass ein
+  Cancel waehrend eines laufenden Netzaufrufs im Runner als generischer `fehler` endete;
+  (2) `TanSubmitRequest.tan` lehnte reine Leerzeichen nicht ab (`ValueError` -> 500).
+  Fix: `start_claimed_sync` beendet den Lauf nun als `abgebrochen`/`zeitueberschreitung`
+  (analog `_advance`) plus `abort_requested`-Pruefung nach dem `try`; `tan` traegt
+  `pattern=r"\S"` bei `max_length=64`. Regressionstests in `tests/unit/test_sync_api.py`
+  (`test_abbruch_vor_erster_tan_pause_f_syn_10`, `test_leerzeichen_tan_liefert_422_f_syn_04`,
+  beide mutationsgeprueft). Folgewirkung: `start_sync` baut auf `start_claimed_sync` auf und
+  gibt den Abbruch jetzt ebenfalls als Ergebnis zurueck; der M3-Test
+  `tests/integration/test_sync_orders.py::test_abort_during_orders_...` wurde auf diese
+  konsistente Semantik angepasst (fachliche Zusicherungen unveraendert). Evidenz:
+  Sync-/Session-/TAN-/Secret-Tests = 43 passed; `tests/unit` = 1494 passed/1 skipped;
+  Integration = 17 passed/1 deselected; `ruff check`/`ruff format --check` (200)/
+  `mypy backend` (96) gruen. Artefakt `artifacts/T-112-fix.md`. **Offen:** unabhaengige
+  Wiederholungspruefung durch `verifier`; kein `task-done`, kein Push.
+
 - **T-112 umgesetzt (M4-Entlastung T-099-B, Sync-REST, Runner, TAN-Endpunkte, Waechter, Protokoll,
   Ereignisse; F-SYN-01/02/04/07/10/11, N-SEC-01..03, N-DB-04, Risiko medium).** Konflikt-Check: Ja (nur
   Sync-REST/Protokoll; keine Aenderung am T-099-Abschlussgate ausserhalb der Etappe, keine T-111-Sessionlogik

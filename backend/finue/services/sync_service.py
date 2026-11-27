@@ -466,10 +466,25 @@ class SyncService:
             handoff = next(generator)
         except StopIteration:
             return self._finish_completed(context)
+        except SyncCancelledError:
+            # F-SYN-10: Ein Abbruch vor der ersten TAN-Pause (auch waehrend
+            # eines laufenden Netzaufrufs) beendet den Lauf als
+            # ``abgebrochen``, nicht als generischen ``fehler`` - analog zu
+            # :meth:`_advance`.
+            return self._finish_interrupted_result(context, "abgebrochen")
+        except TanTimeoutError:
+            # F-SYN-04: Dasselbe gilt fuer einen bereits abgelaufenen Dialog.
+            return self._finish_interrupted_result(context, "zeitueberschreitung")
         except BaseException:
             self._forget(context)
             self._release_registry(context, "fehler")
             raise
+        if context.job.abort_requested:
+            # Der Abbruch kam waehrend des laufenden Netzaufrufs an, bevor die
+            # erste TAN-Pause erreicht war. Statt eine Pause zu oeffnen, wird
+            # der Lauf regulaer beendet und die Sperre freigegeben (F-SYN-10) -
+            # analog zu :meth:`_advance`.
+            return self._interrupt(context, SyncCancelledError(), "abgebrochen")
         return self._pause_result(context, handoff)
 
     # -- TAN und Abbruch ----------------------------------------------------

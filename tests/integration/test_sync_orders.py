@@ -34,7 +34,7 @@ from finue.db.base import Base
 from finue.db.engine import create_db_engine, make_session_factory
 from finue.models import Account, BankAccess, ImportRun, StandingOrder
 from finue.services.bank_access import create_access
-from finue.services.fints_types import FetchedStandingOrder, SyncCancelledError
+from finue.services.fints_types import FetchedStandingOrder
 from finue.services.standing_orders import (
     ORDERS_UNAVAILABLE_MESSAGE,
     get_orders_state,
@@ -360,8 +360,11 @@ def test_abort_during_orders_saves_no_orders_for_running_account_f_syn_10(
         thread.join(timeout=10)
 
     assert not thread.is_alive()
-    assert "value" not in results
-    assert isinstance(results.get("error"), SyncCancelledError)
+    # F-SYN-10: Der Abbruch waehrend des laufenden Netzaufrufs beendet den Lauf
+    # als ``abgebrochen`` (analog zur TAN-Pause), statt den Fehler nach oben zu
+    # reichen.
+    assert "error" not in results
+    assert results["value"].status == "abgebrochen"
 
     with environment.factory() as session:
         runs = list(

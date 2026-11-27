@@ -322,6 +322,30 @@ def test_tan_flow_text_f_syn_04(tmp_path: Path) -> None:
         assert factory.client.tan_values == [TAN_MARKER]
 
 
+def test_leerzeichen_tan_liefert_422_f_syn_04(tmp_path: Path) -> None:
+    """F-SYN-04: Eine reine Leerzeichen-TAN wird als 422 abgelehnt (kein 500).
+
+    Die Validierung greift vor der Service-Schicht; die offene Abfrage bleibt
+    bestehen und eine gueltige TAN setzt den Lauf danach regulaer fort.
+    """
+
+    app = _make_app(tmp_path, SharedClientFactory(script_tan_text()))
+    with TestClient(app) as client:
+        _access_id, account_ids = _seed(client)
+        job = _start_account(client, account_ids[0])
+        _wait_status(client, job["job_id"], {"wartet_auf_tan"})
+
+        leer = client.post(f"/api/sync/jobs/{job['job_id']}/tan", json={"tan": "   "})
+
+        assert leer.status_code == 422
+        assert leer.json()["code"] == "validation_error"
+        assert client.get(f"/api/sync/jobs/{job['job_id']}").json()["status"] == "wartet_auf_tan"
+
+        gueltig = client.post(f"/api/sync/jobs/{job['job_id']}/tan", json={"tan": TAN_MARKER})
+        assert gueltig.status_code == 200
+        assert gueltig.json()["status"] == "erfolgreich"
+
+
 def test_zweite_tan_antwort_liefert_409_f_syn_04(tmp_path: Path) -> None:
     """F-SYN-04: Die zweite TAN-Antwort wird mit 409 und aktuellem Stand abgelehnt."""
 
@@ -375,6 +399,34 @@ def test_abbruch_waehrend_tan_pause_f_syn_10(tmp_path: Path) -> None:
         assert response.status_code == 200
         assert response.json()["status"] == "abgebrochen"
         assert client.get(f"/api/sync/jobs/{job['job_id']}").json()["status"] == "abgebrochen"
+
+
+def test_abbruch_vor_erster_tan_pause_f_syn_10(tmp_path: Path) -> None:
+    """F-SYN-10: Der Abbruch eines laufenden Netzaufrufs endet als ``abgebrochen``.
+
+    Der Lauf haengt im (blockierenden) Netzaufruf, bevor eine TAN-Pause
+    entsteht. ``POST .../cancel`` setzt dann nur die Abbruchmarke; der Lauf
+    muss nach Rueckkehr des Aufrufs ``abgebrochen`` melden - nicht den
+    generischen ``fehler``.
+    """
+
+    gate = threading.Event()
+    factory = GatedClientFactory(_batch_script(), gate)
+    app = _make_app(tmp_path, factory)
+    with TestClient(app) as client:
+        access_id, _account_ids = _seed(client, second_account=False)
+
+        job = _start_batch(client, access_id)
+        assert job["status"] == "laeuft"
+
+        cancel = client.post(f"/api/sync/jobs/{job['job_id']}/cancel")
+        assert cancel.status_code == 200
+        # Vor der ersten TAN-Pause nur die Marke; der Lauf laeuft noch.
+        assert cancel.json()["status"] == "laeuft"
+
+        gate.set()
+        finished = _wait_status(client, job["job_id"], {"abgebrochen", "fehler", "erfolgreich", "teilweise"})
+        assert finished["status"] == "abgebrochen"
 
 
 def test_timeout_nach_fuenf_minuten_f_syn_04(tmp_path: Path) -> None:
