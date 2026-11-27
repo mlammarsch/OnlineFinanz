@@ -164,15 +164,78 @@ nicht mit (F-KTO-06). Dieselbe Regel gilt fuer die Gruppensumme.
 | PATCH | `/api/accounts/{id}` | Details pflegen mit `version` (F-KTO-04, F-CON-02) |
 | POST | `/api/accounts/{id}/archive` | Archivieren mit `version` (F-KTO-06) |
 | POST | `/api/accounts/{id}/restore` | Wiederherstellen mit `version` (F-KTO-06) |
+| DELETE | `/api/accounts/{id}?version=n` | Konto loeschen mit vollstaendiger Bereinigung (F-KTO-07) |
 | GET | `/api/groups` | Gruppen mit Mitgliedern, Kontenzahl, Summe (F-KTO-03) |
 | POST | `/api/groups` | Gruppe anlegen (F-KTO-03) |
 | PUT | `/api/groups/order` | Neuordnung als ID-Liste `{"ids": [...]}` (F-KTO-03) |
 | PATCH | `/api/groups/{id}` | Umbenennen mit `version` (F-KTO-03, F-CON-02) |
 | DELETE | `/api/groups/{id}?version=n` | Loeschen; Konten bleiben mit `group_id=null` (F-KTO-03) |
+| GET | `/api/accounts/{id}/reconciliation` | Abstimmungsuebersicht eines Kontos (F-ABS-03) |
+| GET | `/api/groups/{id}/reconciliation` | Abstimmungsuebersicht einer Gruppe, Fremdwaehrung getrennt (F-ABS-03) |
 
 `iban` wird beim Anlegen und Pflegen per Modulo-97-Pruefziffer validiert
 (F-KTO-04); `source` ist beim Offline-Konto fest `datei`. Icon-Verweise zeigen
 auf den mit F-KTO-11/T-090 folgenden Endpunkt `/api/accounts/{id}/icon`.
+
+### Abstimmungsuebersicht (F-ABS-03)
+
+Die Fachlogik liegt in `backend/finue/services/reconciliation.py` (MCP nutzt
+dieselbe Schicht, D10); der Router `backend/finue/api/reconciliation.py`
+uebersetzt nur HTTP. `GET /api/accounts/{id}/reconciliation` liefert:
+
+```json
+{
+  "account_id": 1,
+  "currency": "EUR",
+  "opening_balance_cents": 4000,
+  "opening_balance_derived": true,
+  "reconciled_balance_cents": 8000,
+  "unreconciled_count": 1,
+  "unreconciled_sum_cents": 2000,
+  "balance_cents": 10000,
+  "difference_cents": 2000
+}
+```
+
+Regeln (Herleitung in `projects/finanzuebersicht/decisions.md`):
+
+- `reconciled_balance_cents` = massgeblicher Anfangssaldo plus Summe der
+  abgestimmten, gebuchten und **nicht** zusammengefuehrten Buchungen.
+- `unreconciled_count`/`unreconciled_sum_cents` = Anzahl und Summe der
+  gebuchten, nicht zusammengefuehrten, nicht abgestimmten Buchungen.
+- Vorgemerkte Buchungen (`status='vorgemerkt'`) und zusammengefuehrte
+  Buchungen (`merged=true`, F-DUP-04) zaehlen in **keiner** Kennzahl mit
+  (F-ABS-01/F-ABS-03).
+- `difference_cents` = `balance_cents` minus `reconciled_balance_cents`; fehlt
+  der Banksaldo (`balance_cents=null`), ist die Differenz `null`.
+- `opening_balance_derived` zeigt an, ob der Anfangssaldo aus dem Banksaldo
+  abgeleitet wurde (FinTS-Konto ohne Ankersaldo).
+
+`GET /api/groups/{id}/reconciliation` liefert dieselben Felder plus
+`group_id`, `member_count` und `foreign` (je Fremdwaehrung ein Aggregat wie
+oben). Es zaehlen nur die aktiven Mitglieder; die Summe fuehrt nur die
+Buchwaehrung, andere Waehrungen werden unter `foreign` getrennt ausgewiesen und
+nicht addiert (T-088-Regel). Der Banksaldo eines Aggregats ist `null`, wenn
+mindestens ein Mitglied keinen Banksaldo fuehrt.
+
+### Konto loeschen (F-KTO-07)
+
+`DELETE /api/accounts/{id}?version=n` entfernt das Konto mit vollstaendiger
+Bereinigung in **einer** Transaktion: Buchungen samt Notizen und Vormerkungen,
+Import-Laeufe mit ihren Fehlern, Termin-/Dauerauftraege, Dublettenentscheidungen
+des Kontos und die kontogebundenen Audit-Eintraege. Kontogebundene
+Importvorlagen (F-IMP-05) bleiben erhalten und verlieren nur `account_id`
+(`null` → kontounabhaengig). Der Bankzugang bleibt bestehen, auch wenn er danach
+kein Konto mehr hat: Zugangsdaten werden nie still geloescht. Erfolg ist
+`204 No Content` ohne Koerper; das Ereignis `account.deleted` traegt die
+Konto-ID. Den vorherigen, verlustfreien JSON-Export (F-EXP-04) bietet die UI im
+Bestaetigungsdialog an und prueft ihn im API-E2E (T-106).
+
+Ein veralteter `version`-Wert liefert 409 mit dem aktuellen Konto (`current`).
+Laeuft fuer den Bankzugang des Kontos gerade ein Sync, antwortet der Server
+ebenfalls 409 mit deutschem Klartext (F-SYN-11); das Konto bleibt unveraendert.
+Die Entscheidung zu Audit-Eintraegen und Bankzugang steht in
+`projects/finanzuebersicht/decisions.md`.
 
 ## Grenzen (config)
 
