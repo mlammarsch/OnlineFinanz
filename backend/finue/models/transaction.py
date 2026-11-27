@@ -117,6 +117,29 @@ class Transaction(Base, VersionedMixin, TimestampMixin, AmountMixin):
         Index("ix_transaction_account_status_booking_id", "account_id", "status", "booking_date", "id"),
         Index("ix_transaction_booking_id", "booking_date", "id"),
         Index("ix_transaction_amount_cents", "amount_cents"),
+        # Abdeckende Performance-Indizes aus T-103 (N-PERF-01, F-BUC-06), angelegt
+        # in Migration 0005. Der Suchindex deckt Trefferzahl/-summe ohne
+        # Zeilen-Nachschlag ab; der Listenindex deckt die Saldo-/Tagessummen der
+        # Buchungsliste und Gruppenansicht ab. Begruendung: EXPLAIN QUERY PLAN im
+        # Performance-Block (Suche ~480 ms -> ~200 ms, Gruppenansicht ~800 ms ->
+        # ~70 ms bei 100.000 Buchungen).
+        Index(
+            "ix_transaction_account_booking_search",
+            "account_id",
+            "booking_date",
+            "merged",
+            "search_text",
+            "amount_cents",
+        ),
+        Index(
+            "ix_transaction_account_status_booking_cover",
+            "account_id",
+            "status",
+            "merged",
+            "booking_date",
+            "id",
+            "amount_cents",
+        ),
     )
 
     # Bidirektionale Relation zu Account

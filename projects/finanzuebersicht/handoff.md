@@ -2,6 +2,52 @@
 
 ## Next actions
 
+- **T-112 umgesetzt (M4-Entlastung T-099-B, Sync-REST, Runner, TAN-Endpunkte, Waechter, Protokoll,
+  Ereignisse; F-SYN-01/02/04/07/10/11, N-SEC-01..03, N-DB-04, Risiko medium).** Konflikt-Check: Ja (nur
+  Sync-REST/Protokoll; keine Aenderung am T-099-Abschlussgate ausserhalb der Etappe, keine T-111-Sessionlogik
+  umgebaut, keine Migration, keine Import-/Edit-Logik). Neu: `backend/finue/services/sync_runner.py`
+  (`SyncRunner` startet den Lauf in einem Daemon-Thread des einen Worker-Prozesses (D3), haelt Job-Momentaufnahmen
+  im Arbeitsspeicher, uebersetzt Registry-Statuswechsel in `sync.status`/`sync.tan_required`/`sync.tan_answered`
+  (nur IDs + Status, nie Challenge-Text/TAN/PIN), traegt den periodischen 5-Minuten-Waechter und die testbare
+  Einzelpruefung `check_timeouts`), `backend/finue/api/sync.py` (`POST /api/sync` Batch mit optionalem
+  `bank_access_id` → 202 mit Job-IDs; `POST /api/accounts/{id}/sync`; `GET /api/sync/jobs/{job_id}` mit Status,
+  Kontoresultats sowie `challenge`/`tan_kind`; `POST .../tan` → zweite Antwort 409 mit `current`;
+  `POST .../approve-poll`; `POST .../cancel`; `GET /api/sync/runs` paginiert/filterbar), `services/sync_service.py`
+  (Naht `claim_sync` + `start_claimed_sync`; `start_sync` unveraendert auf beiden aufgebaut), `api/container.py`
+  (`sync_service`/`sync_runner` im Container/Singleton in `app.state`), `main.py` (`create_app(...,
+  sync_client_factory)` fuer Tests, Start/Stop des Waechters), `api/routes.py` (Sync-Router),
+  `api/imports.py` (`_run_dto` → oeffentlich `run_view` fuer Wiederverwendung). PIN bei `store_pin=false` nur im
+  Request-Body und im RAM, fehlt sie → synchroner 422; keine PIN/TAN in Antwort, Log oder Ereignis. `GET
+  /api/sync/runs` nutzt die vorhandene `kind=sync`-Protokollzeile. Evidenz: Verifikationsplan
+  `uv run pytest tests/unit/test_sync_api.py tests/unit/test_sync_session_release.py tests/unit/test_api_contract.py -q`
+  = 34 passed; `uv run pytest -m integration tests/integration -q` = 17 passed/1 deselected; Zusatz
+  `uv run pytest tests/unit -q` = 1466 passed/1 skipped; `ruff check backend tests` = All checks passed;
+  `mypy backend` = Success (96 Dateien); Artefakt `artifacts/T-112-build.md`; Commit `50b8e57`. **Offen:** Risiko
+  medium - unabhaengige `verifier`-Pruefung steht vor `task-done`. Planweiter `ruff format --check` ist durch
+  fremde, noch unfertige Parallelarbeit rot (`tests/perf/test_performance.py`, T-103); fremde uncommittete
+  Welle-Arbeit (`models/transaction.py`, `migrations/versions/0005_*`, `scripts/perf_data.py`, `tests/perf/`,
+  `tests/unit/test_transaction_list.py`, Task-/Status-/events-Dateien) bleibt unangetastet. Kein Push.
+
+- **T-103 Perf-Block umgesetzt (M4 Welle 6, 100.000 Buchungen, N-PERF-01/F-BUC-06, Risiko medium).**
+  Konflikt-Check: Ja (nur Perf-Daten/Perf-Tests, Index-Migration 0005, `validate.py`-Block `perf`;
+  keine fachliche Aenderung an Suche/Buchungsliste/Export). Neu: `scripts/perf_data.py` (Generator +
+  CLI, reproduzierbar: Seed 20241126, 5 Konten, 3 Jahre, ~5 % Notizen, Vormerkungen ~5 %, keine echten
+  Daten; Schema ueber Alembic, Core-Bulk-Insert inkl. `search_text`), `tests/perf/` (Marker `perf`,
+  Session-scoped Bestand, Median aus 5 Laeufen nach Aufwaermen, Maximum protokolliert; Suche mit einem
+  und zwei Begriffen und Betragssuche, Liste Seite 1/50, Gruppenansicht, einmal ueber HTTP), Migration
+  `0005_performance_indizes.py` mit zwei abdeckenden Indizes (`ix_transaction_account_booking_search`,
+  `ix_transaction_account_status_booking_cover`) plus dieselben Indizes im Modell `transaction.py`,
+  `tests/unit/test_migration_0005.py`, `scripts/validate.py` (`check_perf`, `STAGE_M4`,
+  `IMPLEMENTED["perf"]`), `pyproject.toml` (Marker `perf`, `addopts = "-m 'not perf'"`). Ergebnis:
+  Suche ~188-222 ms, Betrag ~25 ms, Liste ~5 ms, Gruppenansicht ~196 ms, HTTP ~222/14 ms (alle Median
+  < 500 ms). Ohne Migration 0005 war die Gruppenansicht ~800-1100 ms und die Suche am Budget - der
+  `EXPLAIN QUERY PLAN` zeigt die zwei Indizes als `COVERING INDEX` (Evidenz im Artefakt). Evidenz:
+  `scripts/validate.py perf` Exit 0 (8 Messwerte im Text), `ruff check`/`ruff format --check` gruen,
+  `mypy backend` Success (96 Dateien), `pytest tests/unit` 1492 passed/1 skipped, `pytest -m perf` 7 passed;
+  Artefakt `artifacts/T-103-build.md`. **Offen:** Risiko medium - unabhaengige `verifier`-Pruefung folgt.
+  Kein Push. Fremde uncommittete Welle-Arbeit (T-112: `api/sync.py`, `services/sync_runner.py`, u. a.)
+  bleibt unangetastet und ist nicht mitcommittet.
+
 - **T-108 umgesetzt (M4-Entlastung T-094-A, Edit-Kern, Kennzeichen-Setz-Semantik und Buchungsdetail,
   F-ABS-01/02, F-CON-01/02, F-DET-01, Risiko medium).** Konflikt-Check: Ja (nur Einzelbuchung; keine
   Notiz-/externe-Referenz-/Batch-Logik aus T-109/T-110, keine Migration, keine Import-/Sync-Aenderung). Neu:

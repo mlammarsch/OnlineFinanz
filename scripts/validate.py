@@ -11,9 +11,11 @@ Stufen m<n> sind kumulativ: m4 prueft auch m0 bis m3.
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from typing import Callable
 
@@ -391,7 +393,59 @@ STAGE_M3: list[tuple[str, Callable[[], Result]]] = [READONLY_CHECK, INTEGRATION_
 # M4-Pruefungen. Zunaechst ohne eigene Bloecke: Die M4-Abnahme (T-107) fuehrt
 # die erweiterte roundtrip-Pruefung (T-105) sowie die Bloecke perf (T-103),
 # concurrency (T-104) und api-e2e (T-106) ein; die tragen ihre Checks hier ein.
-STAGE_M4: list[tuple[str, Callable[[], Result]]] = []
+# Der Performance-Block (T-103, N-PERF-01/F-BUC-06) misst Suche und
+# Buchungsliste bei 100.000 Buchungen und ist als eigener BLOCK "perf"
+# registriert; die Messwerte stehen im Meldungstext.
+PERF_REPORT_ENV = "FINUE_PERF_REPORT"
+
+
+def check_perf() -> Result:
+    """Performance-Block bei 100.000 Buchungen (N-PERF-01, F-BUC-06).
+
+    Fuehrt die Perf-Tests (pytest-Marker ``perf``) gegen den in
+    ``scripts/perf_data.py`` erzeugten Bestand aus und gibt die gemessenen
+    Median-/Maximum-Werte je Messung mit aus. Der Exit-Code der Tests entscheidet;
+    der Messbericht wird ueber :data:`PERF_REPORT_ENV` eingesammelt.
+    """
+    with tempfile.TemporaryDirectory(prefix="finue-perf-report-") as tmp:
+        report = Path(tmp) / "perf_report.txt"
+        env = dict(os.environ)
+        env[PERF_REPORT_ENV] = str(report)
+        try:
+            proc = subprocess.run(
+                ["uv", "run", "pytest", "-m", "perf", "tests/perf", "-q", "-s"],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                env=env,
+            )
+        except Exception as exc:  # Pruefung darf nie still abbrechen
+            return False, f"Fehler beim Ausfuehren: {exc!r}"
+
+        measurements: list[str] = []
+        if report.is_file():
+            for line in report.read_text(encoding="utf-8").splitlines():
+                parts = line.split("\t")
+                if len(parts) == 3:
+                    measurements.append(f"{parts[0]} median={parts[1]}ms max={parts[2]}ms")
+
+    if proc.returncode != 0:
+        detail = (proc.stderr.strip() or proc.stdout.strip()).splitlines()
+        summary = detail[-1] if detail else "keine Ausgabe"
+        return False, f"Exit {proc.returncode}: {summary}"
+    if not measurements:
+        return False, "keine Messwerte erzeugt"
+    return True, "; ".join(measurements)
+
+
+PERF_CHECK: tuple[str, Callable[[], Result]] = (
+    "Performance 100.000 Buchungen (N-PERF-01, F-BUC-06)",
+    check_perf,
+)
+
+STAGE_M4: list[tuple[str, Callable[[], Result]]] = [PERF_CHECK]
 
 # Umgesetzte Stufen. Neue Stufen mit dem jeweiligen Milestone hier eintragen.
 # Die m<n>-Kette haengt run_stage selbst an; die Eintraege enthalten daher nur
@@ -403,6 +457,7 @@ IMPLEMENTED: dict[str, list[tuple[str, Callable[[], Result]]]] = {
     "m3": STAGE_M3,
     "m4": STAGE_M4,
     "roundtrip": [ROUNDTRIP_CHECK],
+    "perf": [PERF_CHECK],
 }
 
 
