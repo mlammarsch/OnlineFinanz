@@ -227,7 +227,6 @@ def _row_dto(row: ListRow) -> TransactionRow:
 
 
 def _build_query(
-    services: AppServices,
     clock: Callable[[], datetime],
     *,
     scope: SearchScope,
@@ -285,7 +284,6 @@ def _load_list(
     """Gemeinsamer Ablauf beider Listenrouten (F-BUC-01..06)."""
 
     query = _build_query(
-        services,
         clock,
         scope=scope,
         account_id=account_id,
