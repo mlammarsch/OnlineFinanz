@@ -35,6 +35,10 @@ T = TypeVar("T")
 
 _CURSOR_PREFIX = "o"
 
+#: Obergrenze des Cursor-Offsets (portabel 32 Bit). Groessere Werte wuerden die
+#: Datenbank ueberlaufen lassen und als 500 statt 422 erscheinen (F-CON-02).
+_MAX_OFFSET = 2**31 - 1
+
 
 class Page(BaseModel, Generic[T]):
     """Antwortumschlag einer Liste: Eintraege plus Cursor der naechsten Seite."""
@@ -61,7 +65,11 @@ def encode_cursor(offset: int) -> str:
 
 
 def decode_cursor(cursor: str) -> int:
-    """Dekodiert einen Cursor; ungueltige Werte werden als 422 gemeldet."""
+    """Dekodiert einen Cursor; ungueltige Werte werden als 422 gemeldet.
+
+    Ein Offset ueber :data:`_MAX_OFFSET` wird ebenso als ungueltiger Cursor
+    abgelehnt, statt die Datenbank in einen Ueberlauf zu treiben.
+    """
 
     padded = cursor + "=" * (-len(cursor) % 4)
     try:
@@ -73,7 +81,10 @@ def decode_cursor(cursor: str) -> int:
         ) from exc
     if not raw.startswith(_CURSOR_PREFIX) or not raw[1:].isdigit():
         raise ValidationApiError("Der Cursor ist ungueltig.", details={"field": "cursor"})
-    return int(raw[1:])
+    offset = int(raw[1:])
+    if offset > _MAX_OFFSET:
+        raise ValidationApiError("Der Cursor ist ungueltig.", details={"field": "cursor"})
+    return offset
 
 
 def resolve_page_params(request: Request, settings: Settings) -> PageParams:

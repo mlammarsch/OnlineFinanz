@@ -11,6 +11,7 @@ Zugangsdaten und keine Bankzugriffe.
 
 from __future__ import annotations
 
+import base64
 from datetime import date
 
 from fastapi.testclient import TestClient
@@ -150,6 +151,26 @@ def test_paginierung_mit_limit_und_cursor(client: TestClient) -> None:
     assert second["next_cursor"] is None
 
     assert client.get("/api/search", params={"limit": 0}).status_code == 422
+
+
+def test_riesiger_cursor_ist_422(client: TestClient) -> None:
+    """F-CON-02: Ein Cursor mit zu grossem Offset liefert 422 statt 500.
+
+    Der Offset bleibt portabel innerhalb der 32-Bit-Grenze; ein base64-kodierter
+    Cursor aus ``o`` und 40 Ziffern wuerde sonst die Datenbank ueberlaufen lassen
+    (Regression zum Verifierbefund T-092).
+    """
+
+    account_id = _add_account(client)
+    _add_transaction(client, account_id, counterparty="Treffer")
+
+    cursor = base64.urlsafe_b64encode(("o" + "9" * 40).encode("ascii")).decode("ascii").rstrip("=")
+    response = client.get("/api/search", params={"q": "treffer", "cursor": cursor})
+
+    assert response.status_code == 422
+    body = response.json()
+    assert body["code"] == "validation_error"
+    assert body["details"]["field"] == "cursor"
 
 
 # ------------------------------------------------------------------ F-SUC-02
