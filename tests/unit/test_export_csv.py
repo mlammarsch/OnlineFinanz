@@ -43,6 +43,9 @@ from finue.services.export import (
     ExportRequest,
     ExportScope,
     ExportValidationError,
+    _guard_cell,
+    _is_guard_candidate,
+    _unguard_cell,
     build_csv,
     build_filename,
     encode_content,
@@ -408,6 +411,40 @@ def test_csv_formel_injection_schutz_und_ruecknahme() -> None:
     assert cleaned[0]["Notiz"] == "-2+3"
 
 
+def test_export_guard_ist_umkehrbar_fuer_apostroph_originale() -> None:
+    """F-EXP-03/F-EXP-06: Guard und Ruecknahme sind fuer ``'=x``/``''-x`` umkehrbar.
+
+    Regression: ``_unguard_cell`` verkuerzte ``'=x`` frueher zu ``=x`` und
+    ``''-x`` zu ``-x``. Der Formel-Kandidat wird jetzt zusaetzlich entschaerft,
+    sodass die Ruecknahme exakt das Original liefert. Ein zufaellig fuehrender
+    Apostroph ohne Formelzeichen (``'abc``) wird nie als Guard missdeutet.
+    """
+
+    unwrap = ("'=x", "''-x", "'abc", "=x", "-2+3", "@cmd", "Beispiel", "'", "")
+    for original in unwrap:
+        assert _unguard_cell(_guard_cell(original)) == original, original
+
+    # Nur echte Formel-Kandidaten erhalten einen zusaetzlichen Apostroph.
+    assert _guard_cell("=x") == "'=x"
+    assert _guard_cell("'=x") == "''=x"
+    assert _guard_cell("''-x") == "'''-x"
+    assert _guard_cell("'abc") == "'abc"
+    assert _guard_cell("") == ""
+
+    # Echte Guards werden zurueckgenommen, zufaellige Apostrophe bleiben.
+    assert _unguard_cell("'=x") == "=x"
+    assert _unguard_cell("''=x") == "'=x"
+    assert _unguard_cell("'abc") == "'abc"
+    assert _unguard_cell("-10,00") == "-10,00"
+    assert _unguard_cell(42) == 42
+
+    assert _is_guard_candidate("'=x") is True
+    assert _is_guard_candidate("''-x") is True
+    assert _is_guard_candidate("'abc") is False
+    assert _is_guard_candidate("'") is False
+    assert _is_guard_candidate(42) is False
+
+
 # ------------------------------------------------------------------ F-EXP-06
 
 
@@ -478,6 +515,72 @@ def test_csv_roundtrip_service_ergibt_null_neue() -> None:
 
     assert run.new_count == 0
     assert run.skipped_count == 2
+
+
+def test_csv_roundtrip_erhaelt_originale_mit_fuehrendem_apostroph() -> None:
+    """F-EXP-03/F-EXP-06: Regression -- Originale wie ``'=x`` und ``''-x`` bleiben erhalten.
+
+    Frueher verkuerzte die Ruecknahme ``'=x`` zu ``=x`` und ``''-x`` zu ``-x``;
+    der Fingerprint brach dadurch und der Re-Import erzeugte neue Buchungen.
+    Jetzt ergibt der Re-Import 0 neue und die Gegenpartei ist byteweise gleich.
+    """
+
+    originals = ("'=x", "''-x", "'abc")
+    source = _memory_session()
+    with source:
+        source.add(Account(id=1, name="Girokonto", currency="EUR", source="datei"))
+        source.commit()
+        for index, counterparty in enumerate(originals):
+            day = date(2026, 1, 15 + index)
+            amount = -100 - index
+            source.add(
+                Transaction(
+                    account_id=1,
+                    status="gebucht",
+                    booking_date=day,
+                    amount_cents=amount,
+                    currency="EUR",
+                    counterparty=counterparty,
+                    purpose="Einkauf",
+                    counterparty_iban="DE02120300000000202051",
+                    origin="csv",
+                    fingerprint=_to_fingerprint(
+                        1,
+                        {
+                            "booking_date": day,
+                            "amount_cents": amount,
+                            "counterparty": counterparty,
+                            "purpose": "Einkauf",
+                            "counterparty_iban": "DE02120300000000202051",
+                        },
+                    ),
+                    occurrence_index=0,
+                    search_text="",
+                )
+            )
+        source.commit()
+        exported = _run(source, _csv_request(account_id=1))
+
+    template = _own_csv_template(source)
+    rows = load_rows(
+        exported.content.encode("utf-8"),
+        kind="csv",
+        options=CsvOptions(
+            encoding=template.encoding,
+            delimiter=template.delimiter,
+            decimal_separator=template.decimal_separator,
+            date_format=template.date_format,
+        ),
+    )
+    rows = strip_export_guard(rows)
+    # Die Ruecknahme stellt jeden Originalwert exakt wieder her.
+    assert [row["Gegenpartei"] for row in rows] == list(originals)
+
+    with source:
+        run = execute_import(1, rows, template.mapping, "csv", source)
+
+    assert run.new_count == 0
+    assert run.skipped_count == len(originals)
 
 
 def test_csv_roundtrip_ueber_rest_importkette(client: TestClient) -> None:

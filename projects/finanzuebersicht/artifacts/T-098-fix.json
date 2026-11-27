@@ -1,0 +1,56 @@
+{
+  "task": "T-098",
+  "kind": "defect-fix",
+  "milestone": "M4",
+  "branch": "m4/develop",
+  "role": "builder",
+  "risk": "medium",
+  "requirements": ["F-EXP-03", "F-EXP-06"],
+  "finding": "T-098-Verifierpruefung: _guard_cell und _unguard_cell sind fuer Originalwerte mit fuehrendem Apostroph nicht umkehrbar (z. B. '=x -> =x, ''-x).",
+  "root_cause": "Der Guard pruefte nur value[0] in Trigger (uebersah Werte, die mit Apostroph beginnen); die Ruecknahme pruefte value[1] in Trigger und nahm so einen echten Original-Apostroph weg.",
+  "fix": "Gemeinsame Pruefung _is_guard_candidate: value.lstrip(\"'\") ist nichtleer und beginnt mit einem Formula-Trigger (= + - @ Tab CR). _guard_cell entschaerft genau diese Werte, _unguard_cell nimmt genau einen fuehrenden Apostroph auf einem Kandidaten zurueck.",
+  "changed_files": [
+    "backend/finue/services/export.py",
+    "tests/unit/test_export_csv.py"
+  ],
+  "regression_tests": [
+    "test_export_guard_ist_umkehrbar_fuer_apostroph_originale ('=x, ''-x, 'abc, =x, -, @, leere Zeichenkette)",
+    "test_csv_roundtrip_erhaelt_originale_mit_fuehrendem_apostroph (Export -> Vorlage -> Re-Import = 0 neue)"
+  ],
+  "verification": [
+    {
+      "cmd": "uv run pytest tests/unit/test_export_csv.py tests/unit/test_export_profiles_api.py -q",
+      "result": "27 passed, 1 warning"
+    },
+    {
+      "cmd": "uv run pytest tests/unit/test_export_csv.py tests/unit/test_export_profiles_api.py tests/unit/test_import_*.py tests/unit/test_model_import_*.py -q",
+      "result": "129 passed, 1 warning"
+    },
+    {
+      "cmd": "uv run pytest tests/unit -q",
+      "result": "1456 passed, 1 skipped, 1 warning"
+    },
+    {
+      "cmd": "uv run ruff check backend tests scripts",
+      "result": "All checks passed!"
+    },
+    {
+      "cmd": "uv run ruff format --check backend tests scripts",
+      "result": "189 files already formatted"
+    },
+    {
+      "cmd": "uv run mypy backend",
+      "result": "Success: no issues found in 91 source files"
+    },
+    {
+      "cmd": "python scripts/validate.py roundtrip",
+      "result": "ROUNDTRIP_OK erster_lauf=5 zweiter_lauf=0 bestand=5"
+    }
+  ],
+  "notes": [
+    "Mutation/Reproduktion: alte Logik liefert _unguard_cell(_guard_cell(\"'=x\")) == \"=x\"; neue Logik == \"'=x\".",
+    "''-x bricht, sobald Guard und Ruecknahme nicht dieselbe Kandidatenregel teilen (genau dafuer _is_guard_candidate).",
+    "Keine weiteren T-098-/T-100-/T-102-Slices geaendert; nur erfundene Testdaten (D8), keine Zugangsdaten, keine externen Schreibaktionen.",
+    "T-098 bleibt offen bis unabhaengiger Wiederholungspruefung (risiko medium)."
+  ]
+}

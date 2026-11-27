@@ -2,6 +2,20 @@
 
 ## Next actions
 
+- **T-098 Roundtrip-Defekt behoben (M4, F-EXP-03/F-EXP-06, Risiko medium) -- T-098 bleibt offen.**
+  Befund der Verifierpruefung: `_guard_cell` und `_unguard_cell` in `backend/finue/services/export.py` waren fuer
+  Originalwerte mit fuehrendem Apostroph nicht umkehrbar (`'=x` wurde beim Re-Import zu `=x`). Fix: gemeinsame
+  Pruefung `_is_guard_candidate` -- `value.lstrip("'")` muss nichtleer sein und mit einem Formula-Trigger
+  (`= + - @` Tab CR) beginnen; `_guard_cell` entschaerft genau diese Werte, `_unguard_cell` nimmt genau einen
+  fuehrenden Apostroph auf einem Kandidaten zurueck (`'abc` bleibt erhalten). Regressionstests in
+  `tests/unit/test_export_csv.py`: `test_export_guard_ist_umkehrbar_fuer_apostroph_originale` (`'=x`, `''-x`,
+  `'abc`) und `test_csv_roundtrip_erhaelt_originale_mit_fuehrendem_apostroph` (Export -> Vorlage -> Re-Import =
+  0 neue). Evidenz: `tests/unit/test_export_csv.py`+Profile = 27 passed; Export-/Profil-/Importtests = 129 passed;
+  `tests/unit` = 1456 passed/1 skipped; `ruff check`/`ruff format --check` (189 Dateien)/`mypy backend` (91 Dateien)
+  gruen; `scripts/validate.py roundtrip` = OK; Artefakt `artifacts/T-098-fix.json`. **Offen:** unabhaengige
+  Wiederholungspruefung durch `verifier` folgt; kein `task-done`, kein Push. Keine anderen
+  T-098-/T-100-/T-102-Slices geaendert; fremde uncommittete Welle-Arbeit bleibt unangetastet.
+
 - **T-098 umgesetzt (M4 Welle 6, CSV-Export mit Optionen, Exportprofilen und passender Importvorlage,
   F-EXP-03/F-EXP-06, Risiko medium).** Konflikt-Check: Ja (nur CSV-Export, Exportprofil-CRUD und der eigene
   Seed; JSON-/Markdown-Logik unveraendert ausser gemeinsamer Verdrahtung). Neu/geaendert:

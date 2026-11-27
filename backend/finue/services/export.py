@@ -760,18 +760,47 @@ def merge_csv_options(base: CsvExportOptions, overrides: Mapping[str, Any] | Non
     return validate_csv_options(merged)
 
 
-def _guard_cell(value: str) -> str:
-    """Entschaerft eine Freitextzelle mit fuehrendem Formelzeichen (F-EXP-03)."""
+def _is_guard_candidate(value: object) -> bool:
+    """Prueft, ob ein Wert nach fuehrenden Apostrophen mit einem Formelzeichen beginnt.
 
-    if value and value[0] in _FORMULA_TRIGGERS:
+    F-EXP-03: Kandidat ist ein String, bei dem nach dem Entfernen aller
+    fuehrenden Apostrophe ein nichtleerer Rest bleibt, dessen erstes Zeichen ein
+    Formelzeichen ist. Nur solche Werte entschaerft :func:`_guard_cell`, und nur
+    ein solcher Wert mit fuehrendem Apostroph gilt :func:`_unguard_cell` als
+    echter Guard. Dadurch ist die Ruecknahme die exakte Umkehrung der
+    Entschaerfung -- auch fuer Originalwerte wie ``'=x`` oder ``''-x``
+    (Roundtrip F-EXP-06).
+    """
+
+    if not isinstance(value, str):
+        return False
+    stripped = value.lstrip("'")
+    return bool(stripped) and stripped[0] in _FORMULA_TRIGGERS
+
+
+def _guard_cell(value: str) -> str:
+    """Entschaerft eine Freitextzelle mit fuehrendem Formelzeichen (F-EXP-03).
+
+    Auch Originalwerte, die bereits mit Apostrophen beginnen und danach ein
+    Formelzeichen tragen (z. B. ``'=x``), werden entschaerft, damit die
+    Ruecknahme sie exakt wiederherstellt.
+    """
+
+    if _is_guard_candidate(value):
         return "'" + value
     return value
 
 
 def _unguard_cell(value: object) -> object:
-    """Entfernt einen von der Entschaerfung gesetzten fuehrenden Apostroph."""
+    """Entfernt genau einen echten Entschaerfungs-Apostroph (F-EXP-03).
 
-    if isinstance(value, str) and len(value) > 1 and value[0] == "'" and value[1] in _FORMULA_TRIGGERS:
+    Nur ein fuehrender Apostroph auf einem Formel-Kandidaten (siehe
+    :func:`_is_guard_candidate`) ist ein Guard; ein zufaellig fuehrender
+    Apostroph ohne folgendes Formelzeichen (``'abc``) bleibt erhalten. So ist
+    die Ruecknahme die exakte Umkehrung von :func:`_guard_cell`.
+    """
+
+    if isinstance(value, str) and value[:1] == "'" and _is_guard_candidate(value):
         return value[1:]
     return value
 
