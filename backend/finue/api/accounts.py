@@ -18,24 +18,26 @@ from contextlib import contextmanager
 from datetime import date, datetime
 from typing import cast
 
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Depends, Query, Request, Response, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from finue.api.container import AppServices
 from finue.api.conventions import VersionedRequest
-from finue.api.deps import get_event_bus, get_services, get_session, require_user
+from finue.api.deps import get_event_bus, get_services, get_session, get_sync_registry, require_user
 from finue.api.errors import ConflictError, DomainError, NotFoundError
 from finue.api.pagination import decode_cursor, encode_cursor, resolve_page_params
 from finue.models.account import Account
 from finue.services.accounts import (
     AccountNotFound,
+    AccountSyncRunning,
     AccountValidationError,
     AccountVersionConflict,
     GroupNotFound,
     TotalComposition,
     compute_total,
     create_offline_account,
+    delete_account,
     get_account,
     latest_sync_times,
     list_accounts,
@@ -44,6 +46,7 @@ from finue.services.accounts import (
     update_account,
 )
 from finue.services.events import EventBus
+from finue.services.sync_registry import SyncRegistry
 
 __all__ = ["router"]
 
@@ -226,6 +229,10 @@ def _account_errors(session: Session, account_id: int) -> Iterator[None]:
     except AccountVersionConflict as exc:
         current = get_account(session, account_id)
         raise ConflictError(current=_detail(current, None)) from exc
+    except AccountSyncRunning as exc:
+        # Laufender Sync des Bankzugangs: 409 mit Klartext, ohne Loeschung (F-KTO-07).
+        current = get_account(session, account_id)
+        raise ConflictError(str(exc), current=_detail(current, None)) from exc
     except AccountValidationError as exc:
         raise DomainError(str(exc)) from exc
 
@@ -364,3 +371,32 @@ def restore_account_route(
         account = set_archived(session, account_id, archived=False, expected_version=payload.version)
     event_bus.emit("account.changed", account=account.id)
     return _detail(account, None)
+
+
+@router.delete("/accounts/{account_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_account_route(
+    account_id: int,
+    version: int = Query(..., ge=1, description="Bekannte Versionsnummer des Kontos"),
+    session: Session = Depends(get_session),
+    event_bus: EventBus = Depends(get_event_bus),
+    sync_registry: SyncRegistry = Depends(get_sync_registry),
+) -> Response:
+    """Loescht ein Konto mit vollstaendiger Bereinigung und Versionspruefung (F-KTO-07).
+
+    Entfernt in einer Transaktion Buchungen samt Notizen und Vormerkungen,
+    Import-Laeufe mit ihren Fehlern, Auftraege, Dublettenentscheidungen und
+    kontogebundene Audit-Eintraege; kontogebundene Importvorlagen werden nur
+    entkoppelt, der Bankzugang bleibt erhalten. Laeuft fuer den Bankzugang
+    gerade ein Sync, antwortet der Server mit 409 und Klartext (F-SYN-11). Den
+    vorherigen verlustfreien JSON-Export (F-EXP-04) prueft das API-E2E (T-106).
+    """
+
+    with _account_errors(session, account_id):
+        delete_account(
+            session,
+            account_id,
+            expected_version=version,
+            sync_running=sync_registry.is_active,
+        )
+    event_bus.emit("account.deleted", account=account_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

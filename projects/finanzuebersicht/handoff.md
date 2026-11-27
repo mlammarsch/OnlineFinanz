@@ -2,6 +2,43 @@
 
 ## Next actions
 
+- **T-090 umgesetzt (M4 Welle 4b, Banken-Stammdaten und Icon-Upload, F-KTO-10/11, Risiko medium).** Konflikt-Check: Ja
+  (F-KTO-10/11, F-CON-02, N-SEC-05; kein Web-Abruf F-KTO-08, keine Aenderung an Loeschung/Suche/Sync). Neu:
+  `backend/finue/services/icons.py` (Signatur-Erkennung PNG/JPEG/WebP; 512-KB-Grenze **vor** dem Dekodieren;
+  Pillow-`verify`; Pixelgrenze gegen Dekompressionsbomben; Skalierung 128x128 mit erhaltenem Seitenverhaeltnis als
+  PNG; ETag = sha256 der gespeicherten Bytes; Speicherung in `account.icon`/`bank.icon` samt `icon_mime` mit
+  Versionspruefung), `backend/finue/services/banks.py` (Banken-CRUD; BLZ acht Ziffern; FinTS-Endpunkt nur HTTPS;
+  Website http(s); Loeschschutz ohne Bankzugaenge mit 409 Klartext; **keine Vorbelegung**), `backend/finue/api/icons.py`
+  (PUT/DELETE/GET `/api/accounts/{id}/icon` und `/api/banks/{id}/icon`; GET liefert image/png mit ETag und 304),
+  `backend/finue/api/banks.py` (GET/POST `/api/banks`, GET/PATCH/DELETE `/api/banks/{id}`). Pillow exakt gepinnt
+  (`pillow==13.0.0` in pyproject und uv.lock). `api/routes.py` um banks/icons ergaenzt, `test_api_contract.py` um vier
+  Eintraege, `docs/api.md` und `decisions.md` dokumentiert. Evidenz:
+  `uv run pytest tests/unit/test_icons.py tests/unit/test_banks_api.py -q` = 35 passed; `ruff check`, `ruff format
+  --check` und `mypy` der neuen Dateien gruen. **Offen:** die globalen Verifikationsbefehle waren zum Zeitpunkt des
+  Commits durch parallele, noch nicht committete Wellen-4b-Arbeit rot (v. a. `services/search.py` mypy und
+  `tests/unit/test_search.py` E501 aus T-092, `services/accounts.py` mypy aus T-089); `task-done` deshalb erst nach
+  sauberem Baum. Kein Push.
+
+- **T-089 umgesetzt (M4, Konto loeschen mit vollstaendiger Bereinigung, Risiko medium).** Konflikt-Check: Ja
+  (F-KTO-07, F-CON-02, F-CON-04, F-SYN-11; keine Such-, Export-, Sync- oder Abstimmungslogik geaendert). Neu:
+  `backend/finue/services/accounts.py` - `delete_account(session, account_id, *, expected_version, sync_running)`
+  entfernt in EINER Transaktion Dublettenentscheidungen (beide FK-Richtungen), Buchungen samt Notizen und
+  Vormerkungen, Termin-/Dauerauftraege, Import-Laeufe mit ImportRunErrors und kontogebundene Audit-Eintraege;
+  kontogebundene Importvorlagen werden nur entkoppelt (`account_id` NULL); der Bankzugang bleibt in jedem Fall
+  erhalten (kein stilles Loeschen von Zugangsdaten). `AccountSyncRunning` sperrt mit Klartext, wenn der Bankzugang
+  gerade synchronisiert (`SyncRegistry.is_active` ueber die injizierte `sync_running`-Funktion, D10-tauglich). Das
+  Konto selbst wird per ORM geloescht, damit die Versionsspalte als WHERE-Bedingung wirkt und `StaleDataError` die
+  gesamte Bereinigung zurueckrollt (F-CON-02); `DeletionSummary` meldet die Zeilenzahlen. `backend/finue/api/accounts.py`:
+  `DELETE /api/accounts/{id}?version=n` (`ge=1`) liefert 204 ohne Koerper (404/409/422 im Fehlerformat) und das
+  Ereignis `account.deleted`. Doku: `docs/api.md` (Endpunkt + Abschnitt "Konto loeschen (F-KTO-07)"), `decisions.md`
+  (Bereinigungsumfang/Audit/Vorlagen; Query-Parameter + Sync-Sperre). Tests: neues `tests/unit/test_account_delete.py`
+  (11 Tests: volle Bereinigung mit Zeilenzaehlung, andere Konten unberuehrt, Vorlagen entkoppelt, archiviertes Konto,
+  Bankzugang erhalten, laufender Sync 409, Versionskonflikt, 404, 422, Ereignis, DeletionSummary). Evidenz:
+  `uv run pytest tests/unit/test_account_delete.py -q` = 11 passed; `ruff check`, `ruff format --check` und `mypy`
+  der geaenderten Dateien gruen. **Offen/Blocker:** Die globalen Verifikationsbefehle sind wegen parallel unfertiger
+  Dateien (T-090 banks/icons, T-092 search) rot und werden nach deren Commit erneut gefahren; die Vertragstabelle
+  wurde nur um die DELETE-Zeile ergaenzt. Kein Push.
+
 - **T-088 umgesetzt (M4 Welle 3, Konten und Gruppen - Service und API, Risiko medium).** Konflikt-Check: Ja
   (`routes.py` nur die Include-Zeilen; getrennt von Such-/Edit-/Session-Etappen T-087/T-108..T-110/T-111). Neu:
   `backend/finue/services/accounts.py` (IBAN normalisieren/Modulo-97 validieren, `mask_iban`, `list_accounts`,

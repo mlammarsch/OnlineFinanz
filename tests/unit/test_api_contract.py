@@ -73,9 +73,9 @@ CONTRACT: dict[str, RouteContract] = {
         is_list=True,
     ),
     "/api/accounts/{account_id}": RouteContract(
-        frozenset({"GET", "PATCH"}),
+        frozenset({"GET", "PATCH", "DELETE"}),
         kind="version",
-        reason="Kontodetails ansehen und pflegen mit Versionspruefung (F-KTO-04, F-CON-02)",
+        reason="Kontodetails ansehen/pflegen und Konto loeschen mit Versionspruefung (F-KTO-04/07, F-CON-02)",
     ),
     "/api/accounts/{account_id}/archive": RouteContract(
         frozenset({"POST"}),

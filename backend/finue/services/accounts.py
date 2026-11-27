@@ -26,25 +26,33 @@ Die Schicht kennt bewusst nur Standardfehler (``LookupError``, ``ValueError``,
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from datetime import date, datetime, time, timezone
 from typing import Any, Final, cast
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select, update
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.exc import StaleDataError
 
 from finue.models.account import Account, AccountGroup
-from finue.models.import_run import ImportRun
+from finue.models.audit import AuditLog
+from finue.models.duplicate import DuplicateDecision
+from finue.models.import_run import ImportRun, ImportRunError
+from finue.models.import_template import ImportTemplate
+from finue.models.standing_order import StandingOrder
+from finue.models.transaction import Transaction
 
 __all__ = [
     "DEFAULT_CURRENCY",
     "SUCCESS_SYNC_STATUSES",
     "AccountNotFound",
+    "AccountSyncRunning",
     "AccountValidationError",
     "AccountVersionConflict",
     "CurrencyBucket",
+    "DeletionSummary",
     "GroupAccount",
     "GroupNotFound",
     "GroupSummary",
@@ -54,6 +62,7 @@ __all__ = [
     "compute_total",
     "create_group",
     "create_offline_account",
+    "delete_account",
     "delete_group",
     "get_account",
     "latest_sync_times",
@@ -110,6 +119,22 @@ class AccountVersionConflict(RuntimeError):
         super().__init__(
             f"Konto {account_id} wurde zwischenzeitlich geaendert "
             f"(erwartet Version {expected_version}, aktuell {current_version})."
+        )
+
+
+class AccountSyncRunning(RuntimeError):
+    """Fuer den Bankzugang des Kontos laeuft bereits ein Sync-Job (F-SYN-11).
+
+    Das Konto bleibt unveraendert; der Aufrufer wartet auf den Abschluss des
+    laufenden Laufs oder bricht ihn vorher ab. Ein loeschendes Konto darf einen
+    laufenden Sync nicht unterbrechen (F-KTO-07).
+    """
+
+    def __init__(self, bank_access_id: int) -> None:
+        self.bank_access_id = bank_access_id
+        super().__init__(
+            f"Fuer den Bankzugang {bank_access_id} laeuft bereits ein Sync. "
+            "Das Konto kann erst nach dessen Abschluss geloescht werden."
         )
 
 
@@ -234,6 +259,24 @@ class GroupSummary:
     amount_cents: int
     foreign: tuple[CurrencyBucket, ...]
     members: tuple[GroupAccount, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class DeletionSummary:
+    """Zeilenzahlen der vollstaendigen Konto-Bereinigung (F-KTO-07).
+
+    Jede Zahl nennt die Anzahl der tatsaechlich entfernten Zeilen der jeweiligen
+    Tabelle; ``import_templates_unlinked`` zaehlt die Vorlagen, deren
+    Konto-Zuordnung nur geloest wurde.
+    """
+
+    transactions: int
+    standing_orders: int
+    import_runs: int
+    import_run_errors: int
+    duplicate_decisions: int
+    audit_entries: int
+    import_templates_unlinked: int
 
 
 # ------------------------------------------------------------------- Pruefungen
@@ -559,6 +602,128 @@ def _current_version(session: Session, account_id: int) -> int:
 
     current = session.get(Account, account_id)
     return current.version if current is not None else -1
+
+
+# --------------------------------------------------------------------- Loeschen
+
+
+def _affected_rows(session: Session, statement: Any) -> int:
+    """Fuehrt eine aendernde Anweisung aus und liefert die betroffenen Zeilen (N-DB-01).
+
+    ``Session.execute`` liefert fuer DELETE/UPDATE zur Laufzeit ein
+    ``CursorResult``; der Typ wird hier praezise gefasst, damit ``rowcount``
+    unter mypy strict verfuegbar ist.
+    """
+
+    return int(cast(CursorResult[Any], session.execute(statement)).rowcount or 0)
+
+
+def _purge_account_data(session: Session, account_id: int) -> DeletionSummary:
+    """Entfernt die kontogebundenen Zeilen und liefert die Zeilenzahlen (F-KTO-07).
+
+    Reihenfolge nach den Fremdschluesseln: zuerst die Dublettenentscheidungen
+    (sie verweisen auf Buchungen), dann Buchungen, Auftraege, Import-Fehler,
+    Import-Laeufe und kontogebundene Audit-Eintraege. Kontogebundene
+    Importvorlagen werden nicht geloescht, sondern nur entkoppelt.
+    """
+
+    transaction_ids = list(session.scalars(select(Transaction.id).where(Transaction.account_id == account_id)))
+    run_ids = list(session.scalars(select(ImportRun.id).where(ImportRun.account_id == account_id)))
+
+    duplicate_decisions = 0
+    if transaction_ids:
+        duplicate_decisions = _affected_rows(
+            session,
+            delete(DuplicateDecision).where(
+                (DuplicateDecision.transaction_id.in_(transaction_ids))
+                | (DuplicateDecision.other_transaction_id.in_(transaction_ids))
+            ),
+        )
+
+    transactions = _affected_rows(session, delete(Transaction).where(Transaction.account_id == account_id))
+    standing_orders = _affected_rows(session, delete(StandingOrder).where(StandingOrder.account_id == account_id))
+
+    import_run_errors = 0
+    if run_ids:
+        import_run_errors = _affected_rows(session, delete(ImportRunError).where(ImportRunError.run_id.in_(run_ids)))
+    import_runs = _affected_rows(session, delete(ImportRun).where(ImportRun.account_id == account_id))
+
+    # F-KTO-07: "Loeschen entfernt ... Protokolle des Kontos". Kontogebundene
+    # Audit-Eintraege werden entfernt; globale Eintraege (account_id NULL)
+    # bleiben erhalten (Entscheidung in decisions.md).
+    audit_entries = _affected_rows(session, delete(AuditLog).where(AuditLog.account_id == account_id))
+
+    # F-IMP-05/F-KTO-07: Vorlagen bleiben erhalten, nur die Zuordnung entfaellt.
+    import_templates_unlinked = _affected_rows(
+        session,
+        update(ImportTemplate).where(ImportTemplate.account_id == account_id).values(account_id=None),
+    )
+
+    return DeletionSummary(
+        transactions=transactions,
+        standing_orders=standing_orders,
+        import_runs=import_runs,
+        import_run_errors=import_run_errors,
+        duplicate_decisions=duplicate_decisions,
+        audit_entries=audit_entries,
+        import_templates_unlinked=import_templates_unlinked,
+    )
+
+
+def delete_account(
+    session: Session,
+    account_id: int,
+    *,
+    expected_version: int,
+    sync_running: Callable[[int], bool] | None = None,
+) -> DeletionSummary:
+    """Loescht ein Konto mit vollstaendiger Bereinigung (F-KTO-07, F-CON-02).
+
+    Entfernt in einer Transaktion die Buchungen samt Notizen und Vormerkungen,
+    die Import-Laeufe mit ihren Fehlern, die Auftraege, die
+    Dublettenentscheidungen des Kontos sowie die kontogebundenen
+    Audit-Eintraege. Kontogebundene Importvorlagen bleiben erhalten und werden
+    nur entkoppelt (``account_id`` NULL). Der Bankzugang bleibt bestehen, auch
+    wenn er danach kein Konto mehr hat: Zugangsdaten werden nie still
+    geloescht (Entscheidung in ``decisions.md``).
+
+    Args:
+        session: Offene SQLAlchemy-Session.
+        account_id: ID des zu loeschenden Kontos.
+        expected_version: Bekannte Kontoversion (F-CON-02).
+        sync_running: Optionale Pruefung, ob fuer den Bankzugang des Kontos
+            gerade ein Sync laeuft. Liefert sie ``True``, bricht die Loeschung
+            mit :class:`AccountSyncRunning` ab, ohne etwas zu aendern.
+
+    Returns:
+        Die Zeilenzahlen je bereinigter Tabelle (:class:`DeletionSummary`).
+
+    Raises:
+        AccountNotFound: Das Konto existiert nicht.
+        AccountVersionConflict: ``expected_version`` ist veraltet (F-CON-02).
+        AccountSyncRunning: Fuer den Bankzugang laeuft bereits ein Sync.
+    """
+
+    checked_version = _checked_version(expected_version)
+    account = get_account(session, account_id)
+    _ensure_account_version(account, checked_version)
+
+    access_id = account.bank_access_id
+    if access_id is not None and sync_running is not None and sync_running(access_id):
+        raise AccountSyncRunning(access_id)
+
+    summary = _purge_account_data(session, account_id)
+    # Das Konto ueber das ORM loeschen: Die Versionsspalte wirkt als zusaetzliche
+    # WHERE-Bedingung, ein paralleler Schreibvorgang loest daher StaleDataError
+    # aus und rollt die gesamte Bereinigung zurueck (F-CON-02).
+    session.delete(account)
+    try:
+        session.commit()
+    except StaleDataError as exc:
+        session.rollback()
+        raise AccountVersionConflict(account_id, checked_version, _current_version(session, account_id)) from exc
+
+    return summary
 
 
 # --------------------------------------------------------------------- Gruppen
