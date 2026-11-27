@@ -5,9 +5,10 @@ Standard von 50 und hoechstens 200 (Werte in :mod:`finue.config`, SPEC
 F-MCP-11); der Wert wird gegen die zentralen Grenzen geprueft und bei
 Verletzung als deutscher 422-Fehler gemeldet.
 
-Der Cursor ist ein undurchsichtiger, base64-kodierter Offset. Die
-Schluesselwort-Paginierung der Buchungsliste folgt in T-093 und nutzt denselben
-Umschlag.
+Der Cursor ist ein undurchsichtiger, base64-kodierter Offset. Die Buchungsliste
+(T-093) nutzt denselben Umschlag ``{items, next_cursor}`` und dieselbe
+``limit``-Pruefung (:func:`resolve_limit`), traegt aber einen Keyset-Cursor aus
+Buchungstag und ID (siehe ``finue/api/transaction_list.py``).
 """
 
 from __future__ import annotations
@@ -28,6 +29,7 @@ __all__ = [
     "PageParams",
     "decode_cursor",
     "encode_cursor",
+    "resolve_limit",
     "resolve_page_params",
 ]
 
@@ -103,6 +105,36 @@ def decode_cursor(cursor: str) -> int:
     return offset
 
 
+def resolve_limit(request: Request, settings: Settings) -> int:
+    """Liest und prueft ``limit`` aus der Anfrage (SPEC F-MCP-11, F-CON-02).
+
+    Fehlt ``limit``, gilt ``settings.api_default_page_size``. Ein Wert unter 1,
+    ueber ``settings.api_max_page_size`` oder ein nicht-numerischer Wert wird
+    als deutscher 422-Fehler abgelehnt. Die Buchungsliste (T-093) nutzt diesen
+    Helfer mit ihrer eigenen Keyset-Cursor-Pruefung.
+
+    Raises:
+        ValidationApiError: ``limit`` fehlt nicht, ist aber ungueltig.
+    """
+
+    raw_limit = request.query_params.get("limit")
+    if raw_limit is None or raw_limit == "":
+        return settings.api_default_page_size
+    try:
+        limit = int(raw_limit)
+    except ValueError as exc:
+        raise ValidationApiError(
+            "Der Parameter 'limit' muss eine ganze Zahl sein.",
+            details={"field": "limit"},
+        ) from exc
+    if limit < 1 or limit > settings.api_max_page_size:
+        raise ValidationApiError(
+            f"Der Parameter 'limit' muss zwischen 1 und {settings.api_max_page_size} liegen.",
+            details={"field": "limit", "min": 1, "max": settings.api_max_page_size},
+        )
+    return limit
+
+
 def resolve_page_params(request: Request, settings: Settings) -> PageParams:
     """Liest ``limit`` und ``cursor`` aus der Anfrage und prueft die Grenzen.
 
@@ -111,23 +143,7 @@ def resolve_page_params(request: Request, settings: Settings) -> PageParams:
     abgelehnt; ein nicht-numerischer Wert ebenso.
     """
 
-    raw_limit = request.query_params.get("limit")
-    if raw_limit is None or raw_limit == "":
-        limit = settings.api_default_page_size
-    else:
-        try:
-            limit = int(raw_limit)
-        except ValueError as exc:
-            raise ValidationApiError(
-                "Der Parameter 'limit' muss eine ganze Zahl sein.",
-                details={"field": "limit"},
-            ) from exc
-        if limit < 1 or limit > settings.api_max_page_size:
-            raise ValidationApiError(
-                f"Der Parameter 'limit' muss zwischen 1 und {settings.api_max_page_size} liegen.",
-                details={"field": "limit", "min": 1, "max": settings.api_max_page_size},
-            )
-
+    limit = resolve_limit(request, settings)
     cursor = request.query_params.get("cursor")
     if cursor is not None:
         decode_cursor(cursor)

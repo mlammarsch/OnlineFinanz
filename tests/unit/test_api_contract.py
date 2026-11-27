@@ -140,6 +140,18 @@ CONTRACT: dict[str, RouteContract] = {
         reason="Buchungssuche mit Filter, Sortierung, Trefferzahl und Summe (F-SUC-01..07, F-ABS-04/05)",
         is_list=True,
     ),
+    "/api/accounts/{account_id}/transactions": RouteContract(
+        frozenset({"GET"}),
+        kind="lesen",
+        reason="Buchungsliste eines Kontos mit Vormerkungen, Tagessalden und Keyset-Paginierung (F-BUC-01..04, 06)",
+        is_list=True,
+    ),
+    "/api/groups/{group_id}/transactions": RouteContract(
+        frozenset({"GET"}),
+        kind="lesen",
+        reason="Buchungsliste einer Gruppe mit Kontokennzeichnung je Zeile (F-BUC-05)",
+        is_list=True,
+    ),
 }
 
 

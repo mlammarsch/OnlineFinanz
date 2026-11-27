@@ -85,9 +85,10 @@ Listenantworten nutzen den Umschlag:
 - `limit`: Standard 50, hoechstens 200 (`api_default_page_size`,
   `api_max_page_size` in `finue/config.py`). Ungueltige Werte sind 422.
 - `next_cursor`: undurchsichtiger Cursor der naechsten Seite; `null` am Ende.
-  Der Helfer steht in `backend/finue/api/pagination.py`. Die
-  Schluesselwort-Paginierung der Buchungsliste folgt in T-093, nutzt aber
-  denselben Umschlag.
+  Der Helfer steht in `backend/finue/api/pagination.py`. Die Buchungsliste
+  (T-093) nutzt denselben Umschlag und dieselbe `limit`-Pruefung
+  (`resolve_limit`), traegt aber einen Keyset-Cursor aus Buchungstag und ID
+  (siehe Abschnitt "Buchungsliste").
 
 ## Batch-Aktionen (F-CON-03)
 
@@ -172,6 +173,8 @@ nicht mit (F-KTO-06). Dieselbe Regel gilt fuer die Gruppensumme.
 | DELETE | `/api/groups/{id}?version=n` | Loeschen; Konten bleiben mit `group_id=null` (F-KTO-03) |
 | GET | `/api/accounts/{id}/reconciliation` | Abstimmungsuebersicht eines Kontos (F-ABS-03) |
 | GET | `/api/groups/{id}/reconciliation` | Abstimmungsuebersicht einer Gruppe, Fremdwaehrung getrennt (F-ABS-03) |
+| GET | `/api/accounts/{id}/transactions` | Buchungsliste eines Kontos mit Vormerkungen und Tagessalden (F-BUC-01..04) |
+| GET | `/api/groups/{id}/transactions` | Buchungsliste einer Gruppe mit Kontokennzeichnung je Zeile (F-BUC-05) |
 | GET | `/api/banks` | Banken-Stammdaten auflisten (F-KTO-10) |
 | POST | `/api/banks` | Bank anlegen; keine Vorbelegung ohne belegte Quelle (F-KTO-10) |
 | GET | `/api/banks/{id}` | Banken-Stammdaten ansehen (F-KTO-10) |
@@ -293,6 +296,90 @@ ist unerheblich). Regeln:
 liefert `GET` 404. Upload und Loeschen pruefen `version` (F-CON-02) und melden
 `account.changed` bzw. `bank.changed` (F-CON-04). Der Web-Abruf von Icons
 (F-KTO-08) gehoert zu M7 und findet hier nicht statt (N-SEC-05).
+
+## Buchungsliste (F-BUC-01..06)
+
+Die Fachlogik liegt in `backend/finue/services/transaction_list.py` (MCP nutzt
+dieselbe Schicht, D10); der Router `backend/finue/api/transaction_list.py`
+uebersetzt nur HTTP. Filter, Zeitraum und Trefferlogik stammen aus
+`services/search.py` (T-092); die Tagesgruppen sind immer nach Buchungstag
+absteigend (F-BUC-03). Parameter wie bei der Suche: `q`, `period`
+(Standard `365`), `from`/`to`, `checked`, `reconciled`, `with_note`, `limit`,
+`cursor`. Sortierparameter gibt es nicht, weil die Tagesgruppierung den
+Buchungstag absteigend vorgibt.
+
+```json
+{
+  "head": {
+    "scope": "account",
+    "id": 1,
+    "name": "Girokonto",
+    "currency": "EUR",
+    "balance_cents": 109500,
+    "icon_url": "/api/accounts/1/icon",
+    "account_count": 1
+  },
+  "pending": {
+    "items": [],
+    "sum_cents": -700,
+    "total_count": 1,
+    "balance_with_pending_cents": 108800
+  },
+  "days": [
+    {
+      "day": "2026-01-12",
+      "sum_cents": 2000,
+      "balance_end_cents": 109500,
+      "transactions": [
+        {
+          "id": 42,
+          "account_id": 1,
+          "account_name": "Girokonto",
+          "status": "gebucht",
+          "origin": "csv",
+          "counterparty": "Max Mustermann",
+          "purpose": "Miete Januar",
+          "amount_cents": 2000,
+          "currency": "EUR",
+          "has_note": false,
+          "checked": false,
+          "reconciled": false,
+          "version": 1
+        }
+      ]
+    }
+  ],
+  "next_cursor": "kMjAyNi0wMS0xMjo0Mg"
+}
+```
+
+Regeln (Herleitung in `projects/finanzuebersicht/decisions.md`):
+
+- `head.balance_cents` ist der aktuelle Saldo (F-BUC-01). FinTS-Konten fuehren
+  den uebernommenen Banksaldo; Datei-Konten bilden ihn aus dem Ankersaldo plus
+  den gebuchten Betraegen (Ankerregel T-095).
+- `pending` (F-BUC-02) enthaelt die vorgemerkten Buchungen mit `sum_cents` und
+  dem `balance_with_pending_cents`; der Bereich erscheint nur auf der ersten
+  Seite (ohne `cursor`). `total_count` zaehlt alle (gefilterten) Vormerkungen,
+  die Liste ist auf 200 Zeilen begrenzt.
+- `days` (F-BUC-03) sind nach Buchungstag absteigend gruppiert. `sum_cents` ist
+  die Tagessumme der auf der Seite gezeigten Zeilen; `balance_end_cents` ist der
+  Saldo am Tagesende und wird rueckwaerts vom aktuellen Saldo berechnet.
+  Tagessalden beruecksichtigen **alle** gebuchten, nicht zusammengefuehrten
+  Buchungen (auch von einem Filter ausgeblendete) und bleiben damit bei aktivem
+  Filter korrekt; zusammengefuehrte Buchungen fehlen immer (F-DUP-04).
+- Jede Zeile traegt `id`, `status`, `origin` (Quelle), `counterparty`,
+  vollstaendigen `purpose`, `amount_cents`, `has_note` (Notiz-Marker),
+  `checked`, `reconciled` und `version` (F-BUC-04).
+- Gruppenansicht (F-BUC-05): Zeilen aller aktiven Mitglieder mit
+  `account_id`/`account_name` als Kontokennzeichnung. Der Tagessaldo summiert
+  nur die Buchwaehrung (Standard EUR, T-088-Regel); Konten anderer Waehrung
+  erscheinen als Zeilen, zaehlen aber nicht in den Tagessaldo.
+- Paginierung (F-BUC-06) ist Keyset: `next_cursor` traegt Buchungstag und ID;
+  der Einstiegs-Tagessaldo einer Folgeseite kommt aus einem SQL-Aggregat ueber
+  die juengeren Buchungen, nicht aus einem Python-Vollscan. Ein Buchungstag
+  kann sich ueber Seiten erstrecken; der Tagessaldo bleibt dann gleich.
+  Ungueltige Cursor und `limit`-Werte liefern 422 (F-CON-02, SPEC F-MCP-11).
 
 ## Suche (F-SUC-01..07, F-ABS-04/05)
 
