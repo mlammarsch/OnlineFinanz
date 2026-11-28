@@ -134,6 +134,31 @@ CONTRACT: dict[str, RouteContract] = {
         kind="version",
         reason="Bank-Icon hochladen/entfernen mit Versionspruefung; GET liefert PNG mit ETag (F-KTO-10/11, F-CON-02)",
     ),
+    "/api/banks/lookup": RouteContract(
+        frozenset({"GET"}),
+        kind="lesen",
+        reason="Banken-Stammdaten zur BLZ samt Endpunkt-Kennzeichen, keine Vorbelegung (F-KTO-05a/10)",
+    ),
+    "/api/bank-accesses": RouteContract(
+        frozenset({"POST"}),
+        kind="anlegen",
+        reason="Bankzugang anlegen; PIN nur bei store_pin verschluesselt, nie in Antwort/Log (F-KTO-05a, N-SEC-01)",
+    ),
+    "/api/bank-accesses/{access_id}": RouteContract(
+        frozenset({"PATCH"}),
+        kind="version",
+        reason="TAN-Verfahren waehlen mit Versionspruefung (F-KTO-05a, F-CON-02)",
+    ),
+    "/api/bank-accesses/{access_id}/discover": RouteContract(
+        frozenset({"POST"}),
+        kind="aktion",
+        reason="Kontenabruf als Job starten, Sperre je Zugang, TAN-Pause/Resume (F-KTO-05a, F-SYN-11)",
+    ),
+    "/api/bank-accesses/{access_id}/accounts": RouteContract(
+        frozenset({"POST"}),
+        kind="anlegen",
+        reason="Gewaehlte FinTS-Konten anlegen (source fints), ohne dieselbe IBAN doppelt zu fuehren (F-KTO-05a)",
+    ),
     "/api/search": RouteContract(
         frozenset({"GET"}),
         kind="lesen",

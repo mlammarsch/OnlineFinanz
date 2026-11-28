@@ -2,6 +2,20 @@
 
 ## Next actions
 
+- **T-091 Verlust der Vertragseintraege behoben (M4, F-KTO-05a, Risiko medium) -- T-091 bleibt offen.**
+  Befund (Handoff T-101/T-096, Verifier): Der T-091-Commit `ed8ed54` nahm aus dem gemeinsamen Index die
+  T-096-Vertragseintraege mit, verlor aber seine **eigenen** fuenf Eintraege in `tests/unit/test_api_contract.py`,
+  weil zwei Builder dieselbe Datei bearbeiteten. Dadurch war `test_alle_api_routen_sind_registriert` rot
+  (fuenf registrierte T-091-Routen ohne Vertragseintrag). Fix: die fuenf Eintraege wiederhergestellt --
+  `GET /api/banks/lookup` (lesen), `POST /api/bank-accesses` (anlegen), `PATCH /api/bank-accesses/{access_id}`
+  (version), `POST .../{access_id}/discover` (aktion), `POST .../{access_id}/accounts` (anlegen), mit
+  F-KTO-05a/F-SYN-11/N-SEC-01/F-CON-02-Referenzen. Die T-096-Eintraege und die Produktionslogik blieben
+  unveraendert. Evidenz: `tests/unit/test_api_contract.py` = 13 passed; `tests/unit/test_fints_wizard.py` = 13 passed;
+  FinTS-/bank_access-/wizard-Tests = 263 passed; `python scripts/validate.py m3` = bestanden (1599 unit passed/1 skipped);
+  `uv run ruff check backend tests scripts` = All checks passed; `uv run ruff format --check backend tests scripts` = 210
+  Dateien; `uv run mypy backend` = Success (101). **Offen:** unabhaengige `verifier`-Pruefung (DoD T-091, Checkliste
+  AGENTS.md); kein `task-done`, kein Push.
+
 - **T-101 Verifierbefund behoben (M4, F-CON-04, Risiko medium) -- T-101 bleibt offen.**
   Befund der unabhaengigen Pruefung: `SseBroadcaster.open()` machte die neue
   `SseConnection` schon im Lock sichtbar, reihte Ringpuffer-Nachlieferung/`resync`
