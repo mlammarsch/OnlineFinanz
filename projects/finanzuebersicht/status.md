@@ -1,6 +1,6 @@
 # Status finanzuebersicht
 
-_generated 2026-11-28T13:38:45Z_
+_generated 2026-11-28T13:38:59Z_
 
 Tasks: pending=0, running=0, done=111, failed=0, blocked=0, cancelled=4
 
