@@ -2,6 +2,26 @@
 
 ## Next actions
 
+- **T-106 Abschlussgate ausgefuehrt (M4, API-E2E gegen echten Uvicorn mit Fake-FinTS,
+  Risiko medium).** Voraussetzung geprueft: T-113 `done` (`T-113-verify-1795867977.json`)
+  und T-115 `done` (`T-115-verify-1795870353.json`). T-106 gezielt per `task-set` von
+  `blocked` -> `pending` -> `running` (kein Neubau; der generische `task-claim` traf in
+  dieser Welle wiederholt die falsche ID). Einzige Code-Aenderung: `scripts/validate.py`
+  traegt jetzt den Check `api-e2e` (`check_api_e2e`/`API_E2E_CHECK`) in `STAGE_M4` und
+  `IMPLEMENTED` ein, `"api-e2e"` neu in `BLOCKS`; Sammellauf verlangt mindestens einen
+  Test, danach 3 Laeufe des Markers `api_e2e`, jeder gruen, Gesamtlaufzeit unter 180 s
+  (`API_E2E_BUDGET_SECONDS`). Keine Aenderung an `tests/e2e_api/*`, `pyproject.toml`
+  oder anderen Tasks. Evidenz (alle Exit 0): `python scripts/validate.py api-e2e` =
+  `2 gesammelt; 3 Laeufe gruen in 74.3s`; `uv run pytest -m api_e2e tests/e2e_api -q`
+  = `2 passed` (21,31 s); `uv run ruff check backend tests scripts` = All checks passed;
+  `uv run ruff format --check backend tests scripts` = 218 Dateien; `uv run mypy backend`
+  = Success (101); Querschnitt `test_validate_stage_m4.py` + `test_api_contract.py` =
+  18 passed. Artefakt `artifacts/T-106-abschluss.md`. **Offen:** Medium-Risiko -
+  unabhaengige `verifier`-Pruefung (Review-Checkliste AGENTS.md) folgt auf dem
+  committeten Stand; `task-done` nach gruenem Verifikationsplan. Kein Push. Fremde
+  uncommittete Welle-Arbeit (Task-/Status-/events-Dateien, Verifier-Artefakte,
+  `tests/unit/test_transaction_list.py`) bleibt unangetastet.
+
 - **T-115 umgesetzt (M4-Entlastung T-106-B, API-E2E Szenario Teil 2; nur Testcode,
   Risiko low).** Claim gezielt per `task-set T-115 running`. Neu:
   `tests/e2e_api/test_scenario_b.py` (eigenstaendiger Durchlauf auf frischem Server:

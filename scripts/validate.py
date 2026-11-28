@@ -16,6 +16,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 from typing import Callable
 
@@ -32,6 +33,7 @@ BLOCKS = [
     "smoke",
     "perf",
     "e2e",
+    "api-e2e",
     "mcp",
     "concurrency",
     "backup",
@@ -485,7 +487,66 @@ CONCURRENCY_CHECK: tuple[str, Callable[[], Result]] = (
     check_concurrency,
 )
 
-STAGE_M4: list[tuple[str, Callable[[], Result]]] = [ROUNDTRIP_CHECK, PERF_CHECK, CONCURRENCY_CHECK]
+# Der API-E2E-Block (T-113/T-115, Abschlussgate T-106) startet die
+# Ende-zu-Ende-Szenarien gegen einen echten Uvicorn-Prozess mit genau einem
+# Worker (D3), bei dem nur der FinTS-Client ein Fake ist (D8). Die Szenarien
+# sind eigenstaendig und langsam (je Lauf eigener Serverstart), deshalb laeuft
+# der Block dreimal hintereinander; jeder Lauf muss gruen sein und die
+# Gesamtlaufzeit unter dem Budget von 3 Minuten bleiben.
+API_E2E_RUNS = 3
+API_E2E_BUDGET_SECONDS = 180.0
+
+
+def check_api_e2e() -> Result:
+    """API-E2E-Szenarien gegen echten Uvicorn mit Fake-FinTS (T-106).
+
+    Fuehrt die Ende-zu-Ende-Szenarien (pytest-Marker ``api_e2e``) gegen einen
+    echten Uvicorn-Prozess in einem Worker (D3) aus, bei dem nur der FinTS-Client
+    durch den Fake ersetzt ist. Verlangt mindestens einen gesammelten Test und
+    dreimal hintereinander einen gruenen Lauf; die Gesamtlaufzeit der drei Laeufe
+    muss unter :data:`API_E2E_BUDGET_SECONDS` (3 Minuten) bleiben. Der Exit-Code
+    der Laeufe entscheidet.
+    """
+    plan = ["uv", "run", "pytest", "-m", "api_e2e", "tests/e2e_api"]
+    try:
+        collected = _run_pytest([*plan, "--collect-only", "-q"])
+        if collected.returncode != 0:
+            detail = (collected.stderr.strip() or collected.stdout.strip()).splitlines()
+            return False, f"Sammellauf Exit {collected.returncode}: {detail[-1] if detail else 'keine Ausgabe'}"
+        count = sum(1 for line in collected.stdout.splitlines() if "::" in line)
+        if count < 1:
+            return False, "keine API-E2E-Tests gesammelt"
+    except Exception as exc:  # Pruefung darf nie still abbrechen
+        return False, f"Fehler beim Ausfuehren: {exc!r}"
+
+    summaries: list[str] = []
+    started = time.monotonic()
+    for run_index in range(1, API_E2E_RUNS + 1):
+        proc = _run_pytest([*plan, "-q"])
+        lines = [line for line in proc.stdout.strip().splitlines() if line.strip()]
+        summary = lines[-1] if lines else "keine Ausgabe"
+        if proc.returncode != 0:
+            detail = (proc.stderr.strip() or proc.stdout.strip()).splitlines()
+            message = detail[-1] if detail else summary
+            return False, f"Lauf {run_index}/{API_E2E_RUNS} rot: {message}"
+        summaries.append(summary)
+    elapsed = time.monotonic() - started
+    if elapsed > API_E2E_BUDGET_SECONDS:
+        return False, f"ueber Budget: {elapsed:.1f}s > {API_E2E_BUDGET_SECONDS:.0f}s ({summaries[-1]})"
+    return True, f"{count} gesammelt; {API_E2E_RUNS} Laeufe gruen in {elapsed:.1f}s ({summaries[-1]})"
+
+
+API_E2E_CHECK: tuple[str, Callable[[], Result]] = (
+    "API-E2E gegen echten Uvicorn mit Fake-FinTS, 3x gruen unter 3 Minuten (T-106)",
+    check_api_e2e,
+)
+
+STAGE_M4: list[tuple[str, Callable[[], Result]]] = [
+    ROUNDTRIP_CHECK,
+    PERF_CHECK,
+    CONCURRENCY_CHECK,
+    API_E2E_CHECK,
+]
 
 # Umgesetzte Stufen. Neue Stufen mit dem jeweiligen Milestone hier eintragen.
 # Die m<n>-Kette haengt run_stage selbst an; die Eintraege enthalten daher nur
@@ -499,6 +560,7 @@ IMPLEMENTED: dict[str, list[tuple[str, Callable[[], Result]]]] = {
     "roundtrip": [ROUNDTRIP_CHECK],
     "perf": [PERF_CHECK],
     "concurrency": [CONCURRENCY_CHECK],
+    "api-e2e": [API_E2E_CHECK],
 }
 
 
