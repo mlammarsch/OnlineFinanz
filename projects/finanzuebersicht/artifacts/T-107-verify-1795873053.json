@@ -1,0 +1,32 @@
+{
+  "task": "T-107",
+  "ts": "2026-11-28T13:37:33Z",
+  "ok": true,
+  "results": [
+    {
+      "cmd": "python scripts/validate.py m3",
+      "exit": 0,
+      "out": "# validate.py m3\n\n[OK] m0: Pflichtdateien - 18 Dateien vorhanden\n[OK] m0: Skill-Frontmatter - gueltig (description 458 Zeichen)\n[OK] m0: AGENTS.md Pflichtabschnitte - alle Pflichtabschnitte vorhanden\n[OK] m0: settings.json Rechte - Allow- und Deny-Regeln vollstaendig\n[OK] m0: plan.md Milestones - plan.md enthaelt M0 bis M10\n[OK] m0: Git-Repo - Git-Repo vorhanden, .gitignore vollstaendig\n[OK] m0: hx.py status - hx.py status Exit 0\n[OK] m1: lint (ruff) - All checks passed!; 218 files already formatted; alle type: ignore begruendet\n[OK] m1: types (mypy) - Success: no issues found in 101 source files\n[OK] m1: unit (pytest) - 1606 passed, 1 skipped, 1 warning in 161.72s (0:02:41)\n[OK] m1: smoke (pytest) - 1 passed, 17 deselected, 1 warning in 0.43s\n[OK] m2: Roundtrip Datei-Import/-Export (JSON v1+Mehrkonto, CSV-Vorlage, Schema-Versionen; 0 neue bei Re-Import) - ROUNDTRIP_OK fixture=5 mehrkonto_reimport=5 mehrkonto_frisch=5 csv=2 schema=1\n[OK] m3: FinTS Read-only-Guard (keine schreibenden Operationen) - FINTS_READONLY_OK dateien=101 verbotene_namen=14\n[OK] m3: integration (pytest, mind. 1 gesammelter Test) - 17 gesammelt; 17 passed, 1 deselected, 1 warning in 1.70s\n\nErgebnis: bestanden\n"
+    },
+    {
+      "cmd": "python scripts/validate.py roundtrip",
+      "exit": 0,
+      "out": "# validate.py roundtrip\n\n[OK] roundtrip: Roundtrip Datei-Import/-Export (JSON v1+Mehrkonto, CSV-Vorlage, Schema-Versionen; 0 neue bei Re-Import) - ROUNDTRIP_OK fixture=5 mehrkonto_reimport=5 mehrkonto_frisch=5 csv=2 schema=1\n\nErgebnis: bestanden\n"
+    },
+    {
+      "cmd": "python scripts/validate.py perf",
+      "exit": 0,
+      "out": "# validate.py perf\n\n[OK] perf: Performance 100.000 Buchungen (N-PERF-01, F-BUC-06) - suche_1_begriff median=209.0ms max=216.0ms; suche_2_begriffe median=204.5ms max=241.5ms; suche_betrag median=30.3ms max=32.3ms; liste_seite_1 median=6.5ms max=7.3ms; liste_seite_50 median=5.6ms max=6.8ms; gruppe_seite_1 median=223.3ms max=232.8ms; http_suche_1_begriff median=214.7ms max=222.2ms; http_liste_seite_1 median=10.0ms max=11.9ms\n\nErgebnis: bestanden\n"
+    },
+    {
+      "cmd": "python scripts/validate.py concurrency",
+      "exit": 0,
+      "out": "# validate.py concurrency\n\n[OK] concurrency: Nebenlaeufigkeit Datei-SQLite, 3x gruen (F-CON-01..05, N-DB-04) - 3 Laeufe gruen (11 passed, 1 warning in 4.52s)\n\nErgebnis: bestanden\n"
+    },
+    {
+      "cmd": "python scripts/validate.py api-e2e",
+      "exit": 0,
+      "out": "# validate.py api-e2e\n\n[OK] api-e2e: API-E2E gegen echten Uvicorn mit Fake-FinTS, 3x gruen unter 3 Minuten (T-106) - 2 gesammelt; 3 Laeufe gruen in 77.6s (2 passed, 1 warning in 22.26s)\n\nErgebnis: bestanden\n"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "task": "T-104",
+  "ts": "2026-11-28T12:31:30Z",
+  "ok": true,
+  "results": [
+    {
+      "cmd": "python scripts/validate.py concurrency",
+      "exit": 0,
+      "out": "# validate.py concurrency\n\n[OK] concurrency: Nebenlaeufigkeit Datei-SQLite, 3x gruen (F-CON-01..05, N-DB-04) - 3 Laeufe gruen (11 passed, 1 warning in 6.15s)\n\nErgebnis: bestanden\n"
+    },
+    {
+      "cmd": "uv run ruff check backend tests scripts",
+      "exit": 0,
+      "out": "All checks passed!\n"
+    },
+    {
+      "cmd": "uv run ruff format --check backend tests scripts",
+      "exit": 0,
+      "out": "217 files already formatted\n"
+    },
+    {
+      "cmd": "uv run mypy backend",
+      "exit": 0,
+      "out": "Success: no issues found in 101 source files\n"
+    }
+  ]
+}

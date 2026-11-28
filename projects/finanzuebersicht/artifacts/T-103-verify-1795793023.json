@@ -1,0 +1,27 @@
+{
+  "task": "T-103",
+  "ts": "2026-11-27T15:23:43Z",
+  "ok": true,
+  "results": [
+    {
+      "cmd": "python scripts/validate.py perf",
+      "exit": 0,
+      "out": "# validate.py perf\n\n[OK] perf: Performance 100.000 Buchungen (N-PERF-01, F-BUC-06) - suche_1_begriff median=195.1ms max=200.6ms; suche_2_begriffe median=186.9ms max=193.5ms; suche_betrag median=27.2ms max=27.4ms; liste_seite_1 median=5.3ms max=7.1ms; liste_seite_50 median=4.4ms max=5.7ms; gruppe_seite_1 median=195.7ms max=203.4ms; http_suche_1_begriff median=195.4ms max=202.9ms; http_liste_seite_1 median=11.5ms max=87.5ms\n\nErgebnis: bestanden\n"
+    },
+    {
+      "cmd": "uv run ruff check backend tests scripts",
+      "exit": 0,
+      "out": "All checks passed!\n"
+    },
+    {
+      "cmd": "uv run ruff format --check backend tests scripts",
+      "exit": 0,
+      "out": "201 files already formatted\n"
+    },
+    {
+      "cmd": "uv run mypy backend",
+      "exit": 0,
+      "out": "Success: no issues found in 96 source files\n"
+    }
+  ]
+}

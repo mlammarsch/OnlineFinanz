@@ -1,0 +1,32 @@
+{
+  "task": "T-091",
+  "ts": "2026-11-28T11:30:46Z",
+  "ok": true,
+  "results": [
+    {
+      "cmd": "uv run pytest tests/unit/test_fints_wizard.py -q",
+      "exit": 0,
+      "out": ".............                                                            [100%]\n============================== warnings summary ===============================\n.venv\\Lib\\site-packages\\fastapi\\testclient.py:1\n  C:\\00_mldata\\programming\\OnlineFinanz\\.venv\\Lib\\site-packages\\fastapi\\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n13 passed, 1 warning in 6.25s\n"
+    },
+    {
+      "cmd": "python scripts/validate.py m3",
+      "exit": 0,
+      "out": "# validate.py m3\n\n[OK] m0: Pflichtdateien - 18 Dateien vorhanden\n[OK] m0: Skill-Frontmatter - gueltig (description 458 Zeichen)\n[OK] m0: AGENTS.md Pflichtabschnitte - alle Pflichtabschnitte vorhanden\n[OK] m0: settings.json Rechte - Allow- und Deny-Regeln vollstaendig\n[OK] m0: plan.md Milestones - plan.md enthaelt M0 bis M10\n[OK] m0: Git-Repo - Git-Repo vorhanden, .gitignore vollstaendig\n[OK] m0: hx.py status - hx.py status Exit 0\n[OK] m1: lint (ruff) - All checks passed!; 210 files already formatted; alle type: ignore begruendet\n[OK] m1: types (mypy) - Success: no issues found in 101 source files\n[OK] m1: unit (pytest) - 1600 passed, 1 skipped, 1 warning in 222.42s (0:03:42)\n[OK] m1: smoke (pytest) - 1 passed, 17 deselected, 1 warning in 0.88s\n[OK] m2: Import-Roundtrip (JSON v1, 0 neue Buchungen bei Re-Import) - ROUNDTRIP_OK erster_lauf=5 zweiter_lauf=0 bestand=5\n[OK] m3: FinTS Read-only-Guard (keine schreibenden Operationen) - FINTS_READONLY_OK dateien=101 verbotene_namen=14\n[OK] m3: integration (pytest, mind. 1 gesammelter Test) - 17 gesammelt; 17 passed, 1 deselected, 1 warning in 1.99s\n\nErgebnis: bestanden\n"
+    },
+    {
+      "cmd": "uv run ruff check backend tests scripts",
+      "exit": 0,
+      "out": "All checks passed!\n"
+    },
+    {
+      "cmd": "uv run ruff format --check backend tests scripts",
+      "exit": 0,
+      "out": "210 files already formatted\n"
+    },
+    {
+      "cmd": "uv run mypy backend",
+      "exit": 0,
+      "out": "Success: no issues found in 101 source files\n"
+    }
+  ]
+}

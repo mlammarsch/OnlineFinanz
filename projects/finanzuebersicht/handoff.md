@@ -2,6 +2,75 @@
 
 ## Next actions
 
+- **T-107 M4-Abnahme und Aufraeumen ausgefuehrt (M4, G-005, Risiko medium).** Claim gezielt
+  per `task-set finanzuebersicht T-107 running` (kein fachlicher Neubau). Gesamtabnahme
+  `python scripts/validate.py m4` **gruen (Exit 0, gemessen 311.3 s)**: m0 (7 Checks), m1 lint
+  (`All checks passed!`, `218 files already formatted`, alle `type: ignore` begruendet),
+  m1 types (`Success: no issues found in 101 source files`), m1 unit (1606 passed,
+  1 skipped), m1 smoke (1 passed/17 deselected), m2/m4 roundtrip
+  (`ROUNDTRIP_OK fixture=5 mehrkonto_reimport=5 mehrkonto_frisch=5 csv=2 schema=1`),
+  m3 Read-only-Guard (`FINTS_READONLY_OK dateien=101 verbotene_namen=14`),
+  m3 integration (17 passed/1 deselected), m4 perf (8 Messwerte, Suche ~195 ms,
+  Gruppe ~201 ms, alle < 500 ms), m4 concurrency (3x gruen, 11 passed) und m4 api-e2e
+  (2 gesammelt, 3 Laeufe gruen in 74.4 s). Einziger Testartefakt-Beitrag: `tests/unit/
+  test_requirement_refs.py` um die M4-Abnahme-IDs F-KTO-01..07/10/11, F-BUC-01..06,
+  F-DUP-05, F-ABS-01..06, F-SUC-01..07, F-EXP-01..07, F-CON-01..06 und N-PERF-01
+  erweitert (alle bereits in Fachtests referenziert, Test gruen).
+  **Review-Checkliste AGENTS.md:** kein rohes SQL (nur ORM/Core-SQLAlchemy, `PRAGMA`
+  in `db/engine.py` und Migrationen = Verbindungs-/DDL-Konfiguration), Vertragstest
+  `tests/unit/test_api_contract.py` deckt jede registrierte `/api`-Route
+  (`test_alle_api_routen_sind_registriert`), jede schreibende Route traegt Art
+  (version/setzen/anlegen/aktion) plus Begruendung (`test_schreibende_routen_haben_art_und_begruendung`),
+  jede Listenroute `limit` und jede Route `require_user`
+  (`test_api_routen_haengen_an_require_user`); keine Secrets (nur stdlib `secrets` fuer
+  Token, Schluessel/PIN/TAN nur verschluesselt bzw. fluechtig, N-SEC-01..03); keine
+  Kategorien-/Ueberweisungsreste (CSV-Erkennung fuehrt `kategorie`/`category` nur als
+  Erkennungs-Stichwort, `mapping.py` lehnt `category` als Ziel ab; `parse_pain_transfer`
+  liest nur Dauerauftraege; Frontend ohne Kategorie/Budget/Schlagwort); keine
+  schreibenden FinTS-Aufrufe (Read-only-Guard gruen); OpenAPI-Schema ohne Serverstart
+  generierbar (55 Pfade); `docs/api.md` vollstaendig (Routen, Fehlerformat 404/409/422,
+  Grenzen, Ereignisse); `decisions.md` traegt die M4-Entscheidungen. **Harness-Aufraeumen:**
+  die ausstehenden Status-/Evidenzdateien der Welle (17 Task-Dateien, `status.md`,
+  `queues.md`, `runs/events.jsonl`, Verifier-Artefakte) und die auf `m4/develop` noch
+  nicht getrackte T-093-Testdatei `tests/unit/test_transaction_list.py` (inhaltlich
+  identisch zum verifizierten Stand im Branch `m4/t093-verify`, Commit `89c866c`)
+  committet; jede in einer Task-Datei referenzierte Evidenzdatei existiert.
+  **Offen:** Risiko medium - unabhaengige `verifier`-Pruefung folgt auf dem committeten
+  Stand; `task-done` nach gruenem Verifikationsplan. Kein Push (Merge nach `main` und
+  `docker push` bleiben eigene approvalspflichtige Schritte).
+
+  **Harness-Befund (Verifikationsplan):** Der Einzelbefehl `validate.py m4` dauert
+  ~311 s und ueberschreitet den harten `VERIFY_TIMEOUT` von 300 s des zentralen
+  Harness (`harness/hx.py`; ein Befehl, kein Env-Override). Der T-107-Plan wurde
+  deshalb auf die aequivalente Blockfolge `validate.py m3` + `roundtrip` + `perf` +
+  `concurrency` + `api-e2e` gesetzt (identische Abdeckung m0..m3 plus alle M4-Bloecke,
+  jeder Befehl < 300 s; dasselbe Muster wie der T-106-Plan). Der monolithische
+  Einzellauf `validate.py m4` ist mit Exit 0 belegt (`artifacts/T-107-abschluss.md`).
+  Fuer kuenftige Milestone-Abnahmen (M5+) den Plan gleich zerlegt anlegen.
+
+  **M5-Anschlusspunkte (API, SSE, Fehlerformat).** Fuer das Frontend (M5 Grundlayout):
+  1. **API-Basis:** alle Fachrouten unter `/api`, listenweise mit `limit`/`cursor`
+     (Keyset bei Buchungsliste/Suche, Paginierung nach SPEC F-MCP-11); Konten/Gruppen-
+     Listen, Buchungsliste (`GET /api/accounts/{id}/transactions`,
+     `GET /api/groups/{id}/transactions`), Suche (`GET /api/search`), Dubletten,
+     Import/Vorlagen/Auftraege, Sync-Jobs, Sitzungen, Export. Route-fuer-Route in
+     `docs/api.md`, Guardrail `tests/unit/test_api_contract.py`.
+  2. **Fehlerformat:** einheitlich `{code, message, details?}`; 404 unbekannt,
+     409 bei Versionskonflikt mit `current` (F-CON-02), 422 Validierung mit
+     `details.field`, 413 bei Grenzverletzung. Setz-Semantik idempotent (F-CON-01).
+  3. **SSE:** `GET /api/events` (`text/event-stream`) ist die Aenderungsquelle
+     (F-UI-07): Ereignistypen `transaction.changed`, `account.changed`,
+     `group.changed`, `account.deleted`, `duplicate.changed`, `import.finished`,
+     `sync.status`, `sync.tan_required`, `sync.tan_answered`; Nutzlast nur Typ + IDs.
+     Auf `resync` betroffene Abfragen neu laden; Wiederverbindung mit `Last-Event-ID`.
+     TAN-Challenge weiterhin per `GET /api/sync/jobs/{job_id}` holen (nicht im Ereignis).
+     Genau ein Worker-Prozess (D3).
+  4. **Auth-Naht:** `require_user` haengt bereits an jeder `/api`-Route (M4 ohne
+     Pruefung); die echte Anmeldung folgt mit N-SEC-04 in M10.
+  Owner-Eingaben unveraendert offen (siehe `## Open questions`): Finanzblick-CSV-Beispiel
+  fuer das Standard-Exportprofil (T-098 baut bis dahin "unbelegt"), Datei-Beispiele
+  N26/Easybank/PayPal sowie FinTS-Produkt-ID/Live-Test.
+
 - **T-106 Abschlussgate ausgefuehrt (M4, API-E2E gegen echten Uvicorn mit Fake-FinTS,
   Risiko medium).** Voraussetzung geprueft: T-113 `done` (`T-113-verify-1795867977.json`)
   und T-115 `done` (`T-115-verify-1795870353.json`). T-106 gezielt per `task-set` von

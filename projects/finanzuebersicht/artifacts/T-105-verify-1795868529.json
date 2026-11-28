@@ -1,0 +1,27 @@
+{
+  "task": "T-105",
+  "ts": "2026-11-28T12:22:09Z",
+  "ok": true,
+  "results": [
+    {
+      "cmd": "python scripts/validate.py roundtrip",
+      "exit": 0,
+      "out": "# validate.py roundtrip\n\n[OK] roundtrip: Roundtrip Datei-Import/-Export (JSON v1+Mehrkonto, CSV-Vorlage, Schema-Versionen; 0 neue bei Re-Import) - ROUNDTRIP_OK fixture=5 mehrkonto_reimport=5 mehrkonto_frisch=5 csv=2 schema=1\n\nErgebnis: bestanden\n"
+    },
+    {
+      "cmd": "uv run ruff check backend tests scripts",
+      "exit": 0,
+      "out": "All checks passed!\n"
+    },
+    {
+      "cmd": "uv run ruff format --check backend tests scripts",
+      "exit": 0,
+      "out": "217 files already formatted\n"
+    },
+    {
+      "cmd": "uv run mypy backend",
+      "exit": 0,
+      "out": "Success: no issues found in 101 source files\n"
+    }
+  ]
+}
