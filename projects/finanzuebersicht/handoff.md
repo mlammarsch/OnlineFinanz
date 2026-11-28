@@ -2,6 +2,35 @@
 
 ## Next actions
 
+- **T-104 umgesetzt (M4 Welle 7, Concurrency-Block gegen Datei-SQLite; F-CON-01..05,
+  N-DB-04, Risiko medium).** Claim gezielt per `task-set T-104 running`. Neu:
+  `tests/concurrency/` (`support.py` + `test_concurrency_flags.py`,
+  `test_concurrency_api.py`, `test_concurrency_sync.py`; Marker `concurrency`) und
+  `scripts/validate.py` (`check_concurrency`, `STAGE_M4`, `IMPLEMENTED["concurrency"]`)
+  sowie Marker/`addopts` in `pyproject.toml` (Standardlauf `-m 'not perf and not
+  concurrency'`). Die Tests fahren die schreibenden Pfade gegen **datei-basierte**
+  SQLite im WAL-Modus, je eigene `Session`, synchronisiert per `threading.Barrier`
+  (kein `sleep`). Abgedeckt: F-CON-01 (gleiches Kennzeichen 12x -> identisches
+  Ergebnis, `version == 2`, ein Audit-Eintrag; 20 parallele Notiz-Anhaenge -> jeder
+  Text genau einmal, `version == 21`), F-CON-02 (Ersetzung gleicher Version ->
+  genau ein Erfolg + ein Konflikt mit aktuellem Stand; HTTP 409), Konto-PATCH-Konflikt,
+  F-CON-03 (Batch mit einem Konflikt -> uebrige `geaendert`), F-CON-04 (zwei SSE-Clients
+  erhalten dieselben Ereignis-IDs paralleler Schreiber), F-SYN-11 (parallele Sync-Anstoesse
+  -> genau ein Job), F-CON-05 (Sync-Persistenz parallel zu Nutzeraenderungen ->
+  Nutzerfelder unveraendert) und N-DB-04 (kein `database is locked`). Keine
+  Produktionsaenderung: die Hooks liegen in HEAD, der Block ist ihr Nachweis.
+  Evidenz (Verifikationsplan): `python scripts/validate.py concurrency` =
+  `[OK] Nebenlaeufigkeit Datei-SQLite, 3x gruen - 3 Laeufe gruen (10 passed)`; dreimal
+  `uv run pytest tests/concurrency -m concurrency -q` = 10 passed je Lauf (4,65-5,24 s);
+  `uv run ruff check tests/concurrency scripts/validate.py` = All checks passed;
+  `uv run ruff format --check` derselben Dateien = 5 formatted; `uv run mypy backend` =
+  Success (101). Commit `d666e7f`. Artefakt `artifacts/T-104-build.md`. **Offen:**
+  Medium-Risiko - unabhaengige `verifier`-Pruefung (Review-Checkliste AGENTS.md) folgt;
+  `task-done` erst danach. Kein Push. Der **planweite** `ruff check`/`ruff format --check`
+  ist rot nur durch fremde, noch nicht committete Parallelarbeit
+  (`tests/e2e_api/test_scenario_a.py`, T-113/T-106-A, unangetastet); die T-104-Dateien
+  sind sauber. Shared-Files hunkweise gestaged (HEAD-Blob + nur T-104-Zeilen), fremde
+  Arbeitsbaum-Hunks (T-105 roundtrip, T-113 api_e2e) unangetastet.
 - **T-113 umgesetzt (M4-Entlastung T-106-A, API-E2E Rahmen und Szenario Teil 1; nur Testcode,
   Risiko low).** Claim gezielt per `task-set T-113 running`. Neu: `tests/e2e_api/app_factory.py`
   (Uvicorn-Fabrik `--factory tests.e2e_api.app_factory:create_app`, genau ein Worker D3, nur der
