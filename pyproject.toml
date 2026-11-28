@@ -38,13 +38,14 @@ markers = [
     "smoke: Smoke test",
     "perf: Performance-Test mit 100.000 Buchungen (N-PERF-01, F-BUC-06)",
     "concurrency: Nebenlaeufigkeits-Test gegen Datei-SQLite (F-CON-01..05, N-DB-04)",
+    "api_e2e: End-to-End-Szenario gegen einen echten Uvicorn-Prozess mit Fake-FinTS-Client (T-113)",
 ]
-# Der Performance-Block erzeugt 100.000 Buchungen und laeuft nur auf Anforderung
-# (scripts/validate.py perf, das explizit '-m perf' setzt). Der Concurrency-Block
-# faehrt viele parallele Schreiber und laeuft ebenfalls nur auf Anforderung
-# (scripts/validate.py concurrency, '-m concurrency'). Ein Standardlauf
-# deselektiert beide, damit die uebrigen Stufen schnell bleiben.
-addopts = "-m 'not perf and not concurrency'"
+# Der Performance-Block erzeugt 100.000 Buchungen, der Concurrency-Block faehrt
+# viele parallele Schreiber und der API-E2E-Block startet je Test einen eigenen
+# Uvicorn-Prozess. Alle drei laufen nur auf Anforderung (scripts/validate.py
+# perf/concurrency bzw. pytest -m api_e2e); ein Standardlauf deselektiert sie,
+# damit die uebrigen Stufen schnell und ohne Serverprozess bleiben.
+addopts = "-m 'not perf and not concurrency and not api_e2e'"
 testpaths = ["tests"]
 pythonpath = ["backend"]
 
