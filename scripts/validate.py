@@ -445,7 +445,41 @@ PERF_CHECK: tuple[str, Callable[[], Result]] = (
     check_perf,
 )
 
-STAGE_M4: list[tuple[str, Callable[[], Result]]] = [PERF_CHECK]
+# Der Concurrency-Block (T-104, F-CON-01..05, N-DB-04) faehrt viele parallele
+# Schreiber gegen Datei-SQLite im WAL-Modus. Die Tests synchronisieren ueber
+# Barrieren (kein sleep) und muessen reproduzierbar sein; der Check wiederholt
+# den Lauf deshalb mehrfach und verlangt jeden Lauf gruen.
+CONCURRENCY_RUNS = 3
+
+
+def check_concurrency() -> Result:
+    """Concurrency-Block gegen Datei-SQLite (F-CON-01..05, N-DB-04).
+
+    Fuehrt die Nebenlaeufigkeits-Tests (pytest-Marker ``concurrency``) mehrfach
+    hintereinander aus; nur wenn **jeder** Lauf gruen ist, gilt der Block als
+    bestanden (reproduzierbare Tests, Barrieren statt ``sleep``). Der Exit-Code
+    der Laeufe entscheidet.
+    """
+
+    summaries: list[str] = []
+    for run_index in range(1, CONCURRENCY_RUNS + 1):
+        proc = _run_pytest(["uv", "run", "pytest", "-m", "concurrency", "tests/concurrency", "-q"])
+        lines = [line for line in proc.stdout.strip().splitlines() if line.strip()]
+        summary = lines[-1] if lines else "keine Ausgabe"
+        if proc.returncode != 0:
+            detail = (proc.stderr.strip() or proc.stdout.strip()).splitlines()
+            message = detail[-1] if detail else summary
+            return False, f"Lauf {run_index}/{CONCURRENCY_RUNS} rot: {message}"
+        summaries.append(summary)
+    return True, f"{CONCURRENCY_RUNS} Laeufe gruen ({summaries[-1]})"
+
+
+CONCURRENCY_CHECK: tuple[str, Callable[[], Result]] = (
+    "Nebenlaeufigkeit Datei-SQLite, 3x gruen (F-CON-01..05, N-DB-04)",
+    check_concurrency,
+)
+
+STAGE_M4: list[tuple[str, Callable[[], Result]]] = [PERF_CHECK, CONCURRENCY_CHECK]
 
 # Umgesetzte Stufen. Neue Stufen mit dem jeweiligen Milestone hier eintragen.
 # Die m<n>-Kette haengt run_stage selbst an; die Eintraege enthalten daher nur
@@ -458,6 +492,7 @@ IMPLEMENTED: dict[str, list[tuple[str, Callable[[], Result]]]] = {
     "m4": STAGE_M4,
     "roundtrip": [ROUNDTRIP_CHECK],
     "perf": [PERF_CHECK],
+    "concurrency": [CONCURRENCY_CHECK],
 }
 
 

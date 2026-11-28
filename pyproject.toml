@@ -37,11 +37,14 @@ dev = [
 markers = [
     "smoke: Smoke test",
     "perf: Performance-Test mit 100.000 Buchungen (N-PERF-01, F-BUC-06)",
+    "concurrency: Nebenlaeufigkeits-Test gegen Datei-SQLite (F-CON-01..05, N-DB-04)",
 ]
 # Der Performance-Block erzeugt 100.000 Buchungen und laeuft nur auf Anforderung
-# (scripts/validate.py perf, das explizit '-m perf' setzt). Ein Standardlauf
-# deselektiert ihn, damit die uebrigen Stufen schnell bleiben.
-addopts = "-m 'not perf'"
+# (scripts/validate.py perf, das explizit '-m perf' setzt). Der Concurrency-Block
+# faehrt viele parallele Schreiber und laeuft ebenfalls nur auf Anforderung
+# (scripts/validate.py concurrency, '-m concurrency'). Ein Standardlauf
+# deselektiert beide, damit die uebrigen Stufen schnell bleiben.
+addopts = "-m 'not perf and not concurrency'"
 testpaths = ["tests"]
 pythonpath = ["backend"]
 
