@@ -668,6 +668,36 @@ def test_merge_bereits_zusammengefuehrt_ist_422(client: TestClient) -> None:
     assert response.status_code == 422
 
 
+def test_merge_vorgemerkte_buchung_ist_422(client: TestClient) -> None:
+    """F-DUP-04: Eine vorgemerkte Buchung laesst sich nicht zusammenfuehren (422)."""
+
+    account_id = _add_account(client)
+    keep_id = _add_transaction(client, account_id, origin="fints", counterparty="REWE Markt", purpose="Wocheneinkauf")
+    other_id = _add_transaction(
+        client,
+        account_id,
+        origin="csv",
+        counterparty="Rewe Markt GmbH",
+        purpose="Einkauf 10.01",
+        status="vorgemerkt",
+    )
+
+    response = client.post(
+        "/api/duplicates/merge",
+        json={
+            "keep_id": keep_id,
+            "other_id": other_id,
+            "versions": {str(keep_id): _version(client, keep_id), str(other_id): _version(client, other_id)},
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "domain_error"
+    assert _decision_rows(client) == []
+    assert _reload(client, keep_id).merged is False
+    assert _reload(client, other_id).merged is False
+
+
 def test_reimport_nach_merge_ist_null_neu(client: TestClient) -> None:
     """F-DUP-05: Ein Re-Import nach dem Zusammenfuehren legt nichts neu an."""
 
@@ -813,6 +843,52 @@ def test_ignore_kein_verdachtspaar_ist_422(client: TestClient) -> None:
     assert response.status_code == 422
     assert response.json()["code"] == "domain_error"
     assert _decision_rows(client) == []
+
+
+def test_ignore_vorgemerkte_buchung_ist_422(client: TestClient) -> None:
+    """F-DUP-04: Eine vorgemerkte Buchung laesst sich nicht ignorieren (422)."""
+
+    account_id = _add_account(client)
+    keep_id = _add_transaction(client, account_id, origin="fints", counterparty="REWE Markt", purpose="Wocheneinkauf")
+    other_id = _add_transaction(
+        client,
+        account_id,
+        origin="csv",
+        counterparty="Rewe Markt GmbH",
+        purpose="Einkauf 10.01",
+        status="vorgemerkt",
+    )
+
+    response = client.post("/api/duplicates/ignore", json={"keep_id": keep_id, "other_id": other_id})
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "domain_error"
+    assert _decision_rows(client) == []
+
+
+def test_ignore_nach_merge_ist_422_und_erhaelt_merge(client: TestClient) -> None:
+    """F-DUP-05: Ignorieren ueberschreibt eine Zusammenfuehrung nicht (422)."""
+
+    keep_id, other_id = _suspected_pair(client)
+    decision_id = client.post(
+        "/api/duplicates/merge",
+        json={
+            "keep_id": keep_id,
+            "other_id": other_id,
+            "versions": {str(keep_id): _version(client, keep_id), str(other_id): _version(client, other_id)},
+        },
+    ).json()["decision_id"]
+
+    response = client.post("/api/duplicates/ignore", json={"keep_id": keep_id, "other_id": other_id})
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "domain_error"
+    decisions = _decision_rows(client)
+    assert len(decisions) == 1
+    assert decisions[0].decision == "zusammengefuehrt"
+    # Die Zusammenfuehrung bleibt rueckgaengig zu machen.
+    assert client.post(f"/api/duplicates/{decision_id}/undo").status_code == 200
+    assert _reload(client, other_id).merged is False
 
 
 def test_undo_rundreise_ohne_datenverlust(client: TestClient) -> None:

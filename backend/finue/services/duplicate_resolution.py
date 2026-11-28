@@ -290,7 +290,8 @@ def merge_duplicates(
     Raises:
         DuplicateNotFound: Eine der Buchungen existiert nicht.
         DuplicateResolutionError: Ungueltige Eingabe oder Zustand (z. B.
-            verschiedene Konten, bereits zusammengefuehrt, fehlende Wahl).
+            verschiedene Konten, vorgemerkte Buchung, bereits zusammengefuehrt,
+            fehlende Wahl).
         DuplicateVersionConflict: Eine uebergebene Version ist veraltet.
     """
 
@@ -303,6 +304,7 @@ def merge_duplicates(
 
     if keep.account_id != other.account_id:
         raise DuplicateResolutionError("Die Buchungen gehoeren zu verschiedenen Konten.")
+    _require_booked(keep, other)
     if keep.merged or other.merged:
         raise DuplicateResolutionError("Eine der Buchungen ist bereits zusammengefuehrt.")
 
@@ -500,7 +502,8 @@ def ignore_duplicates(
 
     Raises:
         DuplicateNotFound: Eine der Buchungen existiert nicht.
-        DuplicateResolutionError: Die Buchungen gehoeren nicht zu einem
+        DuplicateResolutionError: Eine Buchung ist vorgemerkt oder bereits
+            zusammengefuehrt, oder die Buchungen gehoeren nicht zu einem
             Verdachtspaar desselben Kontos.
         DuplicateVersionConflict: Eine uebergebene Version ist veraltet.
     """
@@ -514,6 +517,16 @@ def ignore_duplicates(
 
     if keep.account_id != other.account_id:
         raise DuplicateResolutionError("Die Buchungen gehoeren zu verschiedenen Konten.")
+    _require_booked(keep, other)
+    # Vor der Verdachtspruefung: eine bereits zusammengefuehrte Buchung darf nicht
+    # als "keine Dublette" gespeichert werden, sonst wuerde die Entscheidung
+    # "zusammengefuehrt" ueberschrieben und das Rueckgaengigmachen unmoeglich
+    # (F-DUP-05).
+    if keep.merged or other.merged:
+        raise DuplicateResolutionError(
+            "Eine der Buchungen ist bereits zusammengefuehrt; das Ignorieren wuerde "
+            "die Zusammenfuehrung samt Rueckgaengigmachen ueberschreiben."
+        )
     if not _is_suspected_pair(keep, other):
         raise DuplicateResolutionError("Die Buchungen sind kein Verdachtspaar (Betrag, Tag oder Text passen nicht).")
 
@@ -590,6 +603,17 @@ def _require_transaction(session: Session, transaction_id: int) -> Transaction:
     if transaction is None:
         raise DuplicateNotFound(f"Buchung {transaction_id} nicht gefunden.")
     return transaction
+
+
+def _require_booked(*transactions: Transaction) -> None:
+    """Lehnt vorgemerkte Buchungen ab (F-DUP-04).
+
+    Vormerkungen nehmen am Verdachtsabgleich nicht teil (F-DUP-04) und duerfen
+    daher weder zusammengefuehrt noch ignoriert werden.
+    """
+
+    if any(transaction.status != BOOKED_STATUS for transaction in transactions):
+        raise DuplicateResolutionError("Vorgemerkte Buchungen nehmen nicht an der Dublettenaufloesung teil.")
 
 
 def _check_version(transaction: Transaction, versions: dict[int, int]) -> None:
