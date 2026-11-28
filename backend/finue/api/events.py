@@ -28,6 +28,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
+from starlette.background import BackgroundTask
 
 from finue.api.container import AppServices
 from finue.api.deps import get_services, require_user
@@ -66,4 +67,7 @@ def stream_events(request: Request, services: AppServices = Depends(get_services
         stream_sse(broadcaster, connection, disconnected=request.is_disconnected),
         media_type="text/event-stream",
         headers=dict(_SSE_HEADERS),
+        # Faengt das Leck ab, falls der Client trennt, bevor der Generator startet
+        # (`finally` in `stream_sse` liefe dann nie); `discard` ist idempotent.
+        background=BackgroundTask(broadcaster.discard, connection),
     )

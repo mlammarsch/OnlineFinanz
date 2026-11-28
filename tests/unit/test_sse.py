@@ -510,3 +510,48 @@ def test_route_braucht_anmeldung_wenn_aktiv(tmp_path: Path) -> None:
 
     assert response.status_code == 401
     assert response.json()["code"] == "unauthorized"
+
+
+def test_stream_endet_nach_schliessen_des_verteilers() -> None:
+    """Beim Herunterfahren (Lifespan) endet jeder offene Strom von selbst (F-CON-04, D3)."""
+
+    async def scenario() -> None:
+        bus = EventBus()
+        broadcaster = SseBroadcaster(bus, heartbeat=0.05)
+        connection = broadcaster.open()
+
+        async def consume() -> None:
+            async for _ in stream_sse(broadcaster, connection):
+                pass
+
+        task = asyncio.create_task(consume())
+        await asyncio.sleep(0.2)
+        broadcaster.close()
+        await asyncio.wait_for(task, timeout=3.0)
+        assert bus.subscriber_count == 0
+
+    asyncio.run(scenario())
+
+
+def test_route_meldet_nie_gestartete_verbindung_ueber_background_ab() -> None:
+    """Trennt der Client vor dem ersten Rahmen, gibt die Route die Verbindung frei (F-CON-04)."""
+
+    from types import SimpleNamespace
+    from typing import cast
+
+    from starlette.requests import Request
+
+    from finue.api.container import AppServices
+    from finue.api.events import stream_events
+
+    broadcaster = SseBroadcaster(EventBus())
+    services = cast(AppServices, SimpleNamespace(sse_broadcaster=broadcaster))
+    request = Request({"type": "http", "headers": []})
+
+    response = stream_events(request, services)
+    assert broadcaster.client_count == 1
+    assert response.background is not None
+    asyncio.run(response.background())
+
+    assert broadcaster.client_count == 0
+    broadcaster.close()

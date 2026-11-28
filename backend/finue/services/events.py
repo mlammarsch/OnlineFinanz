@@ -576,6 +576,8 @@ async def stream_sse(
     try:
         yield ": verbunden\n\n"
         while True:
+            if connection.closed:
+                break
             if disconnected is not None and await disconnected():
                 break
             frame = broadcaster.next_frame(connection)
