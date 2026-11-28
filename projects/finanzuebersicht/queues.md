@@ -72,6 +72,7 @@
 - [ ] T-104 Concurrency-Block: deckt die parallelen Schreibpfade der Kern-Naht ab (Kennzeichen, Notiz, Batch, Sync, SSE), aber noch nicht den Import-/MCP-Schreibpfad und keine parallelen Datei-Importe. Bei M9 (MCP) einen Mehrfachzugriff auf denselben Buchungsbestand (REST + MCP gleichzeitig, gleiche Version) ergaenzen; ebenso einen parallelen Guardrail fuer die Backup-/Restore-Gleichzeitigkeit pruefen (N-DB-04).
 - [ ] T-113/CSV-Import: Das CSV-Mapping (`TARGET_FIELDS`, F-IMP-03) kennt kein Status-Zielfeld; das API-E2E-Szenario (T-113) legt die Vormerkung deshalb ueber das eigene JSON-Format an (F-IMP-04). Fuer eine echte CSV-Vormerkung entweder ein Status-Zielfeld (gebucht/vorgemerkt) im Mapping ergaenzen oder im Szenario ein Fake-Sync nutzen.
 - [ ] T-106/api-e2e-Budget: `check_api_e2e` erzwingt die 3-Minuten-Grenze ueber die Summe der drei E2E-Laeufe (`API_E2E_BUDGET_SECONDS`, fester Wert). Auf einem beladenen Rechner oder bei wachsenden Szenarien kann das Budget ohne echtes Problem rot werden (Serverstart je Lauf dominiert). Bei Bedarf die Grenze anheben oder den Sammellauf aus dem Budget nehmen; sonst Flake-Verdacht pruefen, bevor am Szenario gebaut wird.
+- [ ] Milestone-Abnahmeplaene ab M5 von Anfang an in Bloecke zerlegen (jeder Befehl unter dem Harness-VERIFY_TIMEOUT 300 s) oder VERIFY_TIMEOUT konfigurierbar machen; validate.py m4 ueberschreitet das Limit.
 
 ## recurring
 

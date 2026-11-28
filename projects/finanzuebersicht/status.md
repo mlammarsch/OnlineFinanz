@@ -1,10 +1,10 @@
 # Status finanzuebersicht
 
-_generated 2026-11-28T13:37:40Z_
+_generated 2026-11-28T13:38:45Z_
 
 Tasks: pending=0, running=0, done=111, failed=0, blocked=0, cancelled=4
 
-Verified complete: 111/115; retry rate 0.04; learnings 83; events 493
+Verified complete: 111/115; retry rate 0.04; learnings 84; events 494
 
 ## now
 
@@ -78,4 +78,5 @@ Verified complete: 111/115; retry rate 0.04; learnings 83; events 493
 - [ ] T-104 Concurrency-Block: deckt die parallelen Schreibpfade der Kern-Naht ab (Kennzeichen, Notiz, Batch, Sync, SSE), aber noch nicht den Import-/MCP-Schreibpfad und keine parallelen Datei-Importe. Bei M9 (MCP) einen Mehrfachzugriff auf denselben Buchungsbestand (REST + MCP gleichzeitig, gleiche Version) ergaenzen; ebenso einen parallelen Guardrail fuer die Backup-/Restore-Gleichzeitigkeit pruefen (N-DB-04).
 - [ ] T-113/CSV-Import: Das CSV-Mapping (`TARGET_FIELDS`, F-IMP-03) kennt kein Status-Zielfeld; das API-E2E-Szenario (T-113) legt die Vormerkung deshalb ueber das eigene JSON-Format an (F-IMP-04). Fuer eine echte CSV-Vormerkung entweder ein Status-Zielfeld (gebucht/vorgemerkt) im Mapping ergaenzen oder im Szenario ein Fake-Sync nutzen.
 - [ ] T-106/api-e2e-Budget: `check_api_e2e` erzwingt die 3-Minuten-Grenze ueber die Summe der drei E2E-Laeufe (`API_E2E_BUDGET_SECONDS`, fester Wert). Auf einem beladenen Rechner oder bei wachsenden Szenarien kann das Budget ohne echtes Problem rot werden (Serverstart je Lauf dominiert). Bei Bedarf die Grenze anheben oder den Sammellauf aus dem Budget nehmen; sonst Flake-Verdacht pruefen, bevor am Szenario gebaut wird.
+- [ ] Milestone-Abnahmeplaene ab M5 von Anfang an in Bloecke zerlegen (jeder Befehl unter dem Harness-VERIFY_TIMEOUT 300 s) oder VERIFY_TIMEOUT konfigurierbar machen; validate.py m4 ueberschreitet das Limit.
 

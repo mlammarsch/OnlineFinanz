@@ -491,3 +491,4 @@
 {"ts": "2026-11-28T12:59:23Z", "kind": "task.verify", "task": "T-106", "ok": true, "status": "done", "attempts": 1}
 {"ts": "2026-11-28T13:09:30Z", "kind": "task.set", "task": "T-107", "status": "running"}
 {"ts": "2026-11-28T13:37:33Z", "kind": "task.verify", "task": "T-107", "ok": true, "status": "done", "attempts": 1}
+{"ts": "2026-11-28T13:38:45Z", "kind": "learn", "gaps": [], "task": "T-107", "improve": true}
