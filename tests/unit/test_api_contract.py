@@ -293,6 +293,11 @@ CONTRACT: dict[str, RouteContract] = {
         reason="Sync-Protokoll, paginiert und je Konto filterbar (F-SYN-07)",
         is_list=True,
     ),
+    "/api/events": RouteContract(
+        frozenset({"GET"}),
+        kind="lesen",
+        reason="Server-Sent Events: alle Aenderungsereignisse an alle Sitzungen (F-CON-04, F-SYN-04)",
+    ),
 }
 
 

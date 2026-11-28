@@ -824,6 +824,10 @@ Zentral in `backend/finue/config.py`:
   aus F-KTO-11 wird in T-090 separat begrenzt).
 - `api_import_upload_ttl_seconds` = 300 (Lebensdauer des Import-Upload-Zwischenspeichers).
 - `export_max_rows` = 100000 (Export und Auswahl-ID-Liste, F-EXP-01/02).
+- `api_sse_heartbeat_seconds` = 15 (Abstand des Heartbeat-Kommentars im SSE-Strom
+  `/api/events`, F-CON-04).
+- `api_sse_queue_size` = 256 (gepufferte Ereignisse je SSE-Client; ein Ueberlauf
+  liefert `resync` statt Speicherwachstum, F-CON-04).
 
 ## Ereignisse (F-CON-04)
 
@@ -842,6 +846,48 @@ meldet `sync.status` (IDs `job`, `bank_access`,
 `bank_access`) beim Uebergang nach `wartet_auf_tan` und `sync.tan_answered`
 (IDs `job`, `bank_access`) beim Uebergang von `wartet_auf_tan` nach `laeuft`.
 Die Ereignisse tragen den Challenge-Text nicht; die UI holt ihn ueber
+`GET /api/sync/jobs/{job_id}`.
+
+### Endpunkt `/api/events` (F-CON-04, T-101)
+
+| Methode | Pfad | Zweck |
+|---|---|---|
+| GET | `/api/events` | Alle Aenderungsereignisse als Server-Sent Events an alle Sitzungen (F-CON-04) |
+
+Der Endpunkt liefert den Strom als `text/event-stream` ohne Zwischenspeicherung
+(`Cache-Control: no-cache`, `X-Accel-Buffering: no`). Jedes Ereignis ist ein
+SSE-Rahmen mit fortlaufender `id`, dem Ereignistyp im Feld `event` und der
+JSON-Nutzlast `data` aus Typ und IDs (`Event.as_dict`):
+
+```
+id: 7
+event: transaction.changed
+data: {"type":"transaction.changed","ids":{"account":1,"transaction":42},"occurred_at":"2026-11-27T14:40:00+00:00"}
+```
+
+Regeln (Herleitung in `projects/finanzuebersicht/decisions.md`, T-101):
+
+- **Auth-Naht**: wie jede `/api`-Route ausser `/api/health*` (N-SEC-04); mit
+  `auth_required` antwortet die Route 401.
+- **Heartbeat**: ohne Ereignisse sendet der Server alle
+  `api_sse_heartbeat_seconds` (Standard 15 s) den Kommentar `: keepalive`.
+- **Fortlaufende ID**: jede Verbindung sieht dieselbe monotone Ereignis-ID;
+  zwei Clients erhalten dasselbe Ereignis mit derselben `id`.
+- **`Last-Event-ID`**: Sendet der Client den Kopf, liefert der Server die
+  fehlenden Ereignisse aus einem begrenzten Ringpuffer nach. Ist der Stand
+  nicht mehr nachlieferbar (ID zu alt, Server-Neustart oder unbekannt), folgt
+  ein `resync`-Ereignis; die UI laedt dann die betroffenen Daten neu (F-UI-07).
+- **Ueberlauf**: Die Warteschlange je Client ist auf `api_sse_queue_size`
+  begrenzt. Ein langsamer Client erhaelt bei Ueberlauf ein `resync` statt
+  Speicherwachstum.
+- **Disconnect**: Beim Verbindungsende meldet der Server die Verbindung ab; es
+  bleibt kein Listener zurueck.
+- **Leitung**: Die Route haelt keine DB-Session offen und arbeitet mit dem einen
+  Worker-Prozess (D3). Der Bus ist in-process; bei mehreren Worker-Prozessen
+  erreichten Ereignisse nur den jeweils publizierenden Prozess.
+
+Die Nutzlast traegt nur Typ und IDs; PIN, TAN und Dialogdaten erscheinen nie
+(N-SEC-02/03). Den Challenge-Text einer offenen TAN-Abfrage holt die UI ueber
 `GET /api/sync/jobs/{job_id}`.
 
 ## Sitzungen (F-CON-06)

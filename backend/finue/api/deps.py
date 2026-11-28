@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from finue.api.container import AppServices
 from finue.api.errors import UnauthorizedError
-from finue.services.events import EventBus
+from finue.services.events import EventBus, SseBroadcaster
 from finue.services.import_uploads import UploadStore
 from finue.services.sync_registry import SyncRegistry
 
@@ -32,6 +32,7 @@ __all__ = [
     "get_event_bus",
     "get_services",
     "get_session",
+    "get_sse_broadcaster",
     "get_sync_registry",
     "get_upload_store",
     "require_user",
@@ -87,6 +88,12 @@ def get_event_bus(request: Request) -> EventBus:
     """Liefert den Ereignisbus aus dem Service-Container (F-CON-04)."""
 
     return get_services(request).event_bus
+
+
+def get_sse_broadcaster(request: Request) -> SseBroadcaster:
+    """Liefert den SSE-Verteiler aus dem Service-Container (F-CON-04, T-101)."""
+
+    return get_services(request).sse_broadcaster
 
 
 def get_sync_registry(request: Request) -> SyncRegistry:

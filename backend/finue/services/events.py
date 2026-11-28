@@ -17,20 +17,36 @@ es zusaetzlich Warteschlangen-Abonnements mit ``get`` und ``close``.
 
 from __future__ import annotations
 
+import asyncio
+import json
 import logging
 import queue
 import threading
-from collections.abc import Callable
+import time
+from collections import deque
+from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Final
 
 __all__ = [
+    "DEFAULT_QUEUE_SIZE",
+    "DEFAULT_SSE_HISTORY_SIZE",
+    "DEFAULT_SSE_QUEUE_SIZE",
     "Event",
     "EventBus",
     "EventSubscription",
     "EventValue",
+    "RESYNC_EVENT_TYPE",
+    "SSE_HEARTBEAT_SECONDS",
+    "SSE_POLL_SECONDS",
+    "SseBroadcaster",
+    "SseConnection",
+    "SseFrame",
+    "encode_sse",
+    "keepalive_frame",
     "new_event",
+    "stream_sse",
 ]
 
 _LOGGER = logging.getLogger(__name__)
@@ -41,6 +57,22 @@ EventValue = int | str
 
 #: Standardgroesse einer SSE-Warteschlange (aeltere Ereignisse fallen heraus).
 DEFAULT_QUEUE_SIZE: Final = 1000
+
+#: Standard-Abstand des Heartbeat-Kommentars in der SSE-Route (F-CON-04, T-101).
+SSE_HEARTBEAT_SECONDS: Final = 15.0
+
+#: Hoechster Warteabstand je Schleifendurchlauf. Kurz genug, damit ein
+#: Disconnect ohne Listener-Leck zeitnah aufgeraeumt wird (T-101, D3).
+SSE_POLL_SECONDS: Final = 1.0
+
+#: Standardgroesse der Warteschlange je verbundenem SSE-Client (T-101).
+DEFAULT_SSE_QUEUE_SIZE: Final = 256
+
+#: Standardgroesse des Ringpuffers fuer die Last-Event-ID-Nachlieferung (T-101).
+DEFAULT_SSE_HISTORY_SIZE: Final = 256
+
+#: Ereignistyp, mit dem die UI nach einem nicht nachlieferbaren Stand neu laedt.
+RESYNC_EVENT_TYPE: Final = "resync"
 
 
 def _utc_now() -> datetime:
@@ -218,3 +250,314 @@ class EventBus:
         subscription = EventSubscription(maxsize=maxsize)
         subscription._set_unsubscribe(self.subscribe(subscription._deliver))
         return subscription
+
+
+# ------------------------------------------------------------ Server-Sent Events
+
+
+def encode_sse(event_id: int, event_type: str, data: dict[str, object]) -> str:
+    """Formatiert einen Server-Sent-Event-Rahmen (F-CON-04, T-101).
+
+    Der Rahmen traegt die fortlaufende ``id``, den Ereignistyp im Feld
+    ``event`` und die JSON-Nutzlast. Die Nutzlast besteht nur aus Typ und IDs
+    (:meth:`Event.as_dict`); Geheimnisse gelangen nicht hinein (N-SEC-02).
+    """
+
+    payload = json.dumps(data, separators=(",", ":"), ensure_ascii=False)
+    return f"id: {event_id}\nevent: {event_type}\ndata: {payload}\n\n"
+
+
+def keepalive_frame() -> str:
+    """Heartbeat-Rahmen als SSE-Kommentar (F-CON-04, T-101)."""
+
+    return ": keepalive\n\n"
+
+
+@dataclass(frozen=True, slots=True)
+class SseFrame:
+    """Ein auszuliefernder SSE-Rahmen: fortlaufende ID, Typ und Nutzlast."""
+
+    event_id: int
+    event_type: str
+    data: dict[str, object]
+
+    def encode(self) -> str:
+        """Serialisiert den Rahmen im SSE-Format."""
+
+        return encode_sse(self.event_id, self.event_type, self.data)
+
+
+def _resync_frame(event_id: int) -> SseFrame:
+    """Baut den ``resync``-Rahmen (UI laedt neu, T-101)."""
+
+    return SseFrame(event_id, RESYNC_EVENT_TYPE, {"type": RESYNC_EVENT_TYPE})
+
+
+class SseConnection:
+    """Begrenzte Warteschlange genau einer offenen SSE-Verbindung (T-101).
+
+    Die Warteschlange waechst nie ueber ``maxsize`` hinaus. Bei Ueberlauf (ein
+    langsamer Client) wird die Marke gesetzt und der Puffer verworfen; die
+    Auslieferung quittiert das mit ``resync`` statt Speicherwachstum. Alle
+    Zugriffe sind gegen gleichzeitige Zusteller aus mehreren Threads geschuetzt.
+    """
+
+    __slots__ = ("_queue", "_lock", "_overflow", "_closed")
+
+    def __init__(self, maxsize: int) -> None:
+        if maxsize < 1:
+            raise ValueError("maxsize muss mindestens 1 sein.")
+        self._queue: queue.Queue[SseFrame] = queue.Queue(maxsize=maxsize)
+        self._lock = threading.Lock()
+        self._overflow = False
+        self._closed = False
+
+    @property
+    def closed(self) -> bool:
+        """True, sobald die Verbindung abgemeldet wurde."""
+
+        return self._closed
+
+    def offer(self, frame: SseFrame) -> None:
+        """Nimmt einen Rahmen auf; bei voller Warteschlange folgt Ueberlauf."""
+
+        with self._lock:
+            if self._closed:
+                return
+            if self._queue.full():
+                self._overflow = True
+                self._drain_locked()
+                return
+            self._queue.put_nowait(frame)
+
+    def take_nowait(self) -> SseFrame | None:
+        """Liefert den naechsten Rahmen ohne Warten (oder ``None``)."""
+
+        try:
+            return self._queue.get_nowait()
+        except queue.Empty:
+            return None
+
+    def take(self, timeout: float) -> SseFrame | None:
+        """Liefert den naechsten Rahmen oder ``None`` nach Ablauf von ``timeout``."""
+
+        try:
+            return self._queue.get(timeout=timeout)
+        except queue.Empty:
+            return None
+
+    def consume_overflow(self) -> bool:
+        """Meldet und loescht die Ueberlaufmarke (Ueberlauf -> ``resync``)."""
+
+        with self._lock:
+            overflow = self._overflow
+            self._overflow = False
+            if overflow:
+                self._drain_locked()
+            return overflow
+
+    def close(self) -> None:
+        """Meldet die Verbindung ab und verwirft gepufferte Rahmen (idempotent)."""
+
+        with self._lock:
+            self._closed = True
+            self._drain_locked()
+
+    def _drain_locked(self) -> None:
+        # Nur unter ``self._lock`` aufrufen. ``queue.Queue`` ist selbst
+        # threadsicher; der Lock serialisiert Ueberlauf und Leerlauf.
+        while True:
+            try:
+                self._queue.get_nowait()
+            except queue.Empty:
+                return
+
+
+class SseBroadcaster:
+    """Verteilt Bus-Ereignisse mit fortlaufender ID an SSE-Verbindungen (T-101).
+
+    Ein einzelner Bus-Empfaenger vergibt je Ereignis eine fortlaufende ID, merkt
+    die juengsten Ereignisse fuer die ``Last-Event-ID``-Nachlieferung und stellt
+    sie in die begrenzte Warteschlange jeder offenen Verbindung. Ist der Stand
+    eines Clients nicht mehr nachlieferbar (zu alte ID oder Neustart), liefert
+    :meth:`open` ein ``resync``; ein langsamer Client erhaelt bei Ueberlauf
+    ebenfalls ein ``resync``. Der Verteiler liegt pro App im Service-Container
+    (D12) und arbeitet mit dem einen Worker-Prozess (D3).
+    """
+
+    def __init__(
+        self,
+        bus: EventBus,
+        *,
+        heartbeat: float = SSE_HEARTBEAT_SECONDS,
+        queue_size: int = DEFAULT_SSE_QUEUE_SIZE,
+        history_size: int = DEFAULT_SSE_HISTORY_SIZE,
+    ) -> None:
+        if heartbeat <= 0:
+            raise ValueError("heartbeat muss positiv sein.")
+        if queue_size < 1:
+            raise ValueError("queue_size muss mindestens 1 sein.")
+        if history_size < 1:
+            raise ValueError("history_size muss mindestens 1 sein.")
+        self._bus = bus
+        self._heartbeat = heartbeat
+        self._queue_size = queue_size
+        self._lock = threading.Lock()
+        self._clients: set[SseConnection] = set()
+        self._history: deque[tuple[int, Event]] = deque(maxlen=history_size)
+        self._last_id = 0
+        self._closed = False
+        self._unsubscribe = bus.subscribe(self._on_event)
+
+    @property
+    def heartbeat(self) -> float:
+        """Abstand des Heartbeat-Kommentars in Sekunden."""
+
+        return self._heartbeat
+
+    @property
+    def client_count(self) -> int:
+        """Anzahl der aktuell verbundenen SSE-Clients."""
+
+        with self._lock:
+            return len(self._clients)
+
+    @property
+    def last_event_id(self) -> int:
+        """Hoechste bereits vergebene Ereignis-ID (0, solange kein Ereignis)."""
+
+        with self._lock:
+            return self._last_id
+
+    def close(self) -> None:
+        """Meldet alle Verbindungen und den Bus-Empfaenger ab (idempotent)."""
+
+        with self._lock:
+            if self._closed:
+                return
+            self._closed = True
+            clients = tuple(self._clients)
+            self._clients.clear()
+        for connection in clients:
+            connection.close()
+        self._unsubscribe()
+
+    def open(self, last_event_id: int | None = None) -> SseConnection:
+        """Oeffnet eine Verbindung und plant Nachlieferung oder ``resync``.
+
+        Args:
+            last_event_id: Der vom Client gemeldete ``Last-Event-ID``-Stand.
+                ``None`` oder ``< 1`` bedeutet einen frischen Aufbau.
+
+        Returns:
+            Die neue, noch leere Verbindung; Nachlieferung und ein etwaiges
+            ``resync`` stehen bereits in ihrer Warteschlange.
+        """
+
+        with self._lock:
+            if self._closed:
+                raise RuntimeError("Der Ereignis-Strom ist geschlossen.")
+            connection = SseConnection(self._queue_size)
+            replay, resync = self._plan_replay_locked(last_event_id)
+            resync_id = self._last_id
+            self._clients.add(connection)
+        for event_id, event in replay:
+            connection.offer(SseFrame(event_id, event.type, event.as_dict()))
+        if resync:
+            connection.offer(_resync_frame(resync_id))
+        return connection
+
+    def discard(self, connection: SseConnection) -> None:
+        """Meldet eine Verbindung ab (Disconnect, idempotent)."""
+
+        with self._lock:
+            self._clients.discard(connection)
+        connection.close()
+
+    def resync_frame(self) -> SseFrame:
+        """Baut ein ``resync``-Frame mit dem aktuellen Stand (Ueberlauf)."""
+
+        with self._lock:
+            return _resync_frame(self._last_id)
+
+    def _plan_replay_locked(self, last_event_id: int | None) -> tuple[tuple[tuple[int, Event], ...], bool]:
+        # ``resync`` genau dann, wenn der Stand nicht mehr nachlieferbar ist:
+        # kein Stand gemeldet, Server kennt den Stand nicht mehr (ID vor dem
+        # Ringpuffer oder hoeher als der Server) oder der Puffer ist leer.
+        if last_event_id is None or last_event_id < 1:
+            return (), False
+        if last_event_id == self._last_id:
+            return (), False
+        if last_event_id > self._last_id:
+            return (), True
+        if not self._history:
+            return (), True
+        oldest = self._history[0][0]
+        if last_event_id < oldest - 1:
+            return (), True
+        replay = tuple((event_id, event) for event_id, event in self._history if event_id > last_event_id)
+        return replay, False
+
+    def _on_event(self, event: Event) -> None:
+        with self._lock:
+            if self._closed:
+                return
+            self._last_id += 1
+            event_id = self._last_id
+            self._history.append((event_id, event))
+            clients = tuple(self._clients)
+        frame = SseFrame(event_id, event.type, event.as_dict())
+        for connection in clients:
+            connection.offer(frame)
+
+
+async def stream_sse(
+    broadcaster: SseBroadcaster,
+    connection: SseConnection,
+    *,
+    disconnected: Callable[[], Awaitable[bool]] | None = None,
+    monotonic: Callable[[], float] = time.monotonic,
+    sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+) -> AsyncIterator[str]:
+    """Erzeugt die SSE-Rahmen einer Verbindung bis zum Disconnect (T-101).
+
+    Der Abfrageabstand bleibt kurz (``min(heartbeat, SSE_POLL_SECONDS)``),
+    damit ein Disconnect ohne Listener-Leck zeitnah aufgeraeumt wird; der
+    Heartbeat-Kommentar erscheint erst nach ``broadcaster.heartbeat`` Sekunden
+    ohne Ausgabe. Der Generator raeumt die Verbindung in jedem Fall ab.
+
+    Args:
+        broadcaster: Der Verteiler, der Verbindung und Zeitverhalten traegt.
+        connection: Die offene Verbindung dieses Clients.
+        disconnected: Optionale Pruefung (``request.is_disconnected``); meldet
+            sie ``True``, endet der Strom.
+        monotonic: Injizierbare Monotonuhr fuer die Heartbeat-Steuerung.
+        sleep: Injizierbarer Wartemechanismus (``asyncio.sleep``).
+
+    Yields:
+        SSE-Rahmen als Text.
+    """
+
+    heartbeat = broadcaster.heartbeat
+    poll = min(heartbeat, SSE_POLL_SECONDS)
+    last_output = monotonic()
+    try:
+        yield ": verbunden\n\n"
+        while True:
+            if disconnected is not None and await disconnected():
+                break
+            if connection.consume_overflow():
+                yield broadcaster.resync_frame().encode()
+                last_output = monotonic()
+                continue
+            frame = connection.take_nowait()
+            if frame is not None:
+                yield frame.encode()
+                last_output = monotonic()
+                continue
+            await sleep(poll)
+            if monotonic() - last_output >= heartbeat:
+                yield keepalive_frame()
+                last_output = monotonic()
+    finally:
+        broadcaster.discard(connection)

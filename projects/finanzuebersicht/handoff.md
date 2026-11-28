@@ -2,6 +2,33 @@
 
 ## Next actions
 
+- **T-101 umgesetzt (M4 Welle 4b, Server-Sent Events `/api/events`, F-CON-04, F-SYN-04,
+  N-SEC-02/03, D3; Risiko medium).** Claim gezielt per `task-set T-101 running` (der generische
+  `task-claim` traf in dieser Welle wiederholt die falsche ID). Konflikt-Check: Ja (nur SSE; keine
+  Aenderung an `services/sync_runner.py`/`sync_registry.py`, keine Migration, keine Import-/Edit-/
+  Export-Logik). Neu: `backend/finue/services/events.py` (`SseBroadcaster` als ein Bus-Empfaenger mit
+  fortlaufender Event-ID, Ringpuffer fuer `Last-Event-ID`, begrenzter Warteschlange je Client und
+  `resync` bei Ueberlauf sowie bei nicht nachlieferbarem Stand; `SseConnection`, `SseFrame`/`encode_sse`/
+  `keepalive_frame`, asynchroner Generator `stream_sse` mit Heartbeat und `request.is_disconnected()`),
+  `backend/finue/api/events.py` (`GET /api/events`, `text/event-stream`, Auth-Naht `require_user`, kein
+  `get_session`), Container/Lifespan (`app.state.services.sse_broadcaster`, Start/Stop), `config.py`
+  (`api_sse_heartbeat_seconds` 15, `api_sse_queue_size` 256), `routes.py` (Router-Zeile),
+  `tests/unit/test_api_contract.py` (Vertragseintrag `/api/events`), `tests/unit/test_sse.py` (14 Tests:
+  zwei Clients dasselbe Ereignis, `Last-Event-ID`-Nachlieferung, `resync` bei nicht nachlieferbarem Stand,
+  Ueberlauf -> resync, Disconnect ohne Leck, TAN-Anforderung erreicht alle ueber Registry -> Runner -> Bus,
+  Leckagetest, Route-Kopfzeilen/401, Heartbeat), Doku `docs/api.md` (Endpunkt + Config-Grenzen),
+  `decisions.md` (T-101), `improve.md`. Ereignisfolge: `EventBus` (T-086) -> `SseBroadcaster` ->
+  `SseConnection` -> HTTP; Sync-Ereignisse aus T-112 unveraendert ueber den Bus. Nutzlast nur Typ + IDs;
+  Challenge-Text holt die UI weiter ueber `GET /api/sync/jobs/{job_id}`. Evidenz (Fokus): `uv run pytest
+  tests/unit/test_sse.py -q` = 14 passed; `test_api_contract.py`+`test_events.py` = 23 passed; ruff
+  check/format und mypy der eigenen Dateien gruen; Mutationstest (`_plan_replay_locked` ohne `resync`)
+  macht `test_last_event_id_nicht_nachlieferbar_folgt_resync` rot. Artefakt `artifacts/T-101-build.md`.
+  **Offen/Blocker:** die **planweiten** Befehle sind rot nur durch fremde, unfertige Parallelarbeit
+  (`api/sync.py` T-091 mit UTF-8-BOM; `duplicate_resolution.py`/`test_duplicate_resolution.py` T-096):
+  `ruff check` 4x E501 (T-096-Test), `ruff format --check` 3 Dateien, `mypy backend` 2 Fehler in
+  `duplicate_resolution.py`. Der T-101-Slice ist sauber; Medium-Risiko - unabhaengige `verifier`-Pruefung
+  folgt, `task-done` erst bei sauberem Baum. Kein Push; fremde uncommittete Welle-Arbeit bleibt unangetastet.
+
 - **T-094 Abschlussgate ausgefuehrt (M4-Entlastung, Kennzeichen/Notiz/Referenz/Batch, Risiko medium).**
   Voraussetzung geprueft: T-108 `done` (Evidenz `T-108-verify-1795790641.json`), T-109 `done`
   (`T-109-verify-1795794585.json`), T-110 `done` (`T-110-verify-1795795732.json`). T-094 per `task-set`

@@ -23,6 +23,7 @@ from fastapi import APIRouter
 from finue.api import (
     accounts,
     banks,
+    events,
     export,
     export_profiles,
     groups,
@@ -80,6 +81,8 @@ def build_protected_router() -> APIRouter:
     protected.include_router(sessions.router)
     # Sync-Anstoesse, TAN-Endpunkte und Sync-Protokoll (T-112, F-SYN-01/02/04/07/10/11).
     protected.include_router(sync.router)
+    # Server-Sent Events: Aenderungsbenachrichtigung an alle Sitzungen (T-101, F-CON-04).
+    protected.include_router(events.router)
     return protected
 
 

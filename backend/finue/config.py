@@ -81,6 +81,19 @@ class Settings(BaseSettings):
             "Laenge einer Auswahl-ID-Liste; groessere Exporte werden mit Klartext abgelehnt."
         ),
     )
+    api_sse_heartbeat_seconds: float = Field(
+        default=15.0,
+        gt=0,
+        description=("Abstand des Heartbeat-Kommentars im SSE-Strom /api/events in Sekunden (F-CON-04, T-101)."),
+    )
+    api_sse_queue_size: int = Field(
+        default=256,
+        ge=1,
+        description=(
+            "Hoechste Zahl gepufferter Ereignisse je SSE-Client; ein Ueberlauf loest "
+            "ein resync aus statt Speicherwachstum (F-CON-04, T-101)."
+        ),
+    )
 
     def __init__(self, **data: Any) -> None:
         """Initialisierung mit Standard-DATABASE_URL-Berechnung."""

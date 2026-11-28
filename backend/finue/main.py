@@ -26,7 +26,7 @@ from finue.config import Settings, get_settings
 from finue.db.engine import create_db_engine, make_session_factory
 from finue.db.migrate import upgrade_to_head
 from finue.logging_setup import configure_logging
-from finue.services.events import EventBus
+from finue.services.events import EventBus, SseBroadcaster
 from finue.services.fints_client import FinTSClientProtocol
 from finue.services.import_uploads import UploadStore
 from finue.services.sync_registry import SyncRegistry
@@ -84,6 +84,11 @@ def create_app(
 
         session_factory = make_session_factory(engine)
         event_bus = EventBus(clock=resolved_clock)
+        sse_broadcaster = SseBroadcaster(
+            event_bus,
+            heartbeat=resolved.api_sse_heartbeat_seconds,
+            queue_size=resolved.api_sse_queue_size,
+        )
         sync_registry = SyncRegistry(clock=resolved_clock)
         sync_service = SyncService(
             session_factory,
@@ -100,6 +105,7 @@ def create_app(
             settings=resolved,
             session_factory=session_factory,
             event_bus=event_bus,
+            sse_broadcaster=sse_broadcaster,
             sync_registry=sync_registry,
             sync_service=sync_service,
             sync_runner=sync_runner,
@@ -111,6 +117,7 @@ def create_app(
         app.state.session_factory = session_factory
         app.state.services = services
         app.state.event_bus = event_bus
+        app.state.sse_broadcaster = sse_broadcaster
         app.state.sync_registry = sync_registry
         app.state.sync_service = sync_service
         app.state.sync_runner = sync_runner
@@ -122,6 +129,7 @@ def create_app(
         try:
             yield
         finally:
+            sse_broadcaster.close()
             sync_runner.close()
             engine.dispose()
             logger.info("Anwendung beendet")
