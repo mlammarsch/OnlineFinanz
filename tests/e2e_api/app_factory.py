@@ -12,7 +12,7 @@ Konfiguration ueber Umgebungsvariablen (vom E2E-``conftest`` gesetzt):
 - ``FINUE_E2E_DATA_DIR``: Pflicht; temporaeres Datenverzeichnis (SQLite-Datei,
   Schluesseldatei, Logs). Fehlt der Wert, bricht der Start mit klarer Meldung ab.
 - ``FINUE_E2E_SCRIPT``: Name des Fake-FinTS-Skripts (Standard ``happy_path``),
-  z. B. ``tan_app`` fuer den Sync-TAN-Fluss in Szenario Teil 2 (T-115).
+  z. B. ``sync_tan`` fuer den Sync-TAN-Fluss in Szenario Teil 2 (T-115).
 
 Referenzierte Anforderungen: D3 (ein Worker), D8 (Fake-Client), N-SEC-02 (keine
 Geheimnisse im Prozess).
@@ -74,8 +74,23 @@ def create_app() -> Any:
     fake = _load_fake_module()
     script_name = os.environ.get("FINUE_E2E_SCRIPT", "happy_path")
 
+    # Wie in den FinTS-Tests (SharedClientFactory) wird je Serverprozess eine
+    # Fake-Client-Instanz wiederverwendet. Der Fake haelt den TAN-Dialog
+    # (``_pending_tan``/``_paused``) in der Instanz; die Bibliothek baut bei
+    # ``from_data`` zwar einen neuen Client, der Fake kann den Dialog aber nur
+    # auf derselben Instanz fortsetzen. Die E2E-Szenarien nutzen genau einen
+    # Bankzugang, daher ist eine Instanz je Prozess ausreichend (D8).
+    holder: dict[str, Any] = {}
+
     def client_factory(**kwargs: Any) -> Any:
-        script = fake.SCRIPT_FACTORIES[script_name]()
-        return fake.FakeFinTS3PinTanClient(script=script, **kwargs)
+        client = holder.get("client")
+        if client is not None:
+            return client
+        # Der erste Aufbau kommt ohne ``from_data``; ein etwaiges ``from_data``
+        # waere nur die Fortsetzung und trifft immer die gecachte Instanz.
+        kwargs.pop("from_data", None)
+        client = fake.FakeFinTS3PinTanClient(script=fake.SCRIPT_FACTORIES[script_name](), **kwargs)
+        holder["client"] = client
+        return client
 
     return _create_app(_settings(), sync_client_factory=client_factory)

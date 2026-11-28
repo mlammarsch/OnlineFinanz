@@ -98,9 +98,17 @@ def _stop_process(proc: subprocess.Popen[bytes]) -> None:
 
 
 @pytest.fixture
-def e2e_server(tmp_path_factory: pytest.TempPathFactory) -> E2EServer:
-    """Startet einen frischen Uvicorn-Prozess mit temporaeren Daten (D3, D8)."""
+def e2e_server(request: pytest.FixtureRequest, tmp_path_factory: pytest.TempPathFactory) -> E2EServer:
+    """Startet einen frischen Uvicorn-Prozess mit temporaeren Daten (D3, D8).
 
+    Das Fake-FinTS-Skript ist je Test waehlbar: der Standard ist ``happy_path``
+    (Szenario Teil 1, T-113) bzw. ``FINUE_E2E_SCRIPT`` aus der Umgebung; ein Test
+    kann die Fixture indirekt parametrisieren (``@pytest.mark.parametrize(
+    "e2e_server", ["sync_tan"], indirect=True)``), um ein anderes Skript zu
+    setzen (Szenario Teil 2, T-115).
+    """
+
+    script_name = getattr(request, "param", None) or os.environ.get("FINUE_E2E_SCRIPT", "happy_path")
     data_dir = tmp_path_factory.mktemp("e2e-data")
     ui_dir = tmp_path_factory.mktemp("e2e-ui")
     port = _free_port()
@@ -110,8 +118,9 @@ def e2e_server(tmp_path_factory: pytest.TempPathFactory) -> E2EServer:
     env = dict(os.environ)
     env["FINUE_E2E_DATA_DIR"] = str(data_dir)
     # Szenario Teil 1 synct nicht; der Fake bleibt dennoch verdrahtet (D8). Der
-    # Szenario-Teil 2 (T-115) setzt hier ueber die Umgebung ``tan_app``.
-    env["FINUE_E2E_SCRIPT"] = os.environ.get("FINUE_E2E_SCRIPT", "happy_path")
+    # Szenario-Teil 2 (T-115) waehlt sein Skript ueber die indirekte
+    # Parametrisierung dieser Fixture.
+    env["FINUE_E2E_SCRIPT"] = script_name
     env["PYTHONPATH"] = os.pathsep.join([str(_REPO_ROOT), str(_REPO_ROOT / "backend"), env.get("PYTHONPATH", "")])
     env.setdefault("PYTHONUTF8", "1")
 

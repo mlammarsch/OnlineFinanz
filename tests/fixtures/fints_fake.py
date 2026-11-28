@@ -108,6 +108,7 @@ __all__ = [
     "script_orders_empty",
     "script_orders_present",
     "script_orders_unsupported",
+    "script_sync_tan",
     "script_tan_app",
     "script_tan_text",
     "script_wrong_pin",
@@ -752,6 +753,76 @@ def script_orders_unsupported() -> FakeScript:
     return _orders_script("orders_unsupported", "unsupported", ())
 
 
+#: Gueltige (Pruefziffer) Test-IBAN fuer den Sync-TAN-Pfad. Der Anlage-Assistent
+#: prueft die IBAN (F-KTO-04), deshalb traegt dieses Skript - anders als
+#: :func:`fake_accounts` mit ``DE00...`` - eine formal gueltige, frei erfundene
+#: IBAN (D8, keine echten Konten).
+SYNC_TAN_IBAN: Final = "DE41500105170123456789"
+
+
+def script_sync_tan() -> FakeScript:
+    """Text-TAN beim Saldo, ein gebuchter camt-Umsatz und ein Auftrag (T-115).
+
+    Deckt den Batch-Sync mit TAN (F-SYN-04), die Verdachtsdublette aus CSV neben
+    FinTS (F-DUP-03), den Auftragsabruf (F-AUF-05) und den Anlage-Assistenten
+    (F-KTO-05a) in einem Skript ab. ``balance`` ist der einzige TAN-Fluss; das
+    Konto ist ein einzelnes, damit der Batch genau einen Saldo verbraucht.
+    """
+    giro = SEPAAccount(
+        iban=SYNC_TAN_IBAN,
+        bic=FAKE_BIC,
+        accountnumber="1234567890",
+        subaccount="",
+        blz="37040044",
+    )
+    return FakeScript(
+        name="sync_tan",
+        accounts=(giro,),
+        balance=(
+            FakeTanFlow(
+                challenges=(FakeTanChallenge("Bitte TAN eingeben (erfundener Testfall)."),),
+                result=fake_balance("1234,56"),
+            ),
+        ),
+        camt_booked=(
+            fake_camt_xml(
+                (
+                    _camt_entry(
+                        amount="42.00",
+                        direction="DBIT",
+                        purpose="Erfundene Rechnung 2026-001",
+                        counterparty="Erfundene Beispiel GmbH",
+                        reference="FAKE-SYNC-TAN-1",
+                    ),
+                ),
+                iban=SYNC_TAN_IBAN,
+            ),
+        ),
+        orders_state="available",
+        orders=(
+            FakeStandingOrder(
+                kind="dauerauftrag",
+                counterparty="Erfundene Vermietung GmbH",
+                counterparty_iban=FAKE_IBAN_CARD,
+                purpose="Erfundene Miete",
+                amount="750,00",
+                interval="monatlich",
+                next_execution=date(2026, 12, 1),
+            ),
+        ),
+        bank_name="Erfundene Testbank",
+        account_information=(
+            FakeAccountInfo(
+                iban=SYNC_TAN_IBAN,
+                account_type="Girokonto",
+                product_name="Erfundenes Girokonto",
+                owner_name="Erfundene Person",
+            ),
+        ),
+        tan_mechanisms=(FakeTanMechanism(security_function="900", name="Erfundenes TAN-Verfahren", decoupled=False),),
+    )
+
+
 SCRIPT_FACTORIES: Final[dict[str, Callable[[], FakeScript]]] = {
     "happy_path": script_happy_path,
     "tan_text": script_tan_text,
@@ -767,6 +838,7 @@ SCRIPT_FACTORIES: Final[dict[str, Callable[[], FakeScript]]] = {
     "orders_present": script_orders_present,
     "orders_empty": script_orders_empty,
     "orders_unsupported": script_orders_unsupported,
+    "sync_tan": script_sync_tan,
 }
 
 
