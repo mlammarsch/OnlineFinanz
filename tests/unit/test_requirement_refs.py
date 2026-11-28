@@ -4,9 +4,12 @@ Setzt die Review-Checkliste aus AGENTS.md (Abschnitt "Review-Checkliste fuer
 verifier": Anforderungs-IDs in Tests referenziert) um. Dieser Test stellt
 sicher, dass die nicht-funktionalen Anforderungen aus den Bereichen
 Datenhaltung (N-DB), Betrieb (N-OPS) und Sicherheit (N-SEC) sowie die
-Abnahme-IDs der Milestones M2 (F-DUP, F-IMP, F-EXP-04/07) und M3 (Sync F-SYN,
-Auftraege F-AUF-04/05/07, Gleichzeitigkeit F-CON-05) in mindestens einer
-echten Testdatei unter tests/ namentlich genannt werden.
+Abnahme-IDs der Milestones M2 (F-DUP, F-IMP, F-EXP-04/07), M3 (Sync F-SYN,
+Auftraege F-AUF-04/05/07, Gleichzeitigkeit F-CON-05) und M4 (Konten und Gruppen
+F-KTO-01..07/10/11, Buchungsliste F-BUC-01..06, Dublettenauflösung F-DUP-05,
+Kennzeichen/Notiz/Abstimmung F-ABS-01..06, Suche F-SUC-01..07, Export
+F-EXP-01..07, Gleichzeitigkeit F-CON-01..06, Performance N-PERF-01) in
+mindestens einer echten Testdatei unter tests/ namentlich genannt werden.
 
 Die Meta-Testdatei schliesst sich selbst von der Suche aus, damit die Pflicht-IDs
 ausschliesslich aus Fachtests stammen und nicht trivial durch die Auflistung in
@@ -23,10 +26,14 @@ SELF = Path(__file__).resolve()
 
 # Pflicht-IDs: nicht-funktionale Anforderungen mit Bezug zu Datenhaltung (N-DB),
 # Betrieb (N-OPS) und Sicherheit (N-SEC), die funktionalen Abnahme-IDs des
-# Milestones M2 (Dubletten F-DUP, Import F-IMP, Export-Schema F-EXP-04/07) sowie
-# die Abnahme-IDs des Milestones M3 (Sync F-SYN-01..11, Auftraege F-AUF-04/05/07,
-# Gleichzeitigkeit F-CON-05, Sicherheit N-SEC-01..03). Jede muss mindestens
-# einmal als Substring in einer echten Testdatei unter tests/ vorkommen.
+# Milestones M2 (Dubletten F-DUP, Import F-IMP, Export-Schema F-EXP-04/07), die
+# Abnahme-IDs des Milestones M3 (Sync F-SYN-01..11, Auftraege F-AUF-04/05/07,
+# Gleichzeitigkeit F-CON-05, Sicherheit N-SEC-01..03) und die Abnahme-IDs des
+# Milestones M4 (Konten und Gruppen F-KTO-01..07/10/11, Buchungsliste
+# F-BUC-01..06, Dublettenaufloesung F-DUP-05, Kennzeichen/Notiz/Abstimmung
+# F-ABS-01..06, Suche F-SUC-01..07, Export F-EXP-01..07, Gleichzeitigkeit
+# F-CON-01..06, Performance N-PERF-01). Jede muss mindestens einmal als
+# Substring in einer echten Testdatei unter tests/ vorkommen.
 REQUIRED_IDS = (
     "N-DB-01",
     "N-DB-02",
@@ -65,6 +72,54 @@ REQUIRED_IDS = (
     "F-AUF-05",
     "F-AUF-07",
     "F-CON-05",
+    # M4: Konten und Gruppen (F-KTO-01..07, F-KTO-10, F-KTO-11).
+    "F-KTO-01",
+    "F-KTO-02",
+    "F-KTO-03",
+    "F-KTO-04",
+    "F-KTO-05",
+    "F-KTO-06",
+    "F-KTO-07",
+    "F-KTO-10",
+    "F-KTO-11",
+    # M4: Buchungsliste mit Vormerkungen, Tagessalden, Gruppenansicht (F-BUC-01..06).
+    "F-BUC-01",
+    "F-BUC-02",
+    "F-BUC-03",
+    "F-BUC-04",
+    "F-BUC-05",
+    "F-BUC-06",
+    # M4: Aufloesung von Verdachtsdubletten (F-DUP-05).
+    "F-DUP-05",
+    # M4: Kennzeichen, Notiz, Abstimmung (F-ABS-01..06).
+    "F-ABS-01",
+    "F-ABS-02",
+    "F-ABS-03",
+    "F-ABS-04",
+    "F-ABS-05",
+    "F-ABS-06",
+    # M4: Suche (F-SUC-01..07).
+    "F-SUC-01",
+    "F-SUC-02",
+    "F-SUC-03",
+    "F-SUC-04",
+    "F-SUC-05",
+    "F-SUC-06",
+    "F-SUC-07",
+    # M4: Export CSV/JSON/Markdown und Profile (F-EXP-01..07; F-EXP-04/07 oben).
+    "F-EXP-01",
+    "F-EXP-02",
+    "F-EXP-03",
+    "F-EXP-05",
+    "F-EXP-06",
+    # M4: Gleichzeitigkeit und Konsistenz (F-CON-01..06; F-CON-05 oben).
+    "F-CON-01",
+    "F-CON-02",
+    "F-CON-03",
+    "F-CON-04",
+    "F-CON-06",
+    # M4: Performance bei 100.000 Buchungen (N-PERF-01).
+    "N-PERF-01",
     "N-SEC-01",
     "N-SEC-02",
     "N-SEC-03",
