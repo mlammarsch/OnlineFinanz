@@ -2,6 +2,30 @@
 
 ## Next actions
 
+- **T-101 Verifierbefund (Konsumentenseite) behoben (M4, F-CON-04, Risiko medium) -- T-101 bleibt offen.**
+  Befund der unabhaengigen Pruefung nach `15c5097`: ID-Vergabe und Zustellung waren zwar
+  unter demselben Lock, die **Konsumentenseite** in `stream_sse` aber nicht atomar --
+  `connection.consume_overflow()`, `connection.take_nowait()` und `broadcaster.resync_frame()`
+  (liest `_last_id` erst in einem eigenen Lock-Abschnitt) waren drei getrennte Schritte. Ein
+  paralleles `emit` zwischen Ueberlauf-Quittung und `_last_id`-Lesen liess den Client einen
+  ``resync`` mit der neuen ID und anschliessend den Rahmen mit **derselben** ID sehen
+  (fallende + doppelte ID). Fix: neue Methode `SseBroadcaster.next_frame(connection)`
+  (`backend/finue/services/events.py`), die unter **einem** Broadcaster-Lock entweder bei
+  `consume_overflow()` genau `_resync_frame(self._last_id)` liefert oder `take_nowait()`
+  ausfuehrt; `stream_sse` ersetzt die drei getrennten Schritte durch einen `next_frame`-Aufruf.
+  `consume_overflow`/`take_nowait` blockieren nicht -> Lock-Reihenfolge Broadcaster -> Connection
+  bleibt (kein Deadlock). `resync_frame()` unveraendert. Neuer Regressionstest
+  `tests/unit/test_sse.py::test_next_frame_queue2_daueremitter_streng_monoton_ohne_doppel_id`
+  (17 statt 16): Queue-Groesse 2, paralleler Dauer-Emitter, Ueberlauf-Quittung im kritischen
+  Fenster angehalten; prueft streng steigende IDs ohne Doppel-ID und erste ID `3` (resync vor
+  dem Parallel-Ereignis). Evidenz: `test_sse.py` = 17 passed (neuer Test 8x gruen, nicht flakig);
+  `test_sse+test_events+test_api_contract` = 40 passed; `tests/unit` = 1600 passed/1 skipped;
+  `ruff check` = All checks passed; `ruff format --check` = 210 Dateien; `mypy backend` = Success
+  (101). Mutationstest (`next_frame` ohne Lock) macht den neuen Test rot
+  (`[25829, 25829, ...]` doppelte ID). Artefakt `artifacts/T-101-overflow-fix.md`. Keine
+  T-091-/T-096-Aenderung. **Offen:** unabhaengige Wiederholungspruefung durch `verifier`;
+  kein `task-done`, kein Push.
+
 - **T-091 Verlust der Vertragseintraege behoben (M4, F-KTO-05a, Risiko medium) -- T-091 bleibt offen.**
   Befund (Handoff T-101/T-096, Verifier): Der T-091-Commit `ed8ed54` nahm aus dem gemeinsamen Index die
   T-096-Vertragseintraege mit, verlor aber seine **eigenen** fuenf Eintraege in `tests/unit/test_api_contract.py`,

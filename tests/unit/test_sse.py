@@ -345,6 +345,85 @@ def test_open_race_haelt_ids_je_client_monoton(monkeypatch: pytest.MonkeyPatch) 
     assert bus.subscriber_count == 0
 
 
+def test_next_frame_queue2_daueremitter_streng_monoton_ohne_doppel_id(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """``next_frame`` quittiert den Ueberlauf atomar; ein Dauer-Emitter erzeugt keine Doppel-ID (F-CON-04).
+
+    Queue-Groesse 2 erzwingt haeufigen Ueberlauf. Ein parallel laufender
+    Dauer-Emitter stellt waehrend des Abholens Ereignisse zu; der Konsument holt
+    die Rahmen ueber ``SseBroadcaster.next_frame``. Die beobachteten IDs muessen
+    streng steigen und sich nie wiederholen. Die erste Ueberlauf-Quittung wird
+    genau im kritischen Fenster angehalten, damit das Parallel-Ereignis
+    eintrifft: Nur wenn ``next_frame`` Ueberlaufpruefung und ``resync``-ID unter
+    demselben Lock liest, kann das Ereignis nicht vor den ``resync``-Rahmen
+    rutschen (sonst folgen eine fallende und eine doppelte ID).
+    """
+
+    bus = EventBus()
+    broadcaster = SseBroadcaster(bus, queue_size=2, history_size=8)
+    connection = broadcaster.open()
+
+    # Queue-Groesse 2: das dritte Ereignis verdraengt den Puffer (Ueberlauf).
+    bus.emit("a", n=1)
+    bus.emit("b", n=2)
+    bus.emit("c", n=3)  # Ueberlauf -> resync faellig; der Stand ist 3
+
+    original_consume = SseConnection.consume_overflow
+    gated = threading.Event()
+    release = threading.Event()
+
+    def gated_consume(self: SseConnection) -> bool:
+        result = original_consume(self)
+        if result:
+            gated.set()
+            assert release.wait(timeout=5.0)
+        return result
+
+    monkeypatch.setattr(SseConnection, "consume_overflow", gated_consume)
+
+    observed: list[int] = []
+    stop = threading.Event()
+
+    def consumer() -> None:
+        while not stop.is_set():
+            frame = broadcaster.next_frame(connection)
+            if frame is not None:
+                observed.append(frame.event_id)
+
+    def emitter() -> None:
+        index = 4
+        while not stop.is_set():
+            bus.emit("d", n=index)
+            index += 1
+
+    consumer_thread = threading.Thread(target=consumer)
+    consumer_thread.start()
+    assert gated.wait(timeout=5.0)  # Konsument steht im kritischen Fenster
+
+    emitter_thread = threading.Thread(target=emitter)
+    emitter_thread.start()
+    time.sleep(0.1)  # dem Dauer-Emitter Gelegenheit geben, im Fenster zuzustellen
+    release.set()
+
+    time.sleep(0.1)  # beide Seiten weiterlaufen lassen
+    stop.set()
+    consumer_thread.join(timeout=5.0)
+    emitter_thread.join(timeout=5.0)
+
+    assert not consumer_thread.is_alive()
+    assert not emitter_thread.is_alive()
+
+    assert observed, "es wurden keine Rahmen beobachtet"
+    assert observed[0] == 3, observed  # resync auf dem Stand vor dem Parallel-Ereignis
+    assert all(left < right for left, right in zip(observed, observed[1:])), observed
+    assert len(set(observed)) == len(observed), observed  # keine Doppel-ID
+
+    broadcaster.discard(connection)
+    broadcaster.close()
+    assert bus.subscriber_count == 0
+
+
 def test_tan_anforderung_erreicht_alle_clients(client: TestClient) -> None:
     """Der Registry-Statuswechsel des Sync-Runners erreicht alle Clients (F-SYN-04, F-CON-04)."""
 

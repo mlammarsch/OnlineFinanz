@@ -487,6 +487,25 @@ class SseBroadcaster:
         with self._lock:
             return _resync_frame(self._last_id)
 
+    def next_frame(self, connection: SseConnection) -> SseFrame | None:
+        """Liefert den naechsten Rahmen einer Verbindung **atomar** (T-101).
+
+        Unter dem Verteiler-Lock wird entweder ein faelliger Ueberlauf mit genau
+        einem ``resync`` auf dem aktuellen Stand quittiert oder der naechste
+        gepufferte Rahmen genommen (sonst ``None``). Weil dasselbe Lock die
+        ID-Vergabe in :meth:`_on_event` serialisiert, kann kein Ereignis
+        zwischen Ueberlauf-Quittung und Entnahme die Reihenfolge verdrehen: je
+        Client bleiben die IDs streng steigend ohne Doppel-ID (F-CON-04). Die
+        Lese-/Entnahmeschritte blockieren nicht (``consume_overflow`` und
+        ``take_nowait`` warten nie), daher bleibt die Lock-Reihenfolge
+        Broadcaster -> Connection erhalten (kein Deadlock).
+        """
+
+        with self._lock:
+            if connection.consume_overflow():
+                return _resync_frame(self._last_id)
+            return connection.take_nowait()
+
     def _plan_replay_locked(self, last_event_id: int | None) -> tuple[tuple[tuple[int, Event], ...], bool]:
         # ``resync`` genau dann, wenn der Stand nicht mehr nachlieferbar ist:
         # kein Stand gemeldet, Server kennt den Stand nicht mehr (ID vor dem
@@ -535,7 +554,9 @@ async def stream_sse(
     Der Abfrageabstand bleibt kurz (``min(heartbeat, SSE_POLL_SECONDS)``),
     damit ein Disconnect ohne Listener-Leck zeitnah aufgeraeumt wird; der
     Heartbeat-Kommentar erscheint erst nach ``broadcaster.heartbeat`` Sekunden
-    ohne Ausgabe. Der Generator raeumt die Verbindung in jedem Fall ab.
+    ohne Ausgabe. Ueberlauf und Entnahme holt der Generator in **einem** Schritt
+    ueber :meth:`SseBroadcaster.next_frame`, damit die IDs je Client streng
+    steigen (F-CON-04). Der Generator raeumt die Verbindung in jedem Fall ab.
 
     Args:
         broadcaster: Der Verteiler, der Verbindung und Zeitverhalten traegt.
@@ -557,11 +578,7 @@ async def stream_sse(
         while True:
             if disconnected is not None and await disconnected():
                 break
-            if connection.consume_overflow():
-                yield broadcaster.resync_frame().encode()
-                last_output = monotonic()
-                continue
-            frame = connection.take_nowait()
+            frame = broadcaster.next_frame(connection)
             if frame is not None:
                 yield frame.encode()
                 last_output = monotonic()
