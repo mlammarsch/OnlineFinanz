@@ -43,15 +43,46 @@ from finue.models.account import Account
 from finue.models.bank import BankAccess
 from finue.models.import_run import ImportRun
 from finue.services.bank_access import get_access
+from finue.services.fints_wizard import DiscoveryResult
 from finue.services.sync_runner import SyncJobNotFound, SyncJobState
 from finue.services.sync_service import AccountSyncResult, SyncTanConflictError
 
-__all__ = ["router"]
+__all__ = ["SyncJobView", "job_view", "router"]
 
 router = APIRouter(prefix="/api", tags=["sync"], dependencies=[Depends(require_user)])
 
 
 # --------------------------------------------------------------------- DTOs
+
+
+class DiscoveredAccountView(BaseModel):
+    """Ein Konto des Zugangs im Anlage-Assistenten (F-KTO-05a).
+
+    ``already_exists`` markiert ein Konto, dessen IBAN bereits gefuehrt wird und
+    das deshalb nicht erneut angelegt werden darf.
+    """
+
+    iban: str | None = None
+    bic: str | None = None
+    account_number: str | None = None
+    name: str | None = None
+    account_type: str | None = None
+    already_exists: bool
+
+
+class TanMethodView(BaseModel):
+    """Ein von der Bank angebotenes TAN-Verfahren (F-KTO-05a)."""
+
+    code: str
+    name: str
+
+
+class DiscoveryView(BaseModel):
+    """Ergebnis des Kontenabrufs im Assistenten (F-KTO-05a)."""
+
+    bank_name: str | None = None
+    accounts: list[DiscoveredAccountView]
+    tan_methods: list[TanMethodView]
 
 
 class SyncAccountResultView(BaseModel):
@@ -81,6 +112,8 @@ class SyncJobView(BaseModel):
     approval_polls: int = 0
     message: str | None = None
     started_at: datetime
+    #: Ergebnis des Anlage-Assistenten (F-KTO-05a); ``None`` bei einem Sync.
+    discovery: DiscoveryView | None = None
 
 
 class SyncStartRequest(BaseModel):
@@ -142,8 +175,32 @@ def _result_view(result: AccountSyncResult) -> SyncAccountResultView:
     )
 
 
-def _job_view(state: SyncJobState) -> SyncJobView:
-    """Uebersetzt eine Runner-Momentaufnahme in das API-DTO (F-SYN-04/07)."""
+def _discovery_view(result: DiscoveryResult) -> DiscoveryView:
+    """Uebersetzt das Assistenten-Ergebnis in das API-DTO (F-KTO-05a)."""
+
+    return DiscoveryView(
+        bank_name=result.bank_name,
+        accounts=[
+            DiscoveredAccountView(
+                iban=account.iban,
+                bic=account.bic,
+                account_number=account.account_number,
+                name=account.name,
+                account_type=account.account_type,
+                already_exists=account.already_exists,
+            )
+            for account in result.accounts
+        ],
+        tan_methods=[TanMethodView(code=method.code, name=method.name) for method in result.tan_methods],
+    )
+
+
+def job_view(state: SyncJobState) -> SyncJobView:
+    """Uebersetzt eine Runner-Momentaufnahme in das API-DTO (F-SYN-04/07).
+
+    Auch der Kontenabruf des Assistenten (F-KTO-05a) erscheint als Job; sein
+    Ergebnis steht im Feld ``discovery``.
+    """
 
     return SyncJobView(
         job_id=state.job_id,
@@ -156,6 +213,7 @@ def _job_view(state: SyncJobState) -> SyncJobView:
         approval_polls=state.approval_polls,
         message=state.message,
         started_at=state.started_at,
+        discovery=_discovery_view(state.discovery) if state.discovery is not None else None,
     )
 
 
@@ -163,7 +221,7 @@ def _conflict(services: AppServices, job_id: str, message: str) -> ConflictError
     """Baut einen 409 mit dem aktuellen Jobstand als ``current`` (F-CON-02)."""
 
     try:
-        current: SyncJobView | dict[str, object] = _job_view(services.sync_runner.get(job_id))
+        current: SyncJobView | dict[str, object] = job_view(services.sync_runner.get(job_id))
     except SyncJobNotFound:
         current = {}
     return ConflictError(message, current=current)
@@ -239,7 +297,7 @@ def start_sync_route(
             account_ids=payload.account_ids,
             pin=payload.pin,
         )
-        return SyncStartResponse(jobs=[_job_view(state)])
+        return SyncStartResponse(jobs=[job_view(state)])
 
     access_ids = _active_fints_access_ids(session)
     if not access_ids:
@@ -249,7 +307,7 @@ def start_sync_route(
     if payload.account_ids is not None:
         _require_accounts(session, access_ids[0], payload.account_ids)
     jobs = [
-        _job_view(services.sync_runner.start(access_id, account_ids=payload.account_ids, pin=payload.pin))
+        job_view(services.sync_runner.start(access_id, account_ids=payload.account_ids, pin=payload.pin))
         for access_id in access_ids
     ]
     return SyncStartResponse(jobs=jobs)
@@ -272,7 +330,7 @@ def start_account_sync_route(
     access = _require_access(session, account.bank_access_id)
     _require_pin(access, payload.pin)
     state = services.sync_runner.start(account.bank_access_id, account_ids=[account.id], pin=payload.pin)
-    return _job_view(state)
+    return job_view(state)
 
 
 @router.get("/sync/jobs/{job_id}", response_model=SyncJobView)
@@ -286,7 +344,7 @@ def get_sync_job_route(
         state = services.sync_runner.get(job_id)
     except SyncJobNotFound as exc:
         raise NotFoundError(f"Der Sync-Job {job_id} wurde nicht gefunden.") from exc
-    return _job_view(state)
+    return job_view(state)
 
 
 @router.post("/sync/jobs/{job_id}/tan", response_model=SyncJobView)
@@ -303,7 +361,7 @@ def submit_tan_route(
         raise NotFoundError(f"Der Sync-Job {job_id} wurde nicht gefunden.") from exc
     except SyncTanConflictError as exc:
         raise _conflict(services, job_id, str(exc)) from exc
-    return _job_view(state)
+    return job_view(state)
 
 
 @router.post("/sync/jobs/{job_id}/approve-poll", response_model=SyncJobView)
@@ -319,7 +377,7 @@ def poll_app_approval_route(
         raise NotFoundError(f"Der Sync-Job {job_id} wurde nicht gefunden.") from exc
     except SyncTanConflictError as exc:
         raise _conflict(services, job_id, str(exc)) from exc
-    return _job_view(state)
+    return job_view(state)
 
 
 @router.post("/sync/jobs/{job_id}/cancel", response_model=SyncJobView)
@@ -335,7 +393,7 @@ def cancel_sync_route(
         raise NotFoundError(f"Der Sync-Job {job_id} wurde nicht gefunden.") from exc
     except SyncTanConflictError as exc:
         raise _conflict(services, job_id, str(exc)) from exc
-    return _job_view(state)
+    return job_view(state)
 
 
 @router.get("/sync/runs", response_model=SyncRunListResponse)

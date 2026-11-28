@@ -144,6 +144,10 @@ class FinTSClientProtocol(Protocol):
 
     def get_sepa_accounts(self) -> Any: ...
 
+    def get_information(self) -> Any: ...
+
+    def get_tan_mechanisms(self) -> Any: ...
+
     def get_balance(self, account: SEPAAccount) -> Any: ...
 
     def get_transactions_xml(
@@ -352,6 +356,30 @@ class FinTSGateway:
         client = self._require_client()
         result = self._call("get_sepa_accounts")
         return self._finish(client, result, _as_accounts)
+
+    def get_information(self) -> dict[str, Any]:
+        """Liefert Bank- und Kontoinformationen (F-KTO-05a, ``get_information``).
+
+        Die Bibliothek fasst HIBPA (Bank) und HIUPD (Konten) zusammen; die
+        Antwort wird unveraendert als verschachteltes Mapping weitergereicht,
+        damit die Wizard-Schicht Name und Typ je Konto ableiten kann. Ein
+        eventueller TAN-Dialog wird wie bei den uebrigen Leseoperationen
+        eingefroren (F-SYN-04, D3).
+        """
+        client = self._require_client()
+        result = self._call("get_information")
+        return self._finish(client, result, _as_mapping)
+
+    def get_tan_mechanisms(self) -> dict[str, Any]:
+        """Liefert die von der Bank angebotenen TAN-Verfahren (F-KTO-05a).
+
+        Ergebnis ist ein Mapping ``Sicherheitsfunktion -> Parameterobjekt`` der
+        Bibliothek; die Wizard-Schicht liest daraus Code und Namen. Der Abruf
+        ist rein lesend (HITANS) und loest keinen schreibenden Vorgang aus.
+        """
+        client = self._require_client()
+        result = self._call("get_tan_mechanisms")
+        return self._finish(client, result, _as_mapping)
 
     def get_balance(self, account: SEPAAccount) -> BalanceResult:
         """Liefert den Saldo eines Kontos in ganzen Cent (F-SYN-03, N-DB-02)."""
@@ -629,6 +657,13 @@ def _as_accounts(value: object) -> tuple[SEPAAccount, ...]:
             raise FinTSMappingError("Kontenabruf lieferte ein unbekanntes Konto.")
         accounts.append(account)
     return tuple(accounts)
+
+
+def _as_mapping(value: object) -> dict[str, Any]:
+    """Prueft ein Ergebnis der Wizard-Abrufe als Mapping (F-KTO-05a)."""
+    if not isinstance(value, Mapping):
+        raise FinTSMappingError("Der Abruf lieferte kein Mapping.")
+    return dict(value)
 
 
 def _stream_pair(value: object) -> tuple[list[bytes | bytearray | str], list[bytes | bytearray | str]]:

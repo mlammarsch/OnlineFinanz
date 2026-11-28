@@ -141,6 +141,8 @@ def test_happy_path_log_contains_read_only_operations() -> None:
     client.get_balance(account)
     client.get_transactions_xml(account)
     client.get_transactions(account)
+    client.get_information()
+    client.get_tan_mechanisms()
 
     log = client.method_log
     assert set(log) == fints_fake.FAKE_READ_OPERATIONS

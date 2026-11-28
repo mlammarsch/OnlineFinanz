@@ -235,7 +235,14 @@ def test_sync_account_data_ist_tief_unveraenderlich() -> None:
 
 def test_read_only_operations_whitelist_enthaelt_nur_lesende_operationen() -> None:
     """D2: Whitelist enthaelt genau die lesenden Abrufe und keine Schreiboperation."""
-    expected = {"get_sepa_accounts", "get_balance", "get_transactions_xml", "get_transactions"}
+    expected = {
+        "get_sepa_accounts",
+        "get_balance",
+        "get_transactions_xml",
+        "get_transactions",
+        "get_information",
+        "get_tan_mechanisms",
+    }
     forbidden = {"sepa_transfer", "simple_sepa_transfer", "sepa_debit", "simple_sepa_debit", "send_tan"}
 
     assert isinstance(READ_ONLY_OPERATIONS, frozenset)

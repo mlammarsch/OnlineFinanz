@@ -22,6 +22,7 @@ from fastapi import APIRouter
 
 from finue.api import (
     accounts,
+    bank_accesses,
     banks,
     events,
     export,
@@ -59,6 +60,9 @@ def build_protected_router() -> APIRouter:
     protected.include_router(groups.router)
     # Abstimmungsuebersicht je Konto und Gruppe (T-095, F-ABS-03).
     protected.include_router(reconciliation.router)
+    # FinTS-Anlage-Assistent: Bank-Lookup, Bankzugang und Kontenabruf (T-091, F-KTO-05a).
+    # Vor dem Banken-Router, damit /api/banks/lookup nicht von /api/banks/{bank_id} verdeckt wird.
+    protected.include_router(bank_accesses.router)
     # Banken-Stammdaten und Icon-Upload/-Auslieferung (T-090, F-KTO-10/11).
     protected.include_router(banks.router)
     protected.include_router(icons.router)

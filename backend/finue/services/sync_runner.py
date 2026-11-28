@@ -34,6 +34,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 from finue.services.events import EventBus, EventValue
+from finue.services.fints_wizard import DiscoveryResult
 from finue.services.sync_registry import SyncEvent, SyncJob, SyncStatus
 from finue.services.sync_service import (
     AccountSyncResult,
@@ -79,6 +80,9 @@ class SyncJobState:
     approval_polls: int
     started_at: datetime
     message: str | None = None
+    #: Ergebnis des Anlage-Assistenten (F-KTO-05a); nur bei einem Kontenabruf
+    #: gesetzt und ohne Geheimnisse (N-SEC-02).
+    discovery: DiscoveryResult | None = None
 
     @property
     def active(self) -> bool:
@@ -98,6 +102,7 @@ class _TrackedJob:
     tan_kind: str | None = None
     approval_polls: int = 0
     message: str | None = None
+    discovery: DiscoveryResult | None = None
     thread: threading.Thread | None = field(default=None, repr=False)
 
     @property
@@ -175,6 +180,29 @@ class SyncRunner:
             target=self._run_initial,
             args=(tracked, bank_access_id, account_ids, pin),
             name=f"sync-{job.id}",
+            daemon=True,
+        )
+        tracked.thread = thread
+        thread.start()
+        return self._snapshot(tracked)
+
+    def start_discovery(self, bank_access_id: int, *, pin: str | None = None) -> SyncJobState:
+        """Stoesst den Kontenabruf des Assistenten an (F-KTO-05a).
+
+        Wie :meth:`start` laeuft der Abruf in einem Daemon-Thread; die
+        Momentaufnahme traegt nach Abschluss die Kontenliste samt TAN-Verfahren.
+        Laeuft fuer den Zugang bereits ein Job, wird dieser zurueckgegeben
+        (F-SYN-11).
+        """
+
+        job, created = self._service.claim_sync(bank_access_id)
+        if not created:
+            return self._snapshot(self._existing(job))
+        tracked = self._register(job)
+        thread = threading.Thread(
+            target=self._run_discovery_initial,
+            args=(tracked, bank_access_id, pin),
+            name=f"discover-{job.id}",
             daemon=True,
         )
         tracked.thread = thread
@@ -300,6 +328,28 @@ class SyncRunner:
             return
         self._apply_result(tracked, result)
 
+    def _run_discovery_initial(
+        self,
+        tracked: _TrackedJob,
+        bank_access_id: int,
+        pin: str | None,
+    ) -> None:
+        """Fuehrt den beanspruchten Kontenabruf im Hintergrund aus (F-KTO-05a)."""
+
+        try:
+            result = self._service.start_claimed_discovery(
+                tracked.job,
+                bank_access_id=bank_access_id,
+                supplied_pin=pin,
+            )
+        except SyncTanConflictError:
+            self._mark_failed(tracked, _START_FAILED_MESSAGE)
+            return
+        except Exception as exc:
+            self._mark_failed(tracked, _safe_failure_message(exc))
+            return
+        self._apply_result(tracked, result)
+
     def _mark_failed(self, tracked: _TrackedJob, message: str) -> None:
         with self._lock:
             tracked.status = "fehler"
@@ -314,6 +364,11 @@ class SyncRunner:
             tracked.challenge = challenge.challenge if challenge is not None else None
             tracked.tan_kind = challenge.kind if challenge is not None else None
             tracked.approval_polls = result.approval_polls
+            tracked.discovery = result.discovery
+            # F-SYN-05: Nur ein gesetzter Klartext (Assistent) ersetzt die
+            # Meldung; ein Sync-Ergebnis traegt keine Gesamtmeldung.
+            if result.message is not None:
+                tracked.message = result.message
 
     def _register(self, job: SyncJob) -> _TrackedJob:
         tracked = _TrackedJob(job=job)
@@ -368,6 +423,7 @@ class SyncRunner:
                 approval_polls=tracked.approval_polls,
                 started_at=tracked.job.started_at,
                 message=tracked.message,
+                discovery=tracked.discovery,
             )
 
     # -- Ereignisse ---------------------------------------------------------

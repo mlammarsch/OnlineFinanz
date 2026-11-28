@@ -85,12 +85,14 @@ __all__ = [
     "WRITE_OPERATIONS",
     "FakeBankError",
     "FakeCamtEntry",
+    "FakeAccountInfo",
     "FakeFinTS3PinTanClient",
     "FakePin",
     "FakeScript",
     "FakeStandingOrder",
     "FakeTanChallenge",
     "FakeTanFlow",
+    "FakeTanMechanism",
     "fake_accounts",
     "fake_balance",
     "fake_camt_xml",
@@ -128,6 +130,9 @@ FAKE_READ_OPERATIONS: Final[frozenset[str]] = frozenset(
         "get_balance",
         "get_transactions_xml",
         "get_transactions",
+        # Anlage-Assistent (F-KTO-05a): Bank-/Kontoinformationen und TAN-Verfahren.
+        "get_information",
+        "get_tan_mechanisms",
     }
 )
 
@@ -242,6 +247,26 @@ class FakeCamtEntry:
 
 
 @dataclass(frozen=True, slots=True)
+class FakeAccountInfo:
+    """Erfundene Kontoinformation (HIUPD) fuer den Anlage-Assistenten (F-KTO-05a)."""
+
+    iban: str
+    account_type: str
+    product_name: str | None = None
+    owner_name: str | None = None
+    currency: str = "EUR"
+
+
+@dataclass(frozen=True, slots=True)
+class FakeTanMechanism:
+    """Erfundenes TAN-Verfahren (HITANS) fuer den Assistenten (F-KTO-05a)."""
+
+    security_function: str
+    name: str
+    decoupled: bool = False
+
+
+@dataclass(frozen=True, slots=True)
 class FakeScript:
     """Vollstaendiges Dialogskript fuer einen Fake-Client.
 
@@ -250,6 +275,10 @@ class FakeScript:
     ein :class:`FakeBankError`. Ohne Eintrag liefert ``get_transactions`` eine
     leere Liste (Saldo ohne Umsaetze). camt-Streams und Vormerkungen sind
     direkte Antwortdaten, weil die Bibliothek sie ohne TAN liefert.
+
+    ``bank_name``, ``account_information`` und ``tan_mechanisms`` bedienen den
+    rein lesenden Anlage-Assistenten (``get_information``/``get_tan_mechanisms``,
+    F-KTO-05a).
     """
 
     name: str
@@ -261,6 +290,10 @@ class FakeScript:
     camt_pending: tuple[bytes, ...] = ()
     orders_state: OrderState = "unsupported"
     orders: tuple[FakeStandingOrder, ...] = ()
+    accounts_outcome: tuple[Any, ...] = ()
+    bank_name: str | None = None
+    account_information: tuple[FakeAccountInfo, ...] = ()
+    tan_mechanisms: tuple[FakeTanMechanism, ...] = ()
 
     def __post_init__(self) -> None:
         if self.orders_state == "available" and not self.orders:
@@ -791,6 +824,7 @@ class FakeFinTS3PinTanClient:
         self._calls: list[str] = []
         self._balance_index = 0
         self._transactions_index = 0
+        self._accounts_index = 0
         self._pending_tan: FakeTanFlow | None = None
         self._tan_index = 0
         self._paused = False
@@ -871,9 +905,50 @@ class FakeFinTS3PinTanClient:
 
     # -- Lesende Bankoperationen -------------------------------------------
 
-    def get_sepa_accounts(self) -> list[SEPAAccount]:
+    def get_sepa_accounts(self) -> Any:
+        """Konten; optional ueber ``accounts_outcome`` skriptgesteuert (TAN/Fehler).
+
+        Ohne ``accounts_outcome`` liefert der Aufruf direkt die Skript-Konten
+        (unveraendertes Verhalten). Mit Eintraegen werden sie wie Saldo und
+        Umsaetze der Reihe nach verbraucht, damit auch der Anlage-Assistent
+        (F-KTO-05a) eine TAN-Pause oder einen Bankfehler testen kann.
+        """
+        if self._script.accounts_outcome:
+            return self._next_outcome("get_sepa_accounts", self._script.accounts_outcome, "_accounts_index")
         self._log("get_sepa_accounts")
         return list(self._script.accounts)
+
+    def get_information(self) -> dict[str, Any]:
+        """Liefert Bank- und Kontoinformationen im Bibliotheksformat (F-KTO-05a)."""
+        self._log("get_information")
+        accounts: list[dict[str, Any]] = []
+        for info in self._script.account_information:
+            owners = [info.owner_name] if info.owner_name else []
+            accounts.append(
+                {
+                    "iban": info.iban,
+                    "type": info.account_type,
+                    "product_name": info.product_name,
+                    "owner_name": owners,
+                    "currency": info.currency,
+                }
+            )
+        bank: dict[str, Any] = {}
+        if self._script.bank_name is not None:
+            bank["name"] = self._script.bank_name
+        return {"bank": bank, "accounts": accounts, "auth": {}}
+
+    def get_tan_mechanisms(self) -> dict[str, Any]:
+        """Liefert die angebotenen TAN-Verfahren im Bibliotheksformat (F-KTO-05a)."""
+        self._log("get_tan_mechanisms")
+        mechanisms: dict[str, Any] = {}
+        for mechanism in self._script.tan_mechanisms:
+            mechanisms[mechanism.security_function] = SimpleNamespace(
+                security_function=mechanism.security_function,
+                name=mechanism.name,
+                decoupled=mechanism.decoupled,
+            )
+        return mechanisms
 
     def get_balance(self, account: SEPAAccount) -> Any:
         self._check_account(account)

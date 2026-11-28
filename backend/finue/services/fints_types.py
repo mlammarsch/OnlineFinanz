@@ -63,6 +63,10 @@ READ_ONLY_OPERATIONS: Final[frozenset[str]] = frozenset(
         "get_balance",  # HKSAL: Saldo abrufen
         "get_transactions_xml",  # HKCAZ: camt-Umsaetze abrufen
         "get_transactions",  # HKKAZ: MT940-Umsaetze abrufen
+        # Anlage-Assistent (F-KTO-05a): Bank- und Kontoinformationen (HIBPA/
+        # HIUPD) sowie die angebotenen TAN-Verfahren (HITANS) rein lesend.
+        "get_information",  # HIBPA/HIUPD: Bank- und Kontoinformationen
+        "get_tan_mechanisms",  # HITANS: angebotene TAN-Verfahren
     }
 )
 

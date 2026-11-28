@@ -187,6 +187,27 @@ CONTRACT: dict[str, RouteContract] = {
         kind="setzen",
         reason="Batch-Aktion mit Ergebnis je Buchung, Konflikte brechen nicht ab (F-CON-01/02/03, F-ABS-02)",
     ),
+    "/api/duplicates": RouteContract(
+        frozenset({"GET"}),
+        kind="lesen",
+        reason="Offene Verdachtspaare je Konto/Gruppe mit Vorschlag der bleibenden Buchung (F-DUP-03/05)",
+        is_list=True,
+    ),
+    "/api/duplicates/merge": RouteContract(
+        frozenset({"POST"}),
+        kind="version",
+        reason="Verdachtspaar zusammenfuehren mit Versionspruefung beider Buchungen (F-DUP-05, F-CON-02)",
+    ),
+    "/api/duplicates/{decision_id}/undo": RouteContract(
+        frozenset({"POST"}),
+        kind="aktion",
+        reason="Zusammenfuehrung rueckgaengig machen, 409 bei seither geaenderter Buchung (F-DUP-05, F-CON-02)",
+    ),
+    "/api/duplicates/ignore": RouteContract(
+        frozenset({"POST"}),
+        kind="aktion",
+        reason="Paar als keine Dublette speichern, nicht erneut vorschlagen (F-DUP-05)",
+    ),
     "/api/export": RouteContract(
         frozenset({"POST"}),
         kind="aktion",

@@ -98,6 +98,11 @@ from finue.services.fints_types import (
     TanTimeoutError,
     TransactionStatus,
 )
+from finue.services.fints_wizard import (
+    DiscoveryResult,
+    build_discovery_result,
+    existing_ibans,
+)
 from finue.services.pin_crypto import PinCipher
 from finue.services.standing_orders import replace_standing_orders
 from finue.services.sync_persist import (
@@ -140,6 +145,11 @@ SyncOverallStatus = Literal[
 ]
 
 _ACCOUNT_STATUSES: Final[frozenset[str]] = frozenset({"erfolgreich", "fehler", "abgebrochen", "zeitueberschreitung"})
+
+#: Art eines Laufs: ein Konto-Sync oder der Kontenabruf des Assistenten
+#: (F-KTO-05a). Beide nutzen dieselbe Registry, denselben TAN-Pfad und dieselben
+#: Job-Endpunkte.
+RunKind = Literal["sync", "discover"]
 
 _ResultT = TypeVar("_ResultT")
 
@@ -213,6 +223,11 @@ class SyncResult:
     account_results: tuple[AccountSyncResult, ...] = ()
     challenge: TanChallenge | None = None
     approval_polls: int = 0
+    #: Ergebnis des Anlage-Assistenten (F-KTO-05a); nur bei einem Kontenabruf
+    #: gesetzt. Enthaelt keine Geheimnisse (N-SEC-02).
+    discovery: DiscoveryResult | None = None
+    #: Klartext zum Gesamtfehler eines Laufs (F-SYN-05), sonst ``None``.
+    message: str | None = None
 
     @property
     def job_id(self) -> str:
@@ -236,9 +251,12 @@ class _RunContext:
     bank_access_id: int
     requested_ids: tuple[int, ...] | None
     job_group_id: str | None
+    kind: RunKind = "sync"
     generator: Generator[TanHandoff[Any], str | None, None] | None = None
     session: Session | None = None
     results: list[AccountSyncResult] = field(default_factory=list)
+    discovery: DiscoveryResult | None = None
+    error_message: str | None = None
     account_ids: tuple[int, ...] = ()
     index: int = 0
     current_account_id: int | None = None
@@ -487,6 +505,65 @@ class SyncService:
             return self._interrupt(context, SyncCancelledError(), "abgebrochen")
         return self._pause_result(context, handoff)
 
+    def start_discovery(
+        self,
+        bank_access_id: int,
+        supplied_pin: str | None = None,
+    ) -> SyncResult:
+        """Startet den Kontenabruf des Anlage-Assistenten (F-KTO-05a).
+
+        Der Abruf nutzt dieselbe Zugangssperre und denselben TAN-Pfad wie ein
+        Sync (F-SYN-11, F-SYN-04): Laeuft fuer den Zugang bereits ein Job, wird
+        dieser unveraendert zurueckgegeben. Verlangt die Bank eine TAN, endet
+        der Aufruf mit ``status='wartet_auf_tan'`` und der Challenge; die
+        Fortsetzung laeuft ueber die Job-Endpunkte (T-099).
+        """
+        job, created = self.claim_sync(bank_access_id)
+        if not created:
+            return SyncResult(job=job, reused=True, status="laeuft")
+        return self.start_claimed_discovery(job, bank_access_id=bank_access_id, supplied_pin=supplied_pin)
+
+    def start_claimed_discovery(
+        self,
+        job: SyncJob,
+        *,
+        bank_access_id: int,
+        supplied_pin: str | None = None,
+    ) -> SyncResult:
+        """Fuehrt einen bereits beanspruchten Kontenabruf aus (F-KTO-05a).
+
+        Gegenstueck zu :meth:`start_claimed_sync` fuer den Hintergrund-Runner
+        (T-112, D3). Am Ende traegt das Ergebnis die Kontenliste samt
+        TAN-Verfahren (:class:`~finue.services.fints_wizard.DiscoveryResult`).
+        """
+        checked_access_id = _checked_id(bank_access_id, "bank_access_id")
+        context = _RunContext(
+            job=job,
+            bank_access_id=checked_access_id,
+            requested_ids=None,
+            job_group_id=None,
+            kind="discover",
+        )
+        generator = self._run_discovery(context, supplied_pin)
+        context.generator = generator
+        with self._lock:
+            self._runs[job.id] = context
+        try:
+            handoff = next(generator)
+        except StopIteration:
+            return self._finish_completed(context)
+        except SyncCancelledError:
+            return self._finish_interrupted_result(context, "abgebrochen")
+        except TanTimeoutError:
+            return self._finish_interrupted_result(context, "zeitueberschreitung")
+        except BaseException:
+            self._forget(context)
+            self._release_registry(context, "fehler")
+            raise
+        if context.job.abort_requested:
+            return self._interrupt(context, SyncCancelledError(), "abgebrochen")
+        return self._pause_result(context, handoff)
+
     # -- TAN und Abbruch ----------------------------------------------------
 
     def submit_tan(self, job_id: str, tan: str) -> SyncResult:
@@ -701,6 +778,72 @@ class SyncService:
             self._open_session(context)
             try:
                 self._finalize_interrupted(context, exc)
+            finally:
+                self._close_session(context)
+            raise
+        finally:
+            if holder is not None:
+                holder.close()
+            self._close_session(context)
+
+    def _run_discovery(
+        self,
+        context: _RunContext,
+        supplied_pin: str | None,
+    ) -> Generator[TanHandoff[Any], str | None, None]:
+        """Fuehrt den Kontenabruf des Assistenten aus (F-KTO-05a).
+
+        Liest rein lesend SEPA-Konten, Kontoinformationen und die angebotenen
+        TAN-Verfahren. Jeder Schritt laeuft ueber :meth:`_step`, damit eine
+        TAN-Abfrage wie bei einem Sync pausiert und ueber die Job-Endpunkte
+        fortgesetzt wird (F-SYN-04). Es entstehen keine Protokollzeilen und es
+        werden keine Kontodaten gespeichert. Nach den Abrufen markiert der Lauf
+        bereits vorhandene IBANs (Kennzeichen "bereits angelegt").
+        """
+
+        session = self._open_session(context)
+        holder: _GatewayHolder | None = None
+        try:
+            access = session.get(BankAccess, context.bank_access_id)
+            if access is None:
+                raise LookupError(f"Bankzugang {context.bank_access_id} nicht gefunden.")
+            context.blz = access.bank.blz
+            pin = resolve_pin(access, supplied_pin, cipher=self._cipher)
+            holder = _GatewayHolder(self, context.bank_access_id, pin)
+            # Kein ORM-Objekt und keine Session ueber eine TAN-Pause tragen.
+            del access, session
+
+            try:
+                sepa_accounts = yield from self._step(context, holder, None, lambda gateway: gateway.get_accounts())
+                information = yield from self._step(context, holder, None, lambda gateway: gateway.get_information())
+                mechanisms = yield from self._step(context, holder, None, lambda gateway: gateway.get_tan_mechanisms())
+            except (SyncCancelledError, TanTimeoutError):
+                raise
+            except FinTSBankError as exc:
+                # F-SYN-05: Der Klartext der Bankfehlerklasse ist geheimnisfrei
+                # (z. B. "Die Bank hat die PIN abgelehnt.") und geht in die
+                # Job-Meldung; weitere Fehler erhalten einen festen Text.
+                context.error_message = str(exc)
+                context.discovery = None
+                return
+            except Exception:
+                context.error_message = "Der Kontenabruf ist fehlgeschlagen."
+                context.discovery = None
+                return
+
+            known = existing_ibans(self._require_session(context))
+            context.discovery = build_discovery_result(
+                sepa_accounts=sepa_accounts,
+                information=information,
+                mechanisms=mechanisms,
+                known_ibans=known,
+            )
+        except (SyncCancelledError, TanTimeoutError):
+            # An der Pause ist die Session geschlossen; fuer die Freigabe der
+            # Sperre braucht der Lauf keine Session (N-DB-04).
+            self._open_session(context)
+            try:
+                pass
             finally:
                 self._close_session(context)
             raise
@@ -1107,7 +1250,16 @@ class SyncService:
         )
 
     def _finish_completed(self, context: _RunContext) -> SyncResult:
-        overall = _overall_status(context.results)
+        discovery: DiscoveryResult | None = None
+        message: str | None = None
+        if context.kind == "discover":
+            # F-KTO-05a: Erfolg genau dann, wenn der Kontenabruf eine Liste
+            # ergeben hat; sonst traegt die Job-Meldung den Klartext (F-SYN-05).
+            overall: SyncOverallStatus = "erfolgreich" if context.discovery is not None else "fehler"
+            discovery = context.discovery
+            message = None if context.discovery is not None else context.error_message
+        else:
+            overall = _overall_status(context.results)
         if overall == "fehler":
             self._registry.fail(context.job.id)
         else:
@@ -1119,6 +1271,8 @@ class SyncService:
             status=overall,
             account_results=tuple(context.results),
             approval_polls=context.approval_polls,
+            discovery=discovery,
+            message=message,
         )
 
     def _finish_interrupted_result(
