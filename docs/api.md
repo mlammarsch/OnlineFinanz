@@ -518,6 +518,93 @@ F-CON-01), `note_set` ersetzt, `note_append` haengt atomar an (F-CON-01); je
 tatsaechlicher Aenderung entstehen ein Audit-Eintrag und `transaction.changed`
 (F-MCP-09, F-CON-04).
 
+## Dublettenaufloesung (F-DUP-03/04/05)
+
+Die Fachlogik liegt in `backend/finue/services/duplicate_resolution.py` (MCP
+nutzt dieselbe Schicht, D10); der Router `backend/finue/api/duplicates.py`
+uebersetzt nur HTTP.
+
+| Methode | Pfad | Zweck |
+|---|---|---|
+| GET | `/api/duplicates` | Offene Verdachtspaare eines Kontos (`account_id`) oder einer Gruppe (`group_id`) mit Vorschlag (F-DUP-03) |
+| POST | `/api/duplicates/merge` | Paar zusammenfuehren, mit `versions` fuer beide Buchungen (F-DUP-05, F-CON-02) |
+| POST | `/api/duplicates/{decision_id}/undo` | Zusammenfuehren rueckgaengig machen (F-DUP-05) |
+| POST | `/api/duplicates/ignore` | Paar als "keine Dublette" speichern (F-DUP-05) |
+
+### Offene Verdachtspaare (F-DUP-03, F-DUP-05)
+
+`GET /api/duplicates` verlangt **genau** einen Bereich (`account_id` **oder**
+`group_id`) und listet gebuchte, nicht zusammengefuehrte Buchungen, die zum
+selben Konto gehoeren, denselben Betrag tragen, Buchungstage innerhalb von
++/- 2 Tagen haben und einen abweichenden normalisierten Text (Gegenpartei oder
+Verwendungszweck) aufweisen. Vormerkungen nehmen nicht teil (F-DUP-04), und
+Paare mit einer Entscheidung (`zusammengefuehrt` oder `verworfen`) fehlen; die
+Aufloesung erfolgt **nie automatisch** (F-DUP-05).
+
+```json
+{
+  "items": [
+    {
+      "account_id": 1,
+      "suggested_keep_id": 42,
+      "reason": "fints",
+      "keep": { "id": 42, "merged": false, "version": 1, "…": "…" },
+      "other": { "id": 43, "merged": false, "version": 1, "…": "…" }
+    }
+  ],
+  "next_cursor": null
+}
+```
+
+`suggested_keep_id` ist die vorgeschlagene bleibende Buchung: `reason` ist
+`"fints"` (FinTS vor Datei) oder `"alter"` (sonst die aeltere). `keep`/`other`
+tragen die Anzeigefelder und je Buchung `version` (F-CON-02). Paginiert wie alle
+Listen (`limit`, `cursor`, SPEC F-MCP-11).
+
+### Zusammenfuehren (F-DUP-05, F-CON-01/02)
+
+`POST /api/duplicates/merge` mit
+`{ "keep_id": 42, "other_id": 43, "versions": { "42": 1, "43": 1 }, "external_ref_choice": null }`.
+`versions` ist **Pflicht** und traegt fuer **beide** Buchungen die bekannte
+Version; passt eine nicht, liefert der Server 409 `conflict` mit dem aktuellen
+Stand der betroffenen Buchung als `current`.
+
+- Die bleibende Buchung behaelt alle Bankfelder (Konto, Status, Datum, Betrag,
+  Waehrung, Gegenpartei, Zweck, IBAN, Herkunft).
+- Die Notizen werden zusammengefuehrt (eigener Text vorne, beigesteuerter Text
+  der anderen Buchung mit Herkunftsvermerk `[FinTS]`/`[CSV]`/`[JSON]` in neuer
+  Zeile).
+- "geprueft"/"abgestimmt" sind gesetzt, wenn sie bei einer gesetzt waren; ein
+  bereits gesetztes Kennzeichen der bleibenden Buchung bleibt unveraendert
+  (Wert, Zeitpunkt, Herkunft; F-CON-01).
+- Die externe Referenz wird uebernommen. Tragen beide eine **verschiedene**
+  Referenz, ist `external_ref_choice` **Pflicht** (422 `domain_error` ohne
+  gueltige Wahl).
+- Die andere Buchung wird nur als `merged=true` markiert und fehlt danach in
+  Liste, Suche, Summen, Salden, Abstimmung und Export (F-DUP-04); Fingerprint
+  und Vorkommen-Index bleiben belegt.
+- Es entstehen eine `DuplicateDecision` (`zusammengefuehrt`) und ein
+  Audit-Eintrag (`duplicate_decision`, Aktion `merged`) mit dem Vorher-Stand
+  fuer das Rueckgaengigmachen (F-MCP-09). Ereignis: `duplicate.changed`.
+
+### Rueckgaengig (F-DUP-05, F-CON-02)
+
+`POST /api/duplicates/{decision_id}/undo` stellt beide Buchungen exakt wieder
+her (Notiz, Kennzeichen mit Zeitpunkt und Herkunft, externe Referenz, `merged`)
+und hebt die Entscheidung auf; das Paar erscheint danach wieder als offen unter
+`GET /api/duplicates`. Wurde die bleibende Buchung seither geaendert (abweichende
+Version), liefert der Server 409 `conflict` mit dem aktuellen Stand als
+`current`. Ereignis: `duplicate.changed`.
+
+### Ignorieren (F-DUP-05)
+
+`POST /api/duplicates/ignore` mit `{ "keep_id": 42, "other_id": 43 }` speichert
+"keine Dublette" (`DuplicateDecision` `verworfen`) und aendert den Bestand
+nicht. Das Paar wird danach weder in der Liste noch nach erneutem Import oder
+Sync erneut vorgeschlagen (die Bestandszählung des Imports beruecksichtigt die
+Entscheidung). `versions` ist optional; sind Werte enthalten, prueft der Server
+optimistisch (F-CON-02). Ereignis: `duplicate.changed`.
+
 ## Suche (F-SUC-01..07, F-ABS-04/05)
 
 `GET /api/search` sucht Buchungen ueber den gemeinsamen Baustein

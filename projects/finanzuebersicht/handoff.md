@@ -2,6 +2,38 @@
 
 ## Next actions
 
+- **T-096 umgesetzt (M4 Welle 5, Aufloesung von Verdachtsdubletten, F-DUP-03/04/05,
+  F-CON-01/02, Risiko medium).** Claim gezielt per `task-set T-096 running` (der
+  generische `task-claim` traf in dieser Welle wiederholt die falsche ID). Konflikt-Check:
+  Ja (nur Dublettenaufloesung; keine Aenderung an Suche, Export, Sync oder Kontenloeschung
+  ausser der Router-Zeile; keine Migration). Neu: `backend/finue/services/duplicate_resolution.py`
+  (Liste offener Verdachtspaare je Konto/Gruppe mit Vorschlag FinTS-vor-Datei/aelteste,
+  `merge_duplicates`, `undo_merge`, `ignore_duplicates`; Paar-Eindeutigkeit richtungsabhaengig),
+  `backend/finue/api/duplicates.py` (`GET /api/duplicates`, `POST /api/duplicates/merge`,
+  `POST /api/duplicates/{decision_id}/undo`, `POST /api/duplicates/ignore`), Router-Zeile in
+  `api/routes.py`, vier Vertragseintraege in `tests/unit/test_api_contract.py`, Doku `docs/api.md`
+  (Abschnitt "Dublettenaufloesung"), `decisions.md` (T-096), `improve.md`, `tests/unit/test_duplicate_resolution.py`
+  (32 Tests). Merge: Bankfelder des Bleibers unveraendert, Notizen mit Herkunftsvermerk, Kennzeichen
+  gesetzt wenn bei einer gesetzt (F-CON-01), externe Referenz uebernommen bzw. Wahl Pflicht (422),
+  andere Buchung nur `merged=true` (unsichtbar in Liste/Suche/Summen/Salden/Abstimmung/Export,
+  Fingerprint/Index bleiben); `DuplicateDecision` + Audit `duplicate_decision`/`merged` mit
+  Vorher-Stand; `versions` Pflicht -> 409 mit `current`. Undo stellt beide exakt her (409 wenn der
+  Bleiber seither geaendert). Ignore speichert `verworfen`, Re-Import/Sync schlaegt nicht erneut vor.
+  Ereignis `duplicate.changed` nur mit IDs. Evidenz (Verifikationsplan gruen): `uv run pytest
+  tests/unit/test_duplicate_resolution.py -q` = 32 passed (mit Vertragstest 45 passed); `ruff check
+  backend tests scripts` = All checks passed; `ruff format --check` = 210 Dateien; `mypy backend` =
+  Success (101). Zusatz: `tests/unit` = 1597 passed/1 skipped. Artefakt `artifacts/T-096-build.md`.
+  **Offen:** Medium-Risiko - unabhaengige `verifier`-Pruefung (Review-Checkliste AGENTS.md) folgt;
+  `task-done` erst danach. Kein Push; fremde Welle-Arbeit (T-091) unangetastet.
+  **Bekannt/aussen (nicht durch T-096 verursacht):** Der parallele T-091-Commit `ed8ed54`
+  nahm aus dem gemeinsamen Arbeitsbaum die T-096-Vertragseintraege in `tests/unit/test_api_contract.py`
+  mit, verlor dabei aber seine **eigenen** fuenf Eintraege (`/api/banks/lookup` sowie
+  `/api/bank-accesses`, `/api/bank-accesses/{access_id}`, `.../discover`, `.../accounts`), weil beide
+  Builder dieselbe Datei bearbeiteten. Dadurch ist `pytest tests/unit/test_api_contract.py`
+  (`test_alle_api_routen_sind_registriert`) rot: fuenf registrierte T-091-Routen haben keinen
+  Vertragseintrag. Bitte in T-091 wiederherstellen (Eintraege aus dem T-091-Ursprungsdump). Die
+  T-096-Routen (`/api/duplicates`, `.../merge`, `.../{decision_id}/undo`, `.../ignore`) sind vorhanden.
+
 - **T-101 umgesetzt (M4 Welle 4b, Server-Sent Events `/api/events`, F-CON-04, F-SYN-04,
   N-SEC-02/03, D3; Risiko medium).** Claim gezielt per `task-set T-101 running` (der generische
   `task-claim` traf in dieser Welle wiederholt die falsche ID). Konflikt-Check: Ja (nur SSE; keine
@@ -697,3 +729,5 @@
 
 - **T-100 (builder) umgesetzt: REST fuer Datei-Import, Importvorlagen, Lauf-Protokoll und lesende Auftraege (F-IMP-01..08, F-AUF-02/04/05, F-CON-02).** Neue Services `backend/finue/services/import_uploads.py` (UploadStore, nur RAM, Token+TTL 300 s, max 32) und `backend/finue/services/import_detect.py` (CSV/fremdes JSON/eigenes JSON, Formatvorschlag mit Korrekturwerten F-IMP-02); neue Router `backend/finue/api/imports.py` (`POST /api/import/detect|preview|execute`, `GET /api/import-runs`), `backend/finue/api/import_templates.py` (CRUD + Vorschlag je Konto, Versionspruefung) und `backend/finue/api/standing_orders.py` (`GET /api/accounts/{id}/standing-orders`, `GET /api/standing-orders`, rein lesend). `services/import_templates.py` um `TemplateVersionConflict`/`expected_version` erweitert, Container/Main um `upload_store`, Config um `api_import_upload_ttl_seconds`. Ereignisse `import.finished` und `transaction.changed`. Tests `tests/unit/test_import_api.py` (16) und `tests/unit/test_orders_api.py` (7) gruen; Vertragstabelle um 8 Routen erweitert, `docs/api.md`/`decisions.md` ergaenzt. Verifikationsplan am Tip gruen (Zieltests 23, `ruff check`, `ruff format --check`, `mypy backend`). Risiko medium: unabhaengige Verifier-Pruefung folgt, `task-done` bewusst dem Verifier ueberlassen (Status bleibt running). Shared-Files `routes.py`/`test_api_contract.py`/`docs/api.md`/`decisions.md`/`config.py` tragen neben meinen Zeilen bereits committete Zeilen von T-093/T-097; im T-100-Commit integriert. Naechster Schritt: verifier-Pruefung T-100 gegen Definition of Done und Review-Checkliste.
 
+
+- **T-091 (builder) umgesetzt: FinTS-Anlage-Assistent im Backend (F-KTO-05a, F-SYN-05, N-SEC-01..03).** Neuer Service `backend/finue/services/fints_wizard.py` (BLZ-Lookup, IO-freie Uebersetzung SEPA/HIUPD/HITANS -> Anzeige, Konto-Anlage ohne Doppel-IBAN) und Router `backend/finue/api/bank_accesses.py` (`GET /api/banks/lookup`, `POST /api/bank-accesses`, `PATCH /api/bank-accesses/{id}`, `POST /api/bank-accesses/{id}/discover`, `POST /api/bank-accesses/{id}/accounts`). Der Kontenabruf nutzt die Sync-Naht: `SyncService.start_discovery`/`start_claimed_discovery` mit neuem `RunKind="discover"` (Registry-Sperre je Zugang, TAN-Pause/Resume ueber die T-099-Job-Endpunkte, kein ImportRun-Protokoll), Ergebnis im Job-Feld `discovery`; `fints_client`/`fints_types` um die lesenden Operationen `get_information`/`get_tan_mechanisms` erweitert (Read-only-Guard gruen). Fake-Fixtures um `get_information`/`get_tan_mechanisms` und `accounts_outcome` erweitert. Tests `tests/unit/test_fints_wizard.py` (13: ohne/mit TAN, falscher PIN mit Klartext, bereits angelegtes Konto, Leckagetest, Read-only). Verifikationsplan am Tip gruen: `pytest tests/unit/test_fints_wizard.py` 13 passed; `validate.py m3` bestanden (1597 unit passed/1 skipped, smoke, readonly, integration); `ruff check`/`ruff format --check`/`mypy backend` gruen. Commit `ed8ed54` (nur eigene Dateien; `routes.py` als HEAD-Blob hunkweise gestaged, weil ein Parallel-Builder die Ergänzung einmal ueberschrieben hatte). Naechster Schritt: unabhaengige verifier-Pruefung, dann `hx.py task-done T-091`.
