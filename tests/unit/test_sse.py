@@ -11,10 +11,13 @@ die Route (Kopfzeilen, Auth-Naht, Nachlieferung) und die Sicherheit der Nutzlast
 from __future__ import annotations
 
 import asyncio
+import sys
+import threading
 import time
 from collections.abc import AsyncIterator, Callable, Iterator
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
 from finue.config import Settings
@@ -229,6 +232,115 @@ def test_disconnect_raeumt_auf_ohne_leck() -> None:
     assert connection.closed is True
     bus.emit("transaction.changed", account=1)
     assert connection.take_nowait() is None
+    broadcaster.close()
+    assert bus.subscriber_count == 0
+
+
+def test_parallele_emits_liefern_monotone_ids_je_client() -> None:
+    """Parallele ``emit``-Aufrufe liefern je Client streng steigende, lueckenlose IDs (F-CON-04).
+
+    Der Test verkuerzt das GIL-Umschaltintervall, damit ein Thread genau im
+    Race-Fenster zwischen ID-Vergabe und Zustellung verdraengt werden kann. Wird
+    Zustellung nicht unter demselben Lock wie die ID-Vergabe serialisiert, sieht
+    ein Client eine hoehere ID vor einer niedrigeren und der Vergleich schlaegt
+    fehl.
+    """
+
+    bus = EventBus()
+    broadcaster = SseBroadcaster(bus, queue_size=5000, history_size=5000)
+    first = broadcaster.open()
+    second = broadcaster.open()
+
+    workers_count = 4
+    per_worker = 200
+    total = workers_count * per_worker
+    start = threading.Barrier(workers_count)
+
+    def emitter(worker: int) -> None:
+        start.wait(timeout=5.0)
+        for index in range(per_worker):
+            bus.emit("transaction.changed", account=worker, transaction=index)
+
+    workers = [threading.Thread(target=emitter, args=(worker,)) for worker in range(workers_count)]
+    previous_interval = sys.getswitchinterval()
+    sys.setswitchinterval(1e-6)
+    try:
+        for worker in workers:
+            worker.start()
+        for worker in workers:
+            worker.join(timeout=10.0)
+    finally:
+        sys.setswitchinterval(previous_interval)
+
+    assert all(not worker.is_alive() for worker in workers)
+
+    expected = list(range(1, total + 1))
+    for connection in (first, second):
+        ids = [frame.event_id for frame in _drain(connection)]
+        assert ids == expected
+        assert all(left < right for left, right in zip(ids, ids[1:]))
+
+    broadcaster.close()
+    assert bus.subscriber_count == 0
+
+
+def test_open_race_haelt_ids_je_client_monoton(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Parallel zu ``open`` zugestellte Ereignisse stehen hinter der Nachlieferung (F-CON-04).
+
+    Die erste Zustellung (der Nachlieferungsrahmen) wird angehalten, waehrend ein
+    zweiter Thread ein Ereignis veroeffentlicht. Erst nach dem Freigeben laeuft
+    ``open`` weiter. Serialisiert ``open`` Nachlieferung und Sichtbarkeit der
+    Verbindung nicht unter demselben Lock wie ``_on_event``, reiht der Emitter
+    seine hoehere ID vor den Nachlieferungsrahmen ein; die IDs waeren dann nicht
+    mehr monoton.
+    """
+
+    bus = EventBus()
+    broadcaster = SseBroadcaster(bus, queue_size=16, history_size=16)
+    bus.emit("a", n=1)
+    bus.emit("b", n=2)
+    bus.emit("c", n=3)
+
+    original_offer = SseConnection.offer
+    first_offer_started = threading.Event()
+    gate = threading.Event()
+    calls = {"count": 0}
+
+    def gated_offer(self: SseConnection, frame: SseFrame) -> None:
+        calls["count"] += 1
+        if calls["count"] == 1:
+            first_offer_started.set()
+            assert gate.wait(timeout=5.0)
+        original_offer(self, frame)
+
+    monkeypatch.setattr(SseConnection, "offer", gated_offer)
+
+    opened: dict[str, SseConnection] = {}
+
+    def opener() -> None:
+        opened["connection"] = broadcaster.open(last_event_id=1)
+
+    opener_thread = threading.Thread(target=opener)
+    opener_thread.start()
+    assert first_offer_started.wait(timeout=5.0)
+
+    emitter_thread = threading.Thread(target=lambda: bus.emit("d", n=4))
+    emitter_thread.start()
+    # Ohne Serialisierung reiht der Emitter vor dem Freigeben ein; die Pause
+    # gibt ihm dazu Gelegenheit, ohne den Test bei korrektem Code zu verzoegern.
+    time.sleep(0.2)
+    gate.set()
+    opener_thread.join(timeout=5.0)
+    emitter_thread.join(timeout=5.0)
+
+    assert not opener_thread.is_alive()
+    assert not emitter_thread.is_alive()
+
+    connection = opened["connection"]
+    ids = [frame.event_id for frame in _drain(connection)]
+    assert ids == [2, 3, 4], ids
+
+    broadcaster.discard(connection)
     broadcaster.close()
     assert bus.subscriber_count == 0
 

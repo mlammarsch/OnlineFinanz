@@ -460,11 +460,18 @@ class SseBroadcaster:
             connection = SseConnection(self._queue_size)
             replay, resync = self._plan_replay_locked(last_event_id)
             resync_id = self._last_id
+            # Nachlieferung und ein etwaiges ``resync`` werden unter genau
+            # demselben Verteiler-Lock eingereiht wie spaetere Ereignisse
+            # (:meth:`_on_event`); erst danach wird die Verbindung in
+            # ``_clients`` sichtbar. So bleiben die IDs je Client monoton,
+            # auch wenn parallel ein Ereignis zugestellt wird (F-CON-04,
+            # T-101). ``offer`` blockiert nicht, die Lock-Reihenfolge bleibt
+            # Broadcaster -> Connection.
+            for event_id, event in replay:
+                connection.offer(SseFrame(event_id, event.type, event.as_dict()))
+            if resync:
+                connection.offer(_resync_frame(resync_id))
             self._clients.add(connection)
-        for event_id, event in replay:
-            connection.offer(SseFrame(event_id, event.type, event.as_dict()))
-        if resync:
-            connection.offer(_resync_frame(resync_id))
         return connection
 
     def discard(self, connection: SseConnection) -> None:
@@ -499,16 +506,20 @@ class SseBroadcaster:
         return replay, False
 
     def _on_event(self, event: Event) -> None:
+        # ID-Vergabe und Zustellung liegen unter demselben Lock wie die
+        # Nachlieferung in :meth:`open`. Damit kann kein Ereignis an einer
+        # Verbindung vor ihren Nachlieferungsrahmen vorbeiziehen; die IDs je
+        # Client bleiben monoton (F-CON-04, T-101). ``offer`` blockiert nicht,
+        # die Lock-Reihenfolge bleibt Broadcaster -> Connection.
         with self._lock:
             if self._closed:
                 return
             self._last_id += 1
             event_id = self._last_id
             self._history.append((event_id, event))
-            clients = tuple(self._clients)
-        frame = SseFrame(event_id, event.type, event.as_dict())
-        for connection in clients:
-            connection.offer(frame)
+            frame = SseFrame(event_id, event.type, event.as_dict())
+            for connection in self._clients:
+                connection.offer(frame)
 
 
 async def stream_sse(

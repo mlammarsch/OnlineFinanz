@@ -2,6 +2,28 @@
 
 ## Next actions
 
+- **T-101 Verifierbefund behoben (M4, F-CON-04, Risiko medium) -- T-101 bleibt offen.**
+  Befund der unabhaengigen Pruefung: `SseBroadcaster.open()` machte die neue
+  `SseConnection` schon im Lock sichtbar, reihte Ringpuffer-Nachlieferung/`resync`
+  aber ausserhalb des Locks ein; `_on_event()` vergab die ID unter dem Lock, stellte
+  den Rahmen aber ausserhalb zu. Ein paralleles `emit` konnte daher eine hoehere ID
+  vor die Nachlieferung eines frisch verbundenen Clients stellen -- die IDs je Client
+  waren nicht monoton. Fix: `open()` und `_on_event()` serialisieren ID-Vergabe,
+  Nachlieferung und Zustellung unter **demselben** Broadcaster-Lock; die Verbindung
+  wird erst nach dem Einreihen sichtbar. `offer` blockiert nicht (`put_nowait`), die
+  Lock-Reihenfolge Broadcaster -> Connection bleibt erhalten (kein Deadlock). Neue
+  Tests `tests/unit/test_sse.py` (16 statt 14): `test_parallele_emits_liefern_monotone_ids_je_client`
+  (4 Threads x 200 `emit`, GIL-Intervall gesenkt, IDs 1..800 lueckenlos/steigend je Client)
+  und `test_open_race_haelt_ids_je_client_monoton` (Nachlieferung vs. paralleles `emit`,
+  erwartet `[2,3,4]`; joins mit Timeout, danach `subscriber_count == 0` -- kein Leck).
+  Evidenz: `uv run pytest tests/unit/test_sse.py -q` = 16 passed; `ruff check` = All checks
+  passed; `ruff format --check` = 210 Dateien; `mypy backend` = Success (101); `tests/unit`
+  = 1 failed/1598 passed/1 skipped, der Fehlschlag ist der bekannte **fremde** T-091-Verlust
+  der fuenf Vertragseintraege (`test_alle_api_routen_sind_registriert`). Mutationstest
+  (`events.py` auf HEAD zurueckgesetzt) macht beide neuen Tests rot. Artefakt
+  `artifacts/T-101-fix.md`. Keine Sync-Runner-/Payload-Erweiterung. **Offen:** unabhaengige
+  Wiederholungspruefung durch `verifier`; kein `task-done`, kein Push.
+
 - **T-096 umgesetzt (M4 Welle 5, Aufloesung von Verdachtsdubletten, F-DUP-03/04/05,
   F-CON-01/02, Risiko medium).** Claim gezielt per `task-set T-096 running` (der
   generische `task-claim` traf in dieser Welle wiederholt die falsche ID). Konflikt-Check:
