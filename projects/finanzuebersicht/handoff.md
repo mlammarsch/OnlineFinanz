@@ -22,7 +22,7 @@
   `artifacts/T-113-build.md`. **Offen:** low-Risiko, kein separater Verifier; `task-done` nach dem
   Commit. Fremde Welle-Arbeit (T-104 `tests/concurrency`/`scripts/validate.py`; T-105
   `scripts/roundtrip_check.py`) unangetastet; die T-104-Concurrency-Markerzeilen in `pyproject.toml`
-  lagen im selben Arbeitsbaum und gingen in denselben Commit ein.
+  Index-Race der Welle: der Parallel-Builder T-104 hat meine gestagten Dateien (`tests/e2e_api/*`, `pyproject.toml`, `artifacts/T-113-build.md`) in Commit e474ca9 mitcommittet.
 - **T-105 umgesetzt (M4 Welle 7, Roundtrip-Block erweitert: Mehrkonto-JSON, CSV mit Vorlage,
   alle Schema-Versionen; F-EXP-04/06/07, F-ABS-06, F-DUP-04/05, Risiko medium).** Claim gezielt per
   `task-set T-105 running` (der generische `task-claim` trifft in dieser Welle die falsche ID).
