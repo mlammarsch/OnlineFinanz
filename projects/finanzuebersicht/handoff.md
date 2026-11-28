@@ -23,11 +23,11 @@
   tests/unit/test_sse.py -q` = 14 passed; `test_api_contract.py`+`test_events.py` = 23 passed; ruff
   check/format und mypy der eigenen Dateien gruen; Mutationstest (`_plan_replay_locked` ohne `resync`)
   macht `test_last_event_id_nicht_nachlieferbar_folgt_resync` rot. Artefakt `artifacts/T-101-build.md`.
-  **Offen/Blocker:** die **planweiten** Befehle sind rot nur durch fremde, unfertige Parallelarbeit
-  (`api/sync.py` T-091 mit UTF-8-BOM; `duplicate_resolution.py`/`test_duplicate_resolution.py` T-096):
-  `ruff check` 4x E501 (T-096-Test), `ruff format --check` 3 Dateien, `mypy backend` 2 Fehler in
-  `duplicate_resolution.py`. Der T-101-Slice ist sauber; Medium-Risiko - unabhaengige `verifier`-Pruefung
-  folgt, `task-done` erst bei sauberem Baum. Kein Push; fremde uncommittete Welle-Arbeit bleibt unangetastet.
+  **Offen:** Medium-Risiko - unabhaengige `verifier`-Pruefung (Review-Checkliste AGENTS.md) folgt;
+  `task-done` erst danach. Der **planweite** Verifikationsplan ist inzwischen gruen (`ruff check` = All
+  checks passed, `ruff format --check` = 210 Dateien, `mypy backend` = Success (101); nachdem T-091/T-096
+  ihre Dateien committet bzw. den UTF-8-BOM aus `api/sync.py` entfernt hatten - waehrend der Parallelarbeit
+  waren nur fremde, uncommittete Dateien rot). Kein Push; fremde Welle-Arbeit bleibt unangetastet.
 
 - **T-094 Abschlussgate ausgefuehrt (M4-Entlastung, Kennzeichen/Notiz/Referenz/Batch, Risiko medium).**
   Voraussetzung geprueft: T-108 `done` (Evidenz `T-108-verify-1795790641.json`), T-109 `done`

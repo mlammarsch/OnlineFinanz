@@ -65,25 +65,24 @@ Zusatz:
   `resync` -> `test_last_event_id_nicht_nachlieferbar_folgt_resync` rot; Tests
   sind wirksam.
 
-Planweite Befehle (rot nur durch fremde, unfertige Parallelarbeit; eigener
-Slice sauber):
+Planweite Befehle (vollstaendiger Verifikationsplan, nachdem die parallelen
+Welle-Builder T-091/T-096 ihre Dateien committet bzw. korrigiert hatten):
 
-- `uv run ruff check backend tests scripts` -> 4 x E501 in
-  `tests/unit/test_duplicate_resolution.py` (T-096, in Arbeit).
-- `uv run ruff format --check backend tests scripts` -> 3 Dateien:
-  `backend/finue/api/sync.py` (T-091: UTF-8-BOM), `duplicate_resolution.py` und
-  `test_duplicate_resolution.py` (T-096, in Arbeit).
-- `uv run mypy backend` -> 2 Fehler in `duplicate_resolution.py:686,689`
-  (`_iso`-Argumenttyp, T-096, in Arbeit).
+- `uv run pytest tests/unit/test_sse.py -q` -> **14 passed**.
+- `uv run ruff check backend tests scripts` -> **All checks passed**.
+- `uv run ruff format --check backend tests scripts` -> **210 files already
+  formatted**.
+- `uv run mypy backend` -> **Success (101 source files)**.
 
-Diese Fremddateien sind untracked/uncommittet und nicht Teil des T-101-Commits;
-der Plan wird nach deren Commit erneut gefahren.
+Zwischenstand waehrend der Parallelarbeit (nur zur Nachvollziehbarkeit, spaeter
+aufgeloest): `ruff check` 4x E501 in `tests/unit/test_duplicate_resolution.py`,
+`ruff format --check` zusaetzlich `backend/finue/api/sync.py` (T-091, UTF-8-BOM)
+und `duplicate_resolution.py`, `mypy` 2 Fehler in `duplicate_resolution.py`
+(T-096). Diese Fremddateien waren uncommittet und nie Teil des T-101-Commits.
 
 ## Offene Punkte
 
 - Medium-Risiko: unabhaengige `verifier`-Pruefung (Review-Checkliste AGENTS.md)
-  steht vor `task-done`.
-- Kein `task-done` bei rotem planweitem Baum; nach T-091/T-096-Commit erneut
-  fahren.
+  steht vor `task-done`. Der planweite Verifikationsplan ist gruen.
 - Frontend-Anbindung (`EventSource`, `resync` -> Neuladen) gehoert zu M5/M6
   (Improve-Eintrag).
