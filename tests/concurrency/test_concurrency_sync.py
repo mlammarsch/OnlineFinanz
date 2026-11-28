@@ -14,10 +14,11 @@ ueber :func:`finue.services.sync_persist.persist_account_sync` gespeist.
 
 from __future__ import annotations
 
+import threading
 from datetime import date
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import select, text
 
 from finue.models.transaction import Transaction
 from finue.services import sync_persist
@@ -173,3 +174,43 @@ def _business_fields(fields: dict[str, object]) -> dict[str, object]:
         "counterparty_iban": fields["counterparty_iban"],
         "purpose": fields["purpose"],
     }
+
+
+def test_wal_busy_timeout_und_keine_lecks_n_db_04_f_syn_11(client) -> None:  # type: ignore[no-untyped-def]
+    """N-DB-04/F-SYN-11: WAL und busy_timeout aktiv; nach dem Lauf keine Thread- oder Sperr-Lecks.
+
+    Die Testdatenbank ist eine Datei im WAL-Modus mit ``busy_timeout``. Nach
+    parallelen Schreibern bleiben keine zusaetzlichen Threads zurueck, die
+    Sync-Sperre ist nach ``release`` wieder frei und die Datenbank nimmt
+    weiterhin Schreibzugriffe an.
+    """
+
+    with session_factory(client)() as session:
+        assert str(session.execute(text("PRAGMA journal_mode")).scalar()).lower() == "wal"
+        assert int(session.execute(text("PRAGMA busy_timeout")).scalar() or 0) >= 1000
+
+    threads_before = threading.active_count()
+    account_id = add_account(client)
+    transaction_id = add_transaction(client, account_id)
+    registry = client.app.state.services.sync_registry
+
+    def worker(index: int) -> bool:
+        with session_factory(client)() as session:
+            te.append_note(session, transaction_id, text=f"leck-{index:02d}", origin="ui")
+        _job, created = registry.try_start(5)
+        return bool(created)
+
+    results, errors = run_parallel(10, worker)
+    assert errors == [], errors
+    assert results.count(True) == 1
+
+    assert threading.active_count() <= threads_before, "Thread-Leck nach parallelem Lauf"
+
+    job, created = registry.try_start(5)
+    assert created is False
+    assert registry.release(job.id) is True
+    again, created_again = registry.try_start(5)
+    assert created_again is True, "Sperre nach release wieder frei"
+    registry.release(again.id)
+
+    add_transaction(client, account_id)  # Schreibzugriff weiterhin moeglich (kein Lock-Leck)
