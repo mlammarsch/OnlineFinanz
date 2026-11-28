@@ -24,6 +24,7 @@ from finue.api import (
     accounts,
     bank_accesses,
     banks,
+    duplicates,
     events,
     export,
     export_profiles,
@@ -76,6 +77,8 @@ def build_protected_router() -> APIRouter:
     protected.include_router(transaction_list.router)
     # Einzelbuchung: Detail und Kennzeichen setzen (T-108, F-ABS-01/02, F-DET-01).
     protected.include_router(transactions.router)
+    # Aufloesung von Verdachtsdubletten: Liste, Merge, Undo, Ignorieren (T-096, F-DUP-05).
+    protected.include_router(duplicates.router)
     # Import-Assistent: Formaterkennung, Vorschau, Lauf und Vorlagen-CRUD (T-100, F-IMP-01..08).
     protected.include_router(imports.router)
     protected.include_router(import_templates.router)

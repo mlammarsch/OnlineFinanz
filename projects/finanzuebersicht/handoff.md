@@ -34,6 +34,13 @@
   Vertragseintrag. Bitte in T-091 wiederherstellen (Eintraege aus dem T-091-Ursprungsdump). Die
   T-096-Routen (`/api/duplicates`, `.../merge`, `.../{decision_id}/undo`, `.../ignore`) sind vorhanden.
 
+  **Attribution (Arbeitsbaum-Kollision):** Die T-096-Dateien (Service, Router, Tests, Doku,
+  Entscheidung, dieser Handoff, Improve, Artefakt) lagen im gemeinsamen Index und wurden vom
+  parallelen T-091-Commit `41150dd` mitgenommen, bevor der eigene Commit lief; nur die
+  Router-Verdrahtung `backend/finue/api/routes.py` folgt im T-096-Abschlusscommit nach. Inhaltlich
+  vollstaendig und unveraendert; nur die Commit-Attribution ist verschoben. Lehre fuer kuenftige
+  Wellen: Builder je Task in isolierten Worktrees (siehe improve.md T-091).
+
 - **T-101 umgesetzt (M4 Welle 4b, Server-Sent Events `/api/events`, F-CON-04, F-SYN-04,
   N-SEC-02/03, D3; Risiko medium).** Claim gezielt per `task-set T-101 running` (der generische
   `task-claim` traf in dieser Welle wiederholt die falsche ID). Konflikt-Check: Ja (nur SSE; keine
