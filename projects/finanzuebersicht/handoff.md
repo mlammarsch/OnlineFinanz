@@ -2,6 +2,33 @@
 
 ## Next actions
 
+- **T-115 umgesetzt (M4-Entlastung T-106-B, API-E2E Szenario Teil 2; nur Testcode,
+  Risiko low).** Claim gezielt per `task-set T-115 running`. Neu:
+  `tests/e2e_api/test_scenario_b.py` (eigenstaendiger Durchlauf auf frischem Server:
+  FinTS-Anlage-Assistent - Bank anlegen, BLZ-Lookup, Bankzugang `store_pin=false`,
+  Konten entdecken und anlegen; Batch-Sync mit Text-TAN - SSE `sync.tan_required`,
+  `POST .../tan`, Sync erfolgreich, Auftraege lesbar; Verdachtsdublette CSV neben
+  FinTS - zusammenfuehren, rueckgaengig, erneut zusammenfuehren; Export JSON/CSV/
+  Markdown mit Re-Import = 0 neu; Kontoloeschung nach JSON-Export ohne Restzeilen
+  per SQLite-Direktabfrage; Sitzungsliste; Leckage-Scan ueber Server-Log und
+  DB-Dateien; je aenderndem Schritt SSE-Pruefung). Fixture-Rahmen:
+  `tests/fixtures/fints_fake.py` (neues Skript `sync_tan`: Text-TAN beim Saldo,
+  ein gebuchter camt-Umsatz, Auftragsbestand, valide Assistenten-IBAN), 
+  `tests/e2e_api/app_factory.py` (je Serverprozess EINE Fake-Client-Instanz, weil
+  der Fake den TAN-Dialog in der Instanz haelt) und `tests/e2e_api/conftest.py`
+  (`e2e_server` je Test indirekt parametrisierbar, Standard unveraendert
+  `happy_path` fuer Teil 1). Keine `scripts/validate.py`-Aenderung, keine
+  T-113-Szenarioaenderung, keine echten Zugangsdaten. Evidenz (Etappen-Plan gruen):
+  `uv run pytest -m api_e2e tests/e2e_api -q` = 2 passed (21,35 s; Teil 2 allein
+  11,27 s, Budget < 90 s); `uv run ruff check backend tests scripts` = All checks
+  passed; `uv run ruff format --check backend tests scripts` = 218 Dateien;
+  `uv run mypy backend` = Success (101); Zusatz `test_fints_fake` + `test_sync_flow`
+  + `test_sync_orders` = 54 passed. Commits `4a1e134` (Code) und `0b18854`
+  (task-done, Evidenz `artifacts/T-115-verify-1795870353.json`). **Offen:** low-Risiko,
+  `task-done` nach gruenem Plan ohne separaten Verifier. Kein Push. Fremde
+  uncommittete Welle-Arbeit (Task-/Status-/events-Dateien, Verifier-Artefakte,
+  `tests/unit/test_transaction_list.py`) bleibt unangetastet.
+
 - **T-104 umgesetzt (M4 Welle 7, Concurrency-Block gegen Datei-SQLite; F-CON-01..05,
   N-DB-04, Risiko medium).** Claim gezielt per `task-set T-104 running`. Neu:
   `tests/concurrency/` (`support.py` + `test_concurrency_flags.py`,
