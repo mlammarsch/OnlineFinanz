@@ -2,6 +2,55 @@
 
 ## Next actions
 
+- **T-113 umgesetzt (M4-Entlastung T-106-A, API-E2E Rahmen und Szenario Teil 1; nur Testcode,
+  Risiko low).** Claim gezielt per `task-set T-113 running`. Neu: `tests/e2e_api/app_factory.py`
+  (Uvicorn-Fabrik `--factory tests.e2e_api.app_factory:create_app`, genau ein Worker D3, nur der
+  FinTS-Client durch `FakeFinTS3PinTanClient` ersetzt, Settings aus `FINUE_E2E_DATA_DIR`,
+  Skriptwahl ueber `FINUE_E2E_SCRIPT`), `tests/e2e_api/conftest.py` (Fixtures `e2e_server` mit
+  temporaeren Daten, freiem Port, Warten auf `/api/health/ready` und sicherem Abbau, `api_client`
+  httpx, `sse_listener`-Thread mit `wait_for`), `tests/e2e_api/test_scenario_a.py` (eigenstaendiges
+  Szenario: Leerzustand, Gruppe, Offline-Konto, CSV-Erkennen/Vorschau/Lauf, Vormerkung ueber
+  eigenes JSON, Buchungsliste mit Vormerkungen+Tagessalden, Gruppenansicht, Suche Text/Betrag/
+  Zeitraum/Filter, Kennzeichen/Notiz/Referenz, Batch mit 409, Abstimmung gegen Handrechnung,
+  Archiv/Restore, Icon; je Schritt SSE-Pruefung), `pyproject.toml` (Marker `api_e2e`, Standardlauf
+  deselektiert). Keine `scripts/validate.py`-Aenderung (Check `api-e2e` folgt in T-106).
+  **Befund:** Das CSV-Mapping kennt kein Status-Zielfeld; die Vormerkung wird ueber das eigene
+  JSON-Format importiert (F-IMP-04) - siehe Improve. Evidenz (Etappen-Plan gruen):
+  `uv run pytest -m api_e2e tests/e2e_api/test_scenario_a.py -q` = 1 passed (11,97 s / 12,29 s);
+  `uv run ruff check backend tests scripts` = All checks passed; `uv run ruff format --check
+  backend tests scripts` = 217 Dateien; `uv run mypy backend` = Success (101). Artefakt
+  `artifacts/T-113-build.md`. **Offen:** low-Risiko, kein separater Verifier; `task-done` nach dem
+  Commit. Fremde Welle-Arbeit (T-104 `tests/concurrency`/`scripts/validate.py`; T-105
+  `scripts/roundtrip_check.py`) unangetastet; die T-104-Concurrency-Markerzeilen in `pyproject.toml`
+  lagen im selben Arbeitsbaum und gingen in denselben Commit ein.
+- **T-105 umgesetzt (M4 Welle 7, Roundtrip-Block erweitert: Mehrkonto-JSON, CSV mit Vorlage,
+  alle Schema-Versionen; F-EXP-04/06/07, F-ABS-06, F-DUP-04/05, Risiko medium).** Claim gezielt per
+  `task-set T-105 running` (der generische `task-claim` trifft in dieser Welle die falsche ID).
+  Konflikt-Check: Ja (nur `scripts/roundtrip_check.py`, `scripts/validate.py`; keine Import-/Export-/
+  Batch-Fachlogik geaendert, keine Migration, kein neues API-Feature). `scripts/roundtrip_check.py`
+  prueft jetzt vier Bloecke: (0) der bisherige JSON-v1-Fixture-Roundtrip bleibt enthalten; (1) Bestand
+  mit 3 Konten (2 in einer Gruppe), Notizen, Kennzeichen samt Herkunft, externen Referenzen und einem
+  zusammengefuehrten Paar -> `run_export` JSON v1 -> Re-Import je Konto = 0 neu und unveraenderter
+  Stand (Multimengen-Feldvergleich vor/nach), Import in frische DB = gleicher Stand, Gruppen-Export
+  nur mit den Konten der Gruppe, Fake-Sync ueber `reconcile_multiset` = 0 neu und Kennzeichen erhalten
+  (F-ABS-06); (2) CSV-Standardprofil-Export -> Import mit Vorlage "Eigener CSV-Export" = 0 neu
+  (F-EXP-06); (3) jede `docs/schemas/export-v<N>.schema.json` mit ihrer Testdatei
+  `export-v<N>.example.json` importierbar, neuere Version klar abgelehnt (F-EXP-07). `validate.py`:
+  `check_roundtrip_import` nutzt das erweiterte Skript und ist zusaetzlich in STAGE_M4 eingetragen
+  (m4 ist kumulativ, der Check laeuft dort zusammen mit dem m2-Eintrag zweimal -- bewusst,
+  reproduzierbar). Evidenz (Verifikationsplan, alle Exit 0): `python scripts/validate.py roundtrip` =
+  ROUNDTRIP_OK fixture=5 mehrkonto_reimport=5 mehrkonto_frisch=5 csv=2 schema=1;
+  `uv run ruff check scripts/roundtrip_check.py scripts/validate.py` = All checks passed;
+  `uv run ruff format --check` derselben Dateien = 2 files already formatted; `uv run mypy backend` =
+  Success (101). Zusatz: `tests/unit/test_validate_stage_m4.py` + `test_export_csv.py` +
+  `test_export_json_md.py` + `test_import_json_own_format.py` = 60 passed; Mutationstest
+  (`strip_export_guard` im CSV-Block uebersprungen) macht den Check rot
+  (`ROUNDTRIP_FEHLER: csv: ... skipped_count=1, erwartet 2`, Exit 1). Artefakt `artifacts/T-105-build.md`.
+  **Offen:** Medium-Risiko - unabhaengige `verifier`-Pruefung (Review-Checkliste AGENTS.md) folgt;
+  `task-done` erst danach. Kein Push. Der **planweite** `ruff check`/`ruff format --check` ist rot nur
+  durch fremde, noch nicht committete Parallelarbeit (`tests/e2e_api/test_scenario_a.py`, T-106/T-113,
+  unangetastet); die T-105-Dateien sind sauber.
+
 - **T-101 Verifierbefund (Konsumentenseite) behoben (M4, F-CON-04, Risiko medium) -- T-101 bleibt offen.**
   Befund der unabhaengigen Pruefung nach `15c5097`: ID-Vergabe und Zustellung waren zwar
   unter demselben Lock, die **Konsumentenseite** in `stream_sse` aber nicht atomar --

@@ -315,10 +315,15 @@ def check_integration() -> Result:
 
 
 def check_roundtrip_import() -> Result:
-    """Import-Roundtrip der JSON-v1-Fixture: zweiter Lauf legt nichts neu an.
+    """Datei-Roundtrip: JSON (v1 + Mehrkonto), CSV-Vorlage, Schema-Versionen.
 
     Referenziert F-EXP-04 (verlustfreier Export/Re-Import), F-EXP-06
-    (Roundtrip ohne neue Buchungen) und F-IMP-04 (eigenes JSON ohne Mapping).
+    (Roundtrip ohne neue Buchungen, JSON und CSV mit Vorlage), F-EXP-07
+    (Schema-Versionen importierbar, neuere Version klar abgelehnt), F-ABS-06
+    (Kennzeichen bleiben nach Re-Import und Fake-Sync erhalten), F-DUP-04
+    (zusammengefuehrte Buchungen sind ausgeschlossen) und F-IMP-04 (eigenes
+    JSON ohne Mapping). Das Pruefprogramm liegt in scripts/roundtrip_check.py
+    (T-084, erweitert in T-105) und meldet ``ROUNDTRIP_OK``.
     """
     try:
         proc = subprocess.run(
@@ -369,7 +374,7 @@ STAGE_M1: list[tuple[str, Callable[[], Result]]] = [
 # Import-Teil)" verlangt. Der BLOCKS-Eintrag "roundtrip" bleibt davon getrennt
 # und ist unter IMPLEMENTED registriert.
 ROUNDTRIP_CHECK: tuple[str, Callable[[], Result]] = (
-    "Import-Roundtrip (JSON v1, 0 neue Buchungen bei Re-Import)",
+    "Roundtrip Datei-Import/-Export (JSON v1+Mehrkonto, CSV-Vorlage, Schema-Versionen; 0 neue bei Re-Import)",
     check_roundtrip_import,
 )
 
@@ -390,12 +395,13 @@ INTEGRATION_CHECK: tuple[str, Callable[[], Result]] = (
 
 STAGE_M3: list[tuple[str, Callable[[], Result]]] = [READONLY_CHECK, INTEGRATION_CHECK]
 
-# M4-Pruefungen. Zunaechst ohne eigene Bloecke: Die M4-Abnahme (T-107) fuehrt
-# die erweiterte roundtrip-Pruefung (T-105) sowie die Bloecke perf (T-103),
-# concurrency (T-104) und api-e2e (T-106) ein; die tragen ihre Checks hier ein.
-# Der Performance-Block (T-103, N-PERF-01/F-BUC-06) misst Suche und
-# Buchungsliste bei 100.000 Buchungen und ist als eigener BLOCK "perf"
-# registriert; die Messwerte stehen im Meldungstext.
+# M4-Pruefungen. Die M4-Abnahme (T-107) fuehrt die erweiterte roundtrip-Pruefung
+# (T-105) sowie die Bloecke perf (T-103), concurrency (T-104) und api-e2e (T-106)
+# ein; die tragen ihre Checks hier ein. Der Roundtrip-Check (T-105) steht zusaetzlich
+# in STAGE_M4, damit `validate.py m4` die erweiterte Pruefung explizit ausweist.
+# Der Performance-Block (T-103, N-PERF-01/F-BUC-06) misst Suche und Buchungsliste
+# bei 100.000 Buchungen und ist als eigener BLOCK "perf" registriert; die Messwerte
+# stehen im Meldungstext.
 PERF_REPORT_ENV = "FINUE_PERF_REPORT"
 
 
@@ -479,7 +485,7 @@ CONCURRENCY_CHECK: tuple[str, Callable[[], Result]] = (
     check_concurrency,
 )
 
-STAGE_M4: list[tuple[str, Callable[[], Result]]] = [PERF_CHECK, CONCURRENCY_CHECK]
+STAGE_M4: list[tuple[str, Callable[[], Result]]] = [ROUNDTRIP_CHECK, PERF_CHECK, CONCURRENCY_CHECK]
 
 # Umgesetzte Stufen. Neue Stufen mit dem jeweiligen Milestone hier eintragen.
 # Die m<n>-Kette haengt run_stage selbst an; die Eintraege enthalten daher nur
